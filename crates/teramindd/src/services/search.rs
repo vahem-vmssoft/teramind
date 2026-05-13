@@ -106,6 +106,64 @@ pub struct SearchOutcome {
     pub took_ms: u32,
 }
 
+use teramind_db::repos::SearchRepo;
+use teramind_core::types::{SearchRequest, RecallRequest, AutoRecallRequest};
+
+pub async fn do_search(repo: &SearchRepo, req: &SearchRequest) -> Result<SearchOutcome, teramind_db::DbError> {
+    let started = Instant::now();
+    let (fts_res, trgm_diffs, trgm_skills) = tokio::try_join!(
+        repo.fts_turns(&req.query, req.limit),
+        repo.trgm_diffs(&req.query, req.limit),
+        repo.trgm_skills(&req.query, req.limit),
+    )?;
+    let hits = rank_and_hydrate(fts_res, trgm_diffs, trgm_skills, BlendWeights::default(), None, req.limit);
+    Ok(SearchOutcome { hits, degraded: false, took_ms: started.elapsed().as_millis() as u32 })
+}
+
+pub async fn do_recall(repo: &SearchRepo, req: &RecallRequest) -> Result<SearchOutcome, teramind_db::DbError> {
+    let started = Instant::now();
+    let symbol_query = req.symbols.join(" ");
+    let stacktrace_query = req.stack_traces.join(" ");
+    let path_query = req.file_paths.join(" ");
+
+    let (fts_sym, fts_st, trgm_paths) = tokio::try_join!(
+        async {
+            if symbol_query.is_empty() { Ok::<_, teramind_db::DbError>(vec![]) }
+            else { repo.fts_turns(&symbol_query, req.limit).await }
+        },
+        async {
+            if stacktrace_query.is_empty() { Ok::<_, teramind_db::DbError>(vec![]) }
+            else { repo.fts_turns(&stacktrace_query, req.limit).await }
+        },
+        async {
+            if path_query.is_empty() { Ok::<_, teramind_db::DbError>(vec![]) }
+            else { repo.trgm_diffs(&path_query, req.limit).await }
+        },
+    )?;
+    let merged: Vec<_> = fts_sym.into_iter().chain(fts_st.into_iter()).collect();
+    let hits = rank_and_hydrate(merged, trgm_paths, vec![], BlendWeights::default(), None, req.limit);
+    Ok(SearchOutcome { hits, degraded: false, took_ms: started.elapsed().as_millis() as u32 })
+}
+
+pub async fn do_auto_recall(repo: &SearchRepo, req: &AutoRecallRequest) -> Result<String, teramind_db::DbError> {
+    let recent = repo.recent_turns_in_project(None, &req.cwd, req.limit).await?;
+    if recent.is_empty() {
+        return Ok(String::new());
+    }
+    let mut out = String::new();
+    out.push_str("## Recent Teramind context\n\n");
+    for t in recent {
+        let prompt_snippet = t.user_prompt.as_deref().unwrap_or("(no prompt)");
+        let text_snippet = t.assistant_text.as_deref().unwrap_or("");
+        out.push_str(&format!("- **{}**: {} · {}\n",
+            t.ts.date(),
+            truncate(prompt_snippet, 80),
+            truncate(text_snippet, 120),
+        ));
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
