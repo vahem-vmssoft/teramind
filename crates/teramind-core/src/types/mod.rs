@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod file_diff;
 pub mod hit;
+pub mod ingest_event;
 pub mod project;
 pub mod session;
 pub mod skill;
@@ -11,6 +12,7 @@ pub mod turn;
 pub use agent::Agent;
 pub use file_diff::{Attribution, FileDiff};
 pub use hit::Hit;
+pub use ingest_event::IngestEvent;
 pub use project::Project;
 pub use session::{Session, SessionEndReason};
 pub use skill::{Skill, SkillSource};
