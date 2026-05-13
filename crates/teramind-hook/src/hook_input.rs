@@ -14,6 +14,12 @@ pub enum HookInput {
         cwd: String,
         prompt: String,
     },
+    PreToolUse {
+        session_id: String,
+        cwd: String,
+        tool_name: String,
+        tool_input: serde_json::Value,
+    },
 }
 
 #[cfg(test)]
@@ -55,6 +61,26 @@ mod tests {
                 assert_eq!(prompt, "Fix the failing test");
             }
             other => panic!("expected UserPromptSubmit, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pre_tool_use_parses() {
+        let raw = r#"{
+            "hook_event_name": "PreToolUse",
+            "session_id": "abc-123",
+            "cwd": "/w",
+            "tool_name": "Edit",
+            "tool_input": { "file_path": "/w/x.rs", "old_string": "a", "new_string": "b" }
+        }"#;
+        let parsed: HookInput = serde_json::from_str(raw).unwrap();
+        match parsed {
+            HookInput::PreToolUse { session_id, tool_name, tool_input, .. } => {
+                assert_eq!(session_id, "abc-123");
+                assert_eq!(tool_name, "Edit");
+                assert_eq!(tool_input["file_path"], "/w/x.rs");
+            }
+            other => panic!("expected PreToolUse, got {other:?}"),
         }
     }
 }
