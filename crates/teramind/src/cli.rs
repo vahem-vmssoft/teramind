@@ -33,4 +33,17 @@ pub enum Command {
         #[arg(long)]
         confirm: bool,
     },
+    /// Manage the Claude Code plugin integration.
+    Claude {
+        #[command(subcommand)]
+        action: ClaudeAction,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ClaudeAction {
+    /// Install the Teramind Claude plugin (`~/.claude/plugins/teramind/`).
+    Install,
+    /// Remove the Teramind Claude plugin. Data is untouched.
+    Uninstall,
 }

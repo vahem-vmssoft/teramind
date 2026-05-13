@@ -18,5 +18,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Restart => commands::restart::run().await,
         Command::Doctor => commands::doctor::run().await,
         Command::Reset { purge, confirm } => commands::reset::run(purge, confirm).await,
+        Command::Claude { action } => match action {
+            cli::ClaudeAction::Install   => commands::claude::install().await,
+            cli::ClaudeAction::Uninstall => commands::claude::uninstall().await,
+        },
     }
 }

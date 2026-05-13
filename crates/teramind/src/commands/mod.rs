@@ -6,3 +6,6 @@ pub mod start;
 pub mod status;
 pub mod stop;
 pub mod version;
+pub mod claude;
+pub mod claude_install;
+pub mod claude_uninstall;
