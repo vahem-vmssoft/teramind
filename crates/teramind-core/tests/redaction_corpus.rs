@@ -48,3 +48,13 @@ fn pem_private_key_is_redacted() {
     assert!(!out.contains("MIIBOgIBAAJBAKj"));
     assert!(out.contains("«redacted:pem_private_key»"));
 }
+
+#[test]
+fn password_kv_is_redacted() {
+    let r = Redactor::with_default_rules();
+    for s in ["password=hunter2 next", "PWD=correcthorsebatterystaple "] {
+        let out = r.apply(s);
+        assert!(!out.contains("hunter2"));
+        assert!(!out.contains("correcthorsebatterystaple"));
+    }
+}
