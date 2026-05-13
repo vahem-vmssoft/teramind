@@ -68,3 +68,16 @@ fn env_key_allowlist_is_redacted() {
         assert!(!out.contains(val), "leaked: {s} -> {out}");
     }
 }
+
+use proptest::prelude::*;
+
+proptest! {
+    #[test]
+    fn aws_keys_in_random_text_never_survive(prefix in ".{0,40}", suffix in ".{0,40}") {
+        let r = Redactor::with_default_rules();
+        let secret = "AKIAIOSFODNN7EXAMPLE";
+        let input = format!("{prefix}{secret}{suffix}");
+        let out = r.apply(&input);
+        prop_assert!(!out.contains(secret));
+    }
+}
