@@ -65,3 +65,19 @@ async fn ingest_session_start_then_user_prompt_writes_rows() {
 
     sup.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn storage_stats_sampler_records_a_row() {
+    let tmp = tempfile::tempdir().unwrap();
+    let sup = teramind_db::pg_supervisor::PgSupervisor::start(tmp.path().join("pg"), "teramind_test").await.unwrap();
+    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await.unwrap();
+    teramind_db::migrate::run(&pool).await.unwrap();
+    let repo = teramind_db::repos::StorageStatsRepo::new(pool.clone());
+    let raw = tmp.path().join("raw"); std::fs::create_dir_all(&raw).unwrap();
+    teramindd::services::storage_stats::spawn(repo.clone(), raw, "teramind_test".into(),
+        std::time::Duration::from_millis(50));
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let (n,): (i64,) = sqlx::query_as("SELECT count(*) FROM storage_stats").fetch_one(pool.pg()).await.unwrap();
+    assert!(n >= 1);
+    sup.shutdown().await.unwrap();
+}
