@@ -5,12 +5,14 @@ SELECT
   t.ordinal       AS ordinal,
   t.started_at    AS ts,
   to_tsvector('english',
-      coalesce(t.user_prompt,'')   || ' ' ||
-      coalesce(t.assistant_text,'') || ' ' ||
-      coalesce(t.thinking,'')      || ' ' ||
-      coalesce(string_agg(tc.output,' '),'')) AS document
+      coalesce(t.user_prompt,'')                 || ' ' ||
+      coalesce(t.assistant_text,'')              || ' ' ||
+      coalesce(t.thinking,'')                    || ' ' ||
+      coalesce(string_agg(DISTINCT tc.output,' '),'') || ' ' ||
+      coalesce(string_agg(DISTINCT fd.unified_diff,' '),'')) AS document
 FROM turns t
 LEFT JOIN tool_calls tc ON tc.turn_id = t.id
+LEFT JOIN file_diffs fd ON fd.turn_id = t.id
 GROUP BY t.id;
 
 CREATE INDEX traces_fts_document ON traces_fts USING gin (document);

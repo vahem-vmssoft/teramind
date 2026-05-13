@@ -21,3 +21,20 @@ async fn migrations_apply_cleanly_on_empty_db() {
     );
     sup.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn traces_fts_view_exists_and_is_queryable() {
+    let tmp = tempdir().unwrap();
+    let sup = PgSupervisor::start(tmp.path().to_path_buf(), "teramind_test")
+        .await
+        .unwrap();
+    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
+    migrate::run(&pool).await.unwrap();
+    // The view should be empty but queryable.
+    let (n,): (i64,) = sqlx::query_as("SELECT count(*) FROM traces_fts")
+        .fetch_one(pool.pg())
+        .await
+        .unwrap();
+    assert_eq!(n, 0);
+    sup.shutdown().await.unwrap();
+}
