@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 teramind-core = { path = "../teramind-core" }
 teramind-ipc  = { path = "../teramind-ipc" }
+teramindd     = { path = "../teramindd" }
 tokio       = { workspace = true }
 anyhow      = { workspace = true }
 clap        = { workspace = true }
