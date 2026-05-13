@@ -8,7 +8,10 @@ pub enum Request {
     Status,
     Ping,
     Shutdown,
-    // Plan C/D add Search { ... }, Recall { ... }, SaveSkill { ... }
+    Search(teramind_core::types::SearchRequest),
+    Recall(teramind_core::types::RecallRequest),
+    AutoRecall(teramind_core::types::AutoRecallRequest),
+    SaveSkill(teramind_core::types::SaveSkillRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -18,6 +21,9 @@ pub enum Response {
     Pong,
     Status(StatusReport),
     Error(String),
+    SearchResults(teramind_core::types::SearchResults),
+    SkillRef(teramind_core::types::SkillRef),
+    AutoRecallDigest { markdown: String, degraded: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -59,6 +65,32 @@ mod tests {
         let env = Envelope {
             id: Uuid::new_v4(),
             payload: Payload::Request(Request::Status),
+        };
+        let j = serde_json::to_string(&env).unwrap();
+        let back: Envelope = serde_json::from_str(&j).unwrap();
+        assert_eq!(env, back);
+    }
+
+    #[test]
+    fn search_request_roundtrips() {
+        let env = Envelope {
+            id: uuid::Uuid::new_v4(),
+            payload: Payload::Request(Request::Search(
+                teramind_core::types::SearchRequest { query: "stack overflow".into(), limit: 5 }
+            )),
+        };
+        let j = serde_json::to_string(&env).unwrap();
+        let back: Envelope = serde_json::from_str(&j).unwrap();
+        assert_eq!(env, back);
+    }
+
+    #[test]
+    fn search_results_response_roundtrips() {
+        let env = Envelope {
+            id: uuid::Uuid::new_v4(),
+            payload: Payload::Response(Response::SearchResults(
+                teramind_core::types::SearchResults { hits: vec![], degraded: false, took_ms: 8 }
+            )),
         };
         let j = serde_json::to_string(&env).unwrap();
         let back: Envelope = serde_json::from_str(&j).unwrap();
