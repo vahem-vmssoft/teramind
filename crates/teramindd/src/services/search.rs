@@ -145,6 +145,28 @@ pub async fn do_recall(repo: &SearchRepo, req: &RecallRequest) -> Result<SearchO
     Ok(SearchOutcome { hits, degraded: false, took_ms: started.elapsed().as_millis() as u32 })
 }
 
+use std::path::Path;
+use crate::services::grep_fallback;
+
+pub async fn do_search_with_fallback(
+    repo: &SearchRepo,
+    jsonl_dir: &Path,
+    req: &SearchRequest,
+) -> SearchOutcome {
+    match do_search(repo, req).await {
+        Ok(o) => o,
+        Err(_) => {
+            let started = Instant::now();
+            let hits = grep_fallback::run(jsonl_dir, &req.query, req.limit).await.unwrap_or_default();
+            SearchOutcome {
+                hits,
+                degraded: true,
+                took_ms: started.elapsed().as_millis() as u32,
+            }
+        }
+    }
+}
+
 pub async fn do_auto_recall(repo: &SearchRepo, req: &AutoRecallRequest) -> Result<String, teramind_db::DbError> {
     let recent = repo.recent_turns_in_project(None, &req.cwd, req.limit).await?;
     if recent.is_empty() {

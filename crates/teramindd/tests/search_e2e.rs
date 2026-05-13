@@ -33,3 +33,37 @@ async fn do_search_finds_seeded_turn_via_fts() {
 
     sup.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn do_search_falls_back_to_grep_when_pg_dies() {
+    use std::io::Write;
+    use teramind_core::ids::{ClientEventId, SessionId};
+    use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
+    let tmp = tempdir().unwrap();
+    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test").await.unwrap();
+    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
+    migrate::run(&pool).await.unwrap();
+
+    let jsonl_dir = tmp.path().join("raw"); std::fs::create_dir_all(&jsonl_dir).unwrap();
+    let path = jsonl_dir.join("2026-05-13.jsonl");
+    let env = EventEnvelope {
+        client_event_id: ClientEventId::new(),
+        ts: time::OffsetDateTime::now_utc(),
+        event: IngestEvent::UserPrompt {
+            session_id: SessionId::new(), turn_ordinal: 0, prompt: "fallback works for grep".into(), turn_id: None,
+        },
+    };
+    let body = serde_json::to_vec(&env).unwrap();
+    let mut f = std::fs::File::create(&path).unwrap();
+    f.write_all(&body).unwrap();
+    writeln!(f).unwrap();
+
+    sup.shutdown().await.unwrap();
+
+    let repo = SearchRepo::new(pool.clone());
+    let out = teramindd::services::search::do_search_with_fallback(
+        &repo, &jsonl_dir, &SearchRequest { query: "fallback".into(), limit: 10 }
+    ).await;
+    assert!(out.degraded, "expected degraded result");
+    assert!(!out.hits.is_empty(), "expected grep hit to come through");
+}
