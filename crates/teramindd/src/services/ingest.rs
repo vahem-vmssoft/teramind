@@ -68,8 +68,27 @@ impl IngestService {
 async fn handle(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
     d.jsonl.append(&env).await?;
     let redacted = redact_envelope(&d.redactor, env);
-    // Plan A's basic version (Task 49) — Task 59 enhances with retry+dead-letter.
-    route(d, redacted).await
+
+    let mut attempt = 0u32;
+    let mut backoff = std::time::Duration::from_millis(50);
+    loop {
+        match route(d, redacted.clone()).await {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                attempt += 1;
+                if attempt >= 3 {
+                    let dl = &d.dead_letter_dir;
+                    let _ = std::fs::create_dir_all(dl);
+                    let path = dl.join(format!("{}.json", redacted.client_event_id.0));
+                    let _ = std::fs::write(&path, serde_json::to_vec(&redacted).unwrap_or_default());
+                    d.stats.dead_letters.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    return Err(e);
+                }
+                tokio::time::sleep(backoff).await;
+                backoff *= 2;
+            }
+        }
+    }
 }
 
 fn redact_envelope(r: &Redactor, mut env: EventEnvelope) -> EventEnvelope {
