@@ -20,6 +20,16 @@ pub enum HookInput {
         tool_name: String,
         tool_input: serde_json::Value,
     },
+    PostToolUse {
+        session_id: String,
+        cwd: String,
+        tool_name: String,
+        tool_input: serde_json::Value,
+        #[serde(default, alias = "tool_output")]
+        tool_response: Option<String>,
+        #[serde(default)]
+        is_error: bool,
+    },
 }
 
 #[cfg(test)]
@@ -81,6 +91,46 @@ mod tests {
                 assert_eq!(tool_input["file_path"], "/w/x.rs");
             }
             other => panic!("expected PreToolUse, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn post_tool_use_parses_with_tool_response() {
+        let raw = r#"{
+            "hook_event_name": "PostToolUse",
+            "session_id": "abc-123",
+            "cwd": "/w",
+            "tool_name": "Edit",
+            "tool_input": { "file_path": "/w/x.rs" },
+            "tool_response": "edited successfully"
+        }"#;
+        let parsed: HookInput = serde_json::from_str(raw).unwrap();
+        match parsed {
+            HookInput::PostToolUse { session_id, tool_name, tool_response, is_error, .. } => {
+                assert_eq!(session_id, "abc-123");
+                assert_eq!(tool_name, "Edit");
+                assert_eq!(tool_response, Some("edited successfully".to_string()));
+                assert_eq!(is_error, false);
+            }
+            other => panic!("expected PostToolUse, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn post_tool_use_parses_with_is_error() {
+        let raw = r#"{
+            "hook_event_name": "PostToolUse",
+            "session_id": "abc-123",
+            "cwd": "/w",
+            "tool_name": "Bash",
+            "tool_input": { "command": "false" },
+            "tool_response": "exit 1",
+            "is_error": true
+        }"#;
+        let parsed: HookInput = serde_json::from_str(raw).unwrap();
+        match parsed {
+            HookInput::PostToolUse { is_error, .. } => assert!(is_error),
+            other => panic!("expected PostToolUse, got {other:?}"),
         }
     }
 }
