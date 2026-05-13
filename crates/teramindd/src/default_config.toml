@@ -1,0 +1,6 @@
+# Teramind default configuration.
+ingest_queue_capacity = 4096
+idle_timeout_secs     = 1800
+redaction_enabled     = true
+autorecall_enabled    = true
+storage_sample_interval_secs = 300
