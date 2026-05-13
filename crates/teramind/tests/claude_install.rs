@@ -14,7 +14,7 @@ fn cargo_bin(name: &str) -> std::path::PathBuf {
 
 #[test]
 fn claude_install_uninstall_roundtrip() {
-    let _ = Command::new("cargo").args(["build", "-p", "teramind-cli", "-p", "teramind-hook"]).status();
+    let _ = Command::new("cargo").args(["build", "-p", "teramind-cli", "-p", "teramind-hook", "-p", "teramind-mcp"]).status();
 
     let claude_home = tempdir().unwrap();
     let template_dir = std::env::current_dir().unwrap()
@@ -43,6 +43,11 @@ fn claude_install_uninstall_roundtrip() {
     let hook_script = claude_home.path().join("plugins/teramind/hooks/session_start.sh");
     let body = std::fs::read_to_string(&hook_script).unwrap();
     assert!(!body.contains("@TERAMIND_HOOK_BIN@"), "placeholder left unpatched in hook script");
+
+    let mcp_config = claude_home.path().join("plugins/teramind/.mcp.json");
+    assert!(mcp_config.exists(), ".mcp.json not present after install");
+    let body = std::fs::read_to_string(&mcp_config).unwrap();
+    assert!(!body.contains("@TERAMIND_MCP_BIN@"), "MCP placeholder left unpatched");
 
     // Uninstall
     let out = Command::new(&teramind).args(["claude", "uninstall"]).envs(env.iter().cloned()).output().unwrap();

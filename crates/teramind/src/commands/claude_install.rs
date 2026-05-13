@@ -6,6 +6,8 @@ pub async fn run() -> anyhow::Result<()> {
     let plugin_dir = claude_home.join("plugins").join("teramind");
 
     let teramind_hook_bin = which_teramind_hook()?;
+    let teramind_mcp_bin = which_teramind_mcp()?;
+    let mcp_bin_str = teramind_mcp_bin.to_string_lossy().into_owned();
     let plugin_dir_str = plugin_dir.to_string_lossy().into_owned();
     let hook_bin_str = teramind_hook_bin.to_string_lossy().into_owned();
 
@@ -31,7 +33,8 @@ pub async fn run() -> anyhow::Result<()> {
         let bytes = std::fs::read(&entry)?;
         let text = String::from_utf8_lossy(&bytes)
             .replace("@TERAMIND_PLUGIN_DIR@", &plugin_dir_str)
-            .replace("@TERAMIND_HOOK_BIN@", &hook_bin_str);
+            .replace("@TERAMIND_HOOK_BIN@", &hook_bin_str)
+            .replace("@TERAMIND_MCP_BIN@", &mcp_bin_str);
         if let Some(parent) = dst.parent() { std::fs::create_dir_all(parent)?; }
         std::fs::write(&dst, text.as_bytes())
             .with_context(|| format!("write {}", dst.display()))?;
@@ -86,6 +89,24 @@ fn which_teramind_hook() -> anyhow::Result<PathBuf> {
         }
     }
     anyhow::bail!("teramind-hook binary not found next to teramind or on PATH")
+}
+
+fn which_teramind_mcp() -> anyhow::Result<std::path::PathBuf> {
+    if let Ok(me) = std::env::current_exe() {
+        if let Some(dir) = me.parent() {
+            let cand = dir.join(if cfg!(windows) { "teramind-mcp.exe" } else { "teramind-mcp" });
+            if cand.exists() { return Ok(cand); }
+        }
+    }
+    if let Ok(out) = std::process::Command::new(if cfg!(windows) { "where" } else { "which" })
+        .arg("teramind-mcp").output() {
+        if out.status.success() {
+            if let Some(line) = String::from_utf8_lossy(&out.stdout).lines().next() {
+                return Ok(std::path::PathBuf::from(line.trim()));
+            }
+        }
+    }
+    anyhow::bail!("teramind-mcp binary not found next to teramind or on PATH")
 }
 
 fn locate_template_dir() -> anyhow::Result<PathBuf> {
