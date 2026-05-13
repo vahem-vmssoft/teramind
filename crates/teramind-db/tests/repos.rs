@@ -82,3 +82,32 @@ async fn session_repo_inserts_and_ends() {
 
     f.shutdown().await;
 }
+
+#[tokio::test]
+async fn trace_repo_full_turn_lifecycle() {
+    let f = Fixture::new().await;
+    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let agent = agents.upsert("claude_code", None).await.unwrap();
+    let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let now = time::OffsetDateTime::now_utc();
+    let session_id = sessions.insert(teramind_db::repos::session::NewSession {
+        agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
+        parent_session_id: None, git_head: None, git_branch: None,
+        os: "linux", hostname: "h", user_login: "u", started_at: now,
+    }).await.unwrap();
+
+    let traces = teramind_db::repos::TraceRepo::new(f.pool.clone());
+    let turn = traces.upsert_turn(session_id, 0, now, Some("hi")).await.unwrap();
+    let tc = traces.insert_tool_call_start(turn, 0, "Edit", &serde_json::json!({"x":1}), now).await.unwrap();
+    traces.finalize_tool_call(tc, "ok", false, 12).await.unwrap();
+    traces.finalize_turn(turn, now + time::Duration::seconds(1), Some("done"), None, Some("claude-opus-4-7"), Some(10), Some(5)).await.unwrap();
+
+    let row: (Option<String>, Option<String>, Option<i32>) = sqlx::query_as(
+        "SELECT assistant_text, model, output_tokens FROM turns WHERE id=$1")
+        .bind(turn.0).fetch_one(f.pool.pg()).await.unwrap();
+    assert_eq!(row.0.as_deref(), Some("done"));
+    assert_eq!(row.1.as_deref(), Some("claude-opus-4-7"));
+    assert_eq!(row.2, Some(5));
+
+    f.shutdown().await;
+}
