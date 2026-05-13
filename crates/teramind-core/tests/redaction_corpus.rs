@@ -21,3 +21,12 @@ fn github_pat_is_redacted() {
         assert!(out.contains("«redacted:github_token»"));
     }
 }
+
+#[test]
+fn slack_token_is_redacted() {
+    let r = Redactor::with_default_rules();
+    let s = "xoxb-1234567890-1234567890-aBcDeFgHiJkLmNoPqRsTuVwX";
+    let out = r.apply(s);
+    assert!(!out.contains(s));
+    assert!(out.contains("«redacted:slack_token»"));
+}
