@@ -28,3 +28,6 @@ tracing     = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+teramind-db   = { path = "../teramind-db" }
+teramindd     = { path = "../teramindd" }
+sqlx          = { workspace = true }
