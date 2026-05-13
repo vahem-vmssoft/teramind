@@ -2648,6 +2648,7 @@ dependencies = [
  "serde_json",
  "teramind-core",
  "teramind-ipc",
+ "teramindd",
  "time",
  "tokio",
  "tracing",
@@ -2712,6 +2713,7 @@ name = "teramindd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap",
  "serde",
  "serde_json",
