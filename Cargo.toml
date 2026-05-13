@@ -7,6 +7,7 @@ members = [
     "crates/teramindd",
     "crates/teramind",
     "crates/teramind-hook",
+    "crates/teramind-mcp",
 ]
 
 [workspace.package]
@@ -39,6 +40,7 @@ async-trait = "0.1"
 futures     = "0.3"
 tempfile    = "3"
 proptest    = "1"
+rmcp        = { version = "1.7", features = ["server", "transport-io"] }
 
 [profile.release]
 lto = "thin"
