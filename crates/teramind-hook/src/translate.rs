@@ -30,6 +30,18 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 prompt,
             }
         }
+        HookInput::PreToolUse { session_id, cwd: _, tool_name, tool_input } => {
+            let sid_uuid = claude_session_to_uuid(&session_id);
+            let turn_ord = current_turn_ordinal(&session_id);
+            let turn_id = claude_turn_to_uuid(sid_uuid, turn_ord);
+            let tool_ord = next_tool_ordinal(&session_id, turn_ord);
+            IngestEvent::ToolCallStart {
+                turn_id,
+                ordinal: tool_ord,
+                name: tool_name,
+                input: tool_input,
+            }
+        }
         _ => return None,
     };
     Some(EventEnvelope { client_event_id, ts, event })
@@ -60,6 +72,38 @@ fn next_turn_ordinal(session_id: &str) -> i32 {
         return 0;
     }
     let path: PathBuf = dir.join(format!("{session_id}.count"));
+    let current: i32 = std::fs::read_to_string(&path).ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(-1);
+    let next = current + 1;
+    let _ = std::fs::write(&path, next.to_string());
+    next
+}
+
+pub fn claude_turn_to_uuid(session_id: SessionId, turn_ordinal: i32) -> TurnId {
+    const NAMESPACE: Uuid = Uuid::from_bytes([
+        0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x07, 0x18,
+        0x29, 0x3a, 0x4b, 0x5c, 0x6d, 0x7e, 0x8f, 0x90,
+    ]);
+    let mut bytes = [0u8; 20];
+    bytes[..16].copy_from_slice(session_id.0.as_bytes());
+    bytes[16..].copy_from_slice(&turn_ordinal.to_be_bytes());
+    TurnId(Uuid::new_v5(&NAMESPACE, &bytes))
+}
+
+fn current_turn_ordinal(session_id: &str) -> i32 {
+    let path = teramind_state_dir().join("turns").join(format!("{session_id}.count"));
+    std::fs::read_to_string(&path).ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0)
+}
+
+fn next_tool_ordinal(session_id: &str, turn_ordinal: i32) -> i32 {
+    let dir = teramind_state_dir().join("tools");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return 0;
+    }
+    let path = dir.join(format!("{session_id}-{turn_ordinal}.count"));
     let current: i32 = std::fs::read_to_string(&path).ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(-1);
@@ -104,6 +148,28 @@ mod tests {
         assert_eq!(a, b);
         let c = claude_session_to_uuid("different");
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn translates_pre_tool_use() {
+        let sid = format!("test-ptu-{}", uuid::Uuid::new_v4());
+        let _ = next_turn_ordinal(&sid);
+        let input = HookInput::PreToolUse {
+            session_id: sid.clone(),
+            cwd: "/w".into(),
+            tool_name: "Edit".into(),
+            tool_input: serde_json::json!({"file_path": "/w/x.rs"}),
+        };
+        let env = translate(input).expect("must translate");
+        match env.event {
+            IngestEvent::ToolCallStart { turn_id, ordinal, name, input } => {
+                assert_eq!(turn_id, claude_turn_to_uuid(claude_session_to_uuid(&sid), 0));
+                assert_eq!(ordinal, 0);
+                assert_eq!(name, "Edit");
+                assert_eq!(input["file_path"], "/w/x.rs");
+            }
+            other => panic!("expected ToolCallStart, got {other:?}"),
+        }
     }
 
     #[test]
