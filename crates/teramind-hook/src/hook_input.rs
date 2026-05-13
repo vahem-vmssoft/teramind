@@ -40,6 +40,8 @@ pub enum HookInput {
         session_id: String,
         cwd: String,
     },
+    #[serde(other)]
+    Other,
 }
 
 #[cfg(test)]
@@ -171,5 +173,12 @@ mod tests {
         }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
         matches!(parsed, HookInput::PreCompact { .. });
+    }
+
+    #[test]
+    fn unrecognized_event_parses_as_other() {
+        let raw = r#"{ "hook_event_name": "Notification", "message": "hi" }"#;
+        let parsed: HookInput = serde_json::from_str(raw).unwrap();
+        assert!(matches!(parsed, HookInput::Other));
     }
 }
