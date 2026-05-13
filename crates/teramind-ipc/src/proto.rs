@@ -56,7 +56,10 @@ mod tests {
     use uuid::Uuid;
     #[test]
     fn payload_request_status_roundtrips() {
-        let env = Envelope { id: Uuid::new_v4(), payload: Payload::Request(Request::Status) };
+        let env = Envelope {
+            id: Uuid::new_v4(),
+            payload: Payload::Request(Request::Status),
+        };
         let j = serde_json::to_string(&env).unwrap();
         let back: Envelope = serde_json::from_str(&j).unwrap();
         assert_eq!(env, back);

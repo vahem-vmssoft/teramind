@@ -1,10 +1,13 @@
 #![cfg(unix)]
-use teramind_ipc::{IpcServer, Request, Response, Notify, client::{IpcClient, StreamClient}};
-use teramind_ipc::server::serve_connection;
-use teramind_ipc::transport::{listen, connect};
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 use tempfile::tempdir;
+use teramind_ipc::server::serve_connection;
+use teramind_ipc::transport::{connect, listen};
+use teramind_ipc::{
+    client::{IpcClient, StreamClient},
+    IpcServer, Notify, Request, Response,
+};
 
 struct PingHandler;
 #[async_trait]

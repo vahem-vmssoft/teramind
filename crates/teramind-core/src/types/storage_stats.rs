@@ -21,8 +21,15 @@ mod tests {
         let s = StorageStats {
             id: 1,
             sampled_at: OffsetDateTime::from_unix_timestamp(1_700_000_007).unwrap(),
-            pg_bytes: 100, jsonl_bytes: 200, session_count: 3, turn_count: 30, diff_count: 5,
+            pg_bytes: 100,
+            jsonl_bytes: 200,
+            session_count: 3,
+            turn_count: 30,
+            diff_count: 5,
         };
-        assert_eq!(s, serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap());
+        assert_eq!(
+            s,
+            serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap()
+        );
     }
 }

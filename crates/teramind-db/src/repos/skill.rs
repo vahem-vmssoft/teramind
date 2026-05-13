@@ -3,11 +3,20 @@ use crate::pool::DbPool;
 use teramind_core::ids::SkillId;
 
 #[derive(Clone)]
-pub struct SkillRepo { pool: DbPool }
+pub struct SkillRepo {
+    pool: DbPool,
+}
 
 impl SkillRepo {
-    pub fn new(pool: DbPool) -> Self { Self { pool } }
-    pub async fn upsert_authored(&self, name: &str, description: &str, body: &str) -> Result<SkillId> {
+    pub fn new(pool: DbPool) -> Self {
+        Self { pool }
+    }
+    pub async fn upsert_authored(
+        &self,
+        name: &str,
+        description: &str,
+        body: &str,
+    ) -> Result<SkillId> {
         let r: (uuid::Uuid,) = sqlx::query_as(
             r#"
             INSERT INTO skills (name, description, body, source)

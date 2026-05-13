@@ -23,8 +23,8 @@ async fn tick(repo: &StorageStatsRepo, raw_dir: &PathBuf, database: &str) -> any
         pg_bytes,
         jsonl_bytes,
         session_count: repo.count_sessions().await?,
-        turn_count:    repo.count_turns().await?,
-        diff_count:    repo.count_diffs().await?,
+        turn_count: repo.count_turns().await?,
+        diff_count: repo.count_diffs().await?,
     };
     repo.insert(s).await?;
     Ok(())
@@ -35,7 +35,9 @@ fn walk_dir_bytes(p: &PathBuf) -> std::io::Result<i64> {
     for entry in std::fs::read_dir(p)? {
         let entry = entry?;
         let md = entry.metadata()?;
-        if md.is_file() { total += md.len() as i64; }
+        if md.is_file() {
+            total += md.len() as i64;
+        }
     }
     Ok(total)
 }

@@ -1,5 +1,5 @@
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use tempfile::tempdir;
+use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 
 #[tokio::test]
 async fn migrations_apply_cleanly_on_empty_db() {

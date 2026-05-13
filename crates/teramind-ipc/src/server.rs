@@ -10,7 +10,10 @@ pub trait IpcServer: Send + Sync + 'static {
     async fn handle_notify(&self, n: Notify);
 }
 
-pub async fn serve_connection<S, H>(mut stream: S, handler: std::sync::Arc<H>) -> Result<(), IpcError>
+pub async fn serve_connection<S, H>(
+    mut stream: S,
+    handler: std::sync::Arc<H>,
+) -> Result<(), IpcError>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send,
     H: IpcServer,
@@ -24,7 +27,10 @@ where
         match env.payload {
             Payload::Request(req) => {
                 let resp = handler.handle_request(req).await;
-                let out = Envelope { id: env.id, payload: Payload::Response(resp) };
+                let out = Envelope {
+                    id: env.id,
+                    payload: Payload::Response(resp),
+                };
                 write_frame(&mut stream, &out).await?;
             }
             Payload::Notify(n) => {

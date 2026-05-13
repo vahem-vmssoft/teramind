@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use tokio::io::AsyncWriteExt;
 use teramind_core::types::ingest_event::EventEnvelope;
 use time::macros::format_description;
+use tokio::io::AsyncWriteExt;
+use tokio::sync::Mutex;
 
 pub struct JsonlWriter {
     base: PathBuf,
@@ -22,16 +22,24 @@ impl JsonlWriter {
         let (date, path, file) = Self::open_today(&base).await?;
         Ok(Self {
             base,
-            inner: Arc::new(Mutex::new(Inner { current_date: date, file, path })),
+            inner: Arc::new(Mutex::new(Inner {
+                current_date: date,
+                file,
+                path,
+            })),
         })
     }
 
-    async fn open_today(base: &PathBuf) -> std::io::Result<(String, PathBuf, tokio::fs::File)> {
+    async fn open_today(base: &Path) -> std::io::Result<(String, PathBuf, tokio::fs::File)> {
         let now = time::OffsetDateTime::now_utc();
         let fmt = format_description!("[year]-[month]-[day]");
         let date = now.format(&fmt).expect("format date");
         let path = base.join(format!("{date}.jsonl"));
-        let file = tokio::fs::OpenOptions::new().create(true).append(true).open(&path).await?;
+        let file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .await?;
         Ok((date, path, file))
     }
 
@@ -42,7 +50,9 @@ impl JsonlWriter {
         let today = now.format(&fmt).expect("format date");
         if today != g.current_date {
             let (d, p, f) = Self::open_today(&self.base).await?;
-            g.current_date = d; g.file = f; g.path = p;
+            g.current_date = d;
+            g.file = f;
+            g.path = p;
         }
         let mut bytes = serde_json::to_vec(env)?;
         bytes.push(b'\n');
@@ -55,9 +65,9 @@ impl JsonlWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
     use teramind_core::ids::{ClientEventId, SessionId};
     use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
-    use tempfile::tempdir;
     use time::OffsetDateTime;
 
     #[tokio::test]
@@ -68,7 +78,9 @@ mod tests {
             client_event_id: ClientEventId::new(),
             ts: OffsetDateTime::now_utc(),
             event: IngestEvent::UserPrompt {
-                session_id: SessionId::new(), turn_ordinal: 0, prompt: "x".into(),
+                session_id: SessionId::new(),
+                turn_ordinal: 0,
+                prompt: "x".into(),
             },
         };
         w.append(&env).await.unwrap();

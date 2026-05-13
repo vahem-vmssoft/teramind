@@ -5,7 +5,9 @@ use teramind_core::types::file_diff::Attribution;
 use time::OffsetDateTime;
 
 #[derive(Clone)]
-pub struct DiffRepo { pool: DbPool }
+pub struct DiffRepo {
+    pool: DbPool,
+}
 
 pub struct NewFileDiff<'a> {
     pub turn_id: Option<TurnId>,
@@ -24,10 +26,15 @@ pub struct NewFileDiff<'a> {
 }
 
 impl DiffRepo {
-    pub fn new(pool: DbPool) -> Self { Self { pool } }
+    pub fn new(pool: DbPool) -> Self {
+        Self { pool }
+    }
 
     pub async fn insert(&self, n: NewFileDiff<'_>) -> Result<FileDiffId> {
-        let attr = match n.attribution { Attribution::Agent => "agent", Attribution::Human => "human" };
+        let attr = match n.attribution {
+            Attribution::Agent => "agent",
+            Attribution::Human => "human",
+        };
         let r: (uuid::Uuid,) = sqlx::query_as(
             r#"
             INSERT INTO file_diffs (turn_id, session_id, file_path, rel_path, attribution, language,

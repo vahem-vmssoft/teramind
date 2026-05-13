@@ -1,7 +1,10 @@
 use crate::proto::Envelope;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-pub async fn write_frame<W: AsyncWrite + Unpin>(w: &mut W, env: &Envelope) -> Result<(), crate::IpcError> {
+pub async fn write_frame<W: AsyncWrite + Unpin>(
+    w: &mut W,
+    env: &Envelope,
+) -> Result<(), crate::IpcError> {
     let bytes = serde_json::to_vec(env)?;
     let len = (bytes.len() as u32).to_be_bytes();
     w.write_all(&len).await?;
@@ -31,7 +34,10 @@ mod tests {
     #[tokio::test]
     async fn frame_roundtrip() {
         let (mut a, mut b) = duplex(64 * 1024);
-        let env = Envelope { id: Uuid::new_v4(), payload: Payload::Request(Request::Status) };
+        let env = Envelope {
+            id: Uuid::new_v4(),
+            payload: Payload::Request(Request::Status),
+        };
         write_frame(&mut a, &env).await.unwrap();
         drop(a);
         let back = read_frame(&mut b).await.unwrap();

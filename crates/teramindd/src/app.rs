@@ -1,16 +1,16 @@
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-use anyhow::Context;
 use crate::config::Config;
 use crate::paths::Paths;
-use crate::services::ingest::{IngestService, IngestStats, IngestDeps};
+use crate::services::ingest::{IngestDeps, IngestService, IngestStats};
+use crate::services::ipc_server::{run_accept_loop, DaemonIpcHandler};
 use crate::services::jsonl_writer::JsonlWriter;
 use crate::services::session_manager::SessionManager;
-use crate::services::ipc_server::{DaemonIpcHandler, run_accept_loop};
 use crate::services::storage_stats;
+use anyhow::Context;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use teramind_core::redact::Redactor;
-use teramind_db::{pg_supervisor::PgSupervisor, pool::DbPool, migrate};
-use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo, StorageStatsRepo};
+use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, StorageStatsRepo, TraceRepo};
+use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_ipc::transport::listen;
 use tracing::info;
 
@@ -26,8 +26,13 @@ impl App {
         let file_appender = tracing_appender::rolling::daily(&paths.logs_dir, "teramindd.log");
         let (nb, guard) = tracing_appender::non_blocking(file_appender);
         tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::try_from_env("TERAMIND_LOG").unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")))
-            .with_writer(nb).json().init();
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_env("TERAMIND_LOG")
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .with_writer(nb)
+            .json()
+            .init();
         std::mem::forget(guard);
 
         info!("teramindd starting");
@@ -41,32 +46,45 @@ impl App {
 
         let jsonl = Arc::new(JsonlWriter::open(paths.raw_dir.clone()).await?);
         let stats = Arc::new(IngestStats::default());
-        let ingest = Arc::new(IngestService::spawn(config.ingest_queue_capacity, IngestDeps {
-            redactor: Arc::new(Redactor::with_default_rules()),
-            jsonl: jsonl.clone(),
-            sessions: SessionManager::new(),
-            agents: AgentRepo::new(pool.clone()),
-            session_repo: SessionRepo::new(pool.clone()),
-            trace: TraceRepo::new(pool.clone()),
-            diffs: DiffRepo::new(pool.clone()),
-            stats: stats.clone(),
-            dead_letter_dir: paths.dead_letter_dir.clone(),
-        }));
-        let drained = crate::services::ingest::drain_inbox(&paths.inbox_dir, &ingest).await.unwrap_or(0);
+        let ingest = Arc::new(IngestService::spawn(
+            config.ingest_queue_capacity,
+            IngestDeps {
+                redactor: Arc::new(Redactor::with_default_rules()),
+                jsonl: jsonl.clone(),
+                sessions: SessionManager::new(),
+                agents: AgentRepo::new(pool.clone()),
+                session_repo: SessionRepo::new(pool.clone()),
+                trace: TraceRepo::new(pool.clone()),
+                diffs: DiffRepo::new(pool.clone()),
+                stats: stats.clone(),
+                dead_letter_dir: paths.dead_letter_dir.clone(),
+            },
+        ));
+        let drained = crate::services::ingest::drain_inbox(&paths.inbox_dir, &ingest)
+            .await
+            .unwrap_or(0);
         if drained > 0 {
             tracing::info!(drained, "drained inbox events");
         }
-        storage_stats::spawn(StorageStatsRepo::new(pool.clone()), paths.raw_dir.clone(), "teramind".into(),
-            Duration::from_secs(config.storage_sample_interval_secs));
+        storage_stats::spawn(
+            StorageStatsRepo::new(pool.clone()),
+            paths.raw_dir.clone(),
+            "teramind".into(),
+            Duration::from_secs(config.storage_sample_interval_secs),
+        );
 
         let handler = Arc::new(DaemonIpcHandler {
-            ingest: ingest.clone(), stats: stats.clone(),
+            ingest: ingest.clone(),
+            stats: stats.clone(),
             started: Instant::now(),
-            last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
+            last_pg_bytes: 0.into(),
+            last_jsonl_bytes: 0.into(),
         });
         let listener = listen(&paths.socket_path)?;
         let h2 = handler.clone();
-        tokio::spawn(async move { let _ = run_accept_loop(listener, h2).await; });
+        tokio::spawn(async move {
+            let _ = run_accept_loop(listener, h2).await;
+        });
 
         crate::signals::shutdown_signal().await;
         info!("teramindd shutting down");

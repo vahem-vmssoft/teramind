@@ -38,7 +38,8 @@ mod serde_bytes_hex {
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<[u8; 32], D::Error> {
         let s = String::deserialize(d)?;
         let v = hex::decode(&s).map_err(serde::de::Error::custom)?;
-        v.try_into().map_err(|_| serde::de::Error::custom("expected 32 bytes"))
+        v.try_into()
+            .map_err(|_| serde::de::Error::custom("expected 32 bytes"))
     }
 }
 

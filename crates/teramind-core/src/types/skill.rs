@@ -4,7 +4,11 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SkillSource { Authored, Codified, Imported }
+pub enum SkillSource {
+    Authored,
+    Codified,
+    Imported,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Skill {

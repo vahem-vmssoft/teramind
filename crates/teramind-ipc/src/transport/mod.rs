@@ -4,6 +4,6 @@ pub mod unix;
 pub mod windows;
 
 #[cfg(unix)]
-pub use unix::{connect, listen, default_socket_path};
+pub use unix::{connect, default_socket_path, listen};
 #[cfg(windows)]
-pub use windows::{connect, listen, default_socket_path};
+pub use windows::{connect, default_socket_path, listen};

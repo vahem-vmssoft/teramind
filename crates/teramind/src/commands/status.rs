@@ -11,8 +11,14 @@ pub async fn run(format: Option<String>) -> anyhow::Result<()> {
     };
     let status = match resp {
         Response::Status(s) => s,
-        Response::Error(e)  => { eprintln!("error: {e}"); return Ok(()); }
-        other => { eprintln!("unexpected: {other:?}"); return Ok(()); }
+        Response::Error(e) => {
+            eprintln!("error: {e}");
+            return Ok(());
+        }
+        other => {
+            eprintln!("unexpected: {other:?}");
+            return Ok(());
+        }
     };
     if format.as_deref() == Some("json") {
         println!("{}", serde_json::to_string_pretty(&status)?);

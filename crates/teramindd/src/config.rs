@@ -16,18 +16,30 @@ pub struct Config {
 }
 
 impl Config {
-    fn default_ingest_queue_capacity() -> usize { 4096 }
-    fn default_idle_timeout_secs() -> u64 { 30 * 60 }
-    fn default_redaction_enabled() -> bool { true }
-    fn default_autorecall_enabled() -> bool { true }
-    fn default_storage_sample_interval_secs() -> u64 { 300 }
+    fn default_ingest_queue_capacity() -> usize {
+        4096
+    }
+    fn default_idle_timeout_secs() -> u64 {
+        30 * 60
+    }
+    fn default_redaction_enabled() -> bool {
+        true
+    }
+    fn default_autorecall_enabled() -> bool {
+        true
+    }
+    fn default_storage_sample_interval_secs() -> u64 {
+        300
+    }
 
     pub fn defaults() -> Self {
         toml::from_str("").expect("default config must parse from empty toml")
     }
 
     pub fn load_or_default(path: &Path) -> anyhow::Result<Self> {
-        if !path.exists() { return Ok(Self::defaults()); }
+        if !path.exists() {
+            return Ok(Self::defaults());
+        }
         let text = std::fs::read_to_string(path)?;
         Ok(toml::from_str(&text)?)
     }

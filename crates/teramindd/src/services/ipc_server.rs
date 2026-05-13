@@ -1,10 +1,10 @@
-use std::sync::Arc;
-use std::sync::atomic::Ordering;
-use std::time::Instant;
+use crate::services::ingest::{IngestService, IngestStats};
 use async_trait::async_trait;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Instant;
 use teramind_ipc::proto::{Notify, Request, Response, StatusReport};
 use teramind_ipc::server::{serve_connection, IpcServer};
-use crate::services::ingest::{IngestService, IngestStats};
 
 pub struct DaemonIpcHandler {
     pub ingest: Arc<IngestService>,

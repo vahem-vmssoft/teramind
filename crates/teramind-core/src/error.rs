@@ -19,7 +19,7 @@ mod tests {
     use super::*;
     #[test]
     fn error_from_io() {
-        let e: Error = std::io::Error::new(std::io::ErrorKind::Other, "x").into();
+        let e: Error = std::io::Error::other("x").into();
         assert!(matches!(e, Error::Io(_)));
     }
 }

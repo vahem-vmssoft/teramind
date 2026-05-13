@@ -4,7 +4,9 @@ use teramind_core::ids::{AgentId, ProjectId, SessionId};
 use time::OffsetDateTime;
 
 #[derive(Clone)]
-pub struct SessionRepo { pool: DbPool }
+pub struct SessionRepo {
+    pool: DbPool,
+}
 
 pub struct NewSession<'a> {
     pub agent_id: AgentId,
@@ -21,7 +23,9 @@ pub struct NewSession<'a> {
 }
 
 impl SessionRepo {
-    pub fn new(pool: DbPool) -> Self { Self { pool } }
+    pub fn new(pool: DbPool) -> Self {
+        Self { pool }
+    }
 
     pub async fn insert(&self, n: NewSession<'_>) -> Result<SessionId> {
         let r: (uuid::Uuid,) = sqlx::query_as(
@@ -30,16 +34,21 @@ impl SessionRepo {
                                   git_head, git_branch, os, hostname, user_login, started_at)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
             RETURNING id
-            "#)
-            .bind(n.agent_id.0)
-            .bind(n.agent_session_id)
-            .bind(n.cwd)
-            .bind(n.project_id.map(|p| p.0))
-            .bind(n.parent_session_id.map(|p| p.0))
-            .bind(n.git_head).bind(n.git_branch)
-            .bind(n.os).bind(n.hostname).bind(n.user_login)
-            .bind(n.started_at)
-            .fetch_one(self.pool.pg()).await?;
+            "#,
+        )
+        .bind(n.agent_id.0)
+        .bind(n.agent_session_id)
+        .bind(n.cwd)
+        .bind(n.project_id.map(|p| p.0))
+        .bind(n.parent_session_id.map(|p| p.0))
+        .bind(n.git_head)
+        .bind(n.git_branch)
+        .bind(n.os)
+        .bind(n.hostname)
+        .bind(n.user_login)
+        .bind(n.started_at)
+        .fetch_one(self.pool.pg())
+        .await?;
         Ok(SessionId(r.0))
     }
 
@@ -68,16 +77,31 @@ impl SessionRepo {
     }
 
     pub async fn end(&self, id: SessionId, ended_at: OffsetDateTime, reason: &str) -> Result<()> {
-        sqlx::query("UPDATE sessions SET ended_at=$1, end_reason=$2 WHERE id=$3 AND ended_at IS NULL")
-            .bind(ended_at).bind(reason).bind(id.0)
-            .execute(self.pool.pg()).await?;
+        sqlx::query(
+            "UPDATE sessions SET ended_at=$1, end_reason=$2 WHERE id=$3 AND ended_at IS NULL",
+        )
+        .bind(ended_at)
+        .bind(reason)
+        .bind(id.0)
+        .execute(self.pool.pg())
+        .await?;
         Ok(())
     }
 
-    pub async fn append_metadata(&self, id: SessionId, key: &str, value: serde_json::Value) -> Result<()> {
-        sqlx::query("UPDATE sessions SET metadata = metadata || jsonb_build_object($1, $2) WHERE id=$3")
-            .bind(key).bind(value).bind(id.0)
-            .execute(self.pool.pg()).await?;
+    pub async fn append_metadata(
+        &self,
+        id: SessionId,
+        key: &str,
+        value: serde_json::Value,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE sessions SET metadata = metadata || jsonb_build_object($1, $2) WHERE id=$3",
+        )
+        .bind(key)
+        .bind(value)
+        .bind(id.0)
+        .execute(self.pool.pg())
+        .await?;
         Ok(())
     }
 }

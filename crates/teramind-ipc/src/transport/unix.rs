@@ -11,6 +11,8 @@ pub async fn connect(path: &std::path::Path) -> Result<UnixStream, IpcError> {
 }
 
 pub fn listen(path: &std::path::Path) -> Result<UnixListener, IpcError> {
-    if path.exists() { let _ = std::fs::remove_file(path); }
+    if path.exists() {
+        let _ = std::fs::remove_file(path);
+    }
     Ok(UnixListener::bind(path)?)
 }

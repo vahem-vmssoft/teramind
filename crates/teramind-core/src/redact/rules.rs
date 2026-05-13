@@ -7,8 +7,14 @@ pub struct RuleSet {
 
 impl Default for RuleSet {
     fn default() -> Self {
-        let compiled = PATTERNS.iter()
-            .map(|p| (p.name, Regex::new(p.regex).expect("invalid built-in pattern")))
+        let compiled = PATTERNS
+            .iter()
+            .map(|p| {
+                (
+                    p.name,
+                    Regex::new(p.regex).expect("invalid built-in pattern"),
+                )
+            })
             .collect();
         Self { compiled }
     }
@@ -18,7 +24,9 @@ impl RuleSet {
     pub fn apply(&self, input: &str) -> String {
         let mut out = input.to_string();
         for (name, re) in &self.compiled {
-            out = re.replace_all(&out, format!("«redacted:{}»", name).as_str()).into_owned();
+            out = re
+                .replace_all(&out, format!("«redacted:{}»", name).as_str())
+                .into_owned();
         }
         out
     }
@@ -26,8 +34,14 @@ impl RuleSet {
 
 impl RuleSet {
     pub fn with_extra(extra: &[(&str, &str)]) -> Result<Self, regex::Error> {
-        let mut compiled: Vec<(&'static str, Regex)> = PATTERNS.iter()
-            .map(|p| (p.name, Regex::new(p.regex).expect("invalid built-in pattern")))
+        let mut compiled: Vec<(&'static str, Regex)> = PATTERNS
+            .iter()
+            .map(|p| {
+                (
+                    p.name,
+                    Regex::new(p.regex).expect("invalid built-in pattern"),
+                )
+            })
             .collect();
         for (name, re) in extra {
             let leaked: &'static str = Box::leak(name.to_string().into_boxed_str());

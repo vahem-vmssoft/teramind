@@ -9,8 +9,18 @@ macro_rules! id_newtype {
         pub struct $name(pub Uuid);
 
         impl $name {
-            pub fn new() -> Self { Self(Uuid::new_v4()) }
-            pub fn nil() -> Self { Self(Uuid::nil()) }
+            pub fn new() -> Self {
+                Self(Uuid::new_v4())
+            }
+            pub fn nil() -> Self {
+                Self(Uuid::nil())
+            }
+        }
+
+        impl Default for $name {
+            fn default() -> Self {
+                Self::new()
+            }
         }
 
         impl fmt::Display for $name {
