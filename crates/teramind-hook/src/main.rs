@@ -37,6 +37,20 @@ async fn main() {
         }
     };
     let mut client = StreamClient::new(stream);
+    let is_session_start = matches!(envelope.event, teramind_core::types::ingest_event::IngestEvent::SessionStart { .. });
+    let session_cwd = match &envelope.event {
+        teramind_core::types::ingest_event::IngestEvent::SessionStart { cwd, .. } => Some(cwd.clone()),
+        _ => None,
+    };
     let _ = client.notify(Notify::Ingest(envelope.clone())).await;
+    drop(client);
+
+    if is_session_start {
+        if let Some(cwd) = session_cwd {
+            // Best-effort auto-recall — cap at 2s so we don't block Claude.
+            let _ = teramind_hook::auto_recall::run(&socket, cwd, std::time::Duration::from_secs(2)).await;
+        }
+    }
+
     std::process::exit(0);
 }

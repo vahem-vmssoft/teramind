@@ -151,3 +151,66 @@ async fn hook_tool_call_lifecycle_persists() {
 
     sup.shutdown().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn hook_session_start_emits_auto_recall_digest() {
+    use std::io::Write;
+    let _ = Command::new("cargo").args(["build", "-p", "teramind-hook"]).status();
+    let tmp = tempdir().unwrap();
+    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test").await.unwrap();
+    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
+    migrate::run(&pool).await.unwrap();
+
+    // Seed prior context: a session in cwd "/work-cwd" with one finalized turn.
+    let agents = AgentRepo::new(pool.clone());
+    let agent = agents.upsert("claude_code", None).await.unwrap();
+    let sessions = SessionRepo::new(pool.clone());
+    let now = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+    let prior_sid = sessions.insert(teramind_db::repos::session::NewSession {
+        agent_id: agent.id, agent_session_id: None, cwd: "/work-cwd", project_id: None,
+        parent_session_id: None, git_head: None, git_branch: None,
+        os: "linux", hostname: "h", user_login: "u", started_at: now,
+    }).await.unwrap();
+    let trace = TraceRepo::new(pool.clone());
+    let prior_turn = trace.upsert_turn(prior_sid, 0, now, Some("yesterday's bug fix")).await.unwrap();
+    trace.finalize_turn(prior_turn, now, Some("fixed by adjusting timeout"), None, None, None, None).await.unwrap();
+    sqlx::query("REFRESH MATERIALIZED VIEW traces_fts").execute(pool.pg()).await.unwrap();
+
+    let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
+    let stats = Arc::new(IngestStats::default());
+    let ingest = Arc::new(IngestService::spawn(64, IngestDeps {
+        redactor: Arc::new(Redactor::with_default_rules()),
+        jsonl: jsonl.clone(), sessions: SessionManager::new(),
+        agents: AgentRepo::new(pool.clone()), session_repo: SessionRepo::new(pool.clone()),
+        trace: TraceRepo::new(pool.clone()), diffs: DiffRepo::new(pool.clone()),
+        stats: stats.clone(), dead_letter_dir: tmp.path().join("dl"),
+    }));
+    let handler = Arc::new(DaemonIpcHandler {
+        ingest: ingest.clone(), stats: stats.clone(),
+        started: std::time::Instant::now(),
+        last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
+        search_repo: teramind_db::repos::SearchRepo::new(pool.clone()),
+        jsonl_dir: tmp.path().join("raw"),
+    });
+    let sock = tmp.path().join("t.sock");
+    let listener = listen(&sock).unwrap();
+    let h2 = handler.clone();
+    tokio::spawn(async move { let _ = run_accept_loop(listener, h2).await; });
+
+    // Fire a SessionStart for a NEW session in the same cwd.
+    let hook = cargo_bin("teramind-hook");
+    let payload = r#"{"hook_event_name":"SessionStart","session_id":"new-sess","cwd":"/work-cwd","source":"startup"}"#;
+    let mut child = Command::new(&hook)
+        .env("TERAMIND_SOCKET", sock.to_string_lossy().to_string())
+        .env("TERAMIND_HOOK_NO_SPAWN", "1")
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null())
+        .spawn().unwrap();
+    child.stdin.as_mut().unwrap().write_all(payload.as_bytes()).unwrap();
+    let out = child.wait_with_output().unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success());
+    assert!(stdout.contains("Recent Teramind context") || stdout.contains("yesterday"),
+            "expected auto-recall digest on stdout; got: {stdout}");
+
+    sup.shutdown().await.unwrap();
+}
