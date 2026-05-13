@@ -52,6 +52,10 @@ impl App {
             stats: stats.clone(),
             dead_letter_dir: paths.dead_letter_dir.clone(),
         }));
+        let drained = crate::services::ingest::drain_inbox(&paths.inbox_dir, &ingest).await.unwrap_or(0);
+        if drained > 0 {
+            tracing::info!(drained, "drained inbox events");
+        }
         storage_stats::spawn(StorageStatsRepo::new(pool.clone()), paths.raw_dir.clone(), "teramind".into(),
             Duration::from_secs(config.storage_sample_interval_secs));
 

@@ -140,3 +140,28 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+pub async fn drain_inbox(inbox: &std::path::Path, ingest: &IngestService) -> anyhow::Result<usize> {
+    if !inbox.exists() { return Ok(0); }
+    let mut drained = 0usize;
+    for entry in std::fs::read_dir(inbox)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") { continue; }
+        let bytes = std::fs::read(&path)?;
+        match serde_json::from_slice::<EventEnvelope>(&bytes) {
+            Ok(env) => {
+                if ingest.try_enqueue(env).is_ok() {
+                    let _ = std::fs::remove_file(&path);
+                    drained += 1;
+                }
+            }
+            Err(_) => {
+                let dl = inbox.parent().map(|p| p.join("dead_letter")).unwrap_or_else(|| inbox.to_path_buf());
+                let _ = std::fs::create_dir_all(&dl);
+                let _ = std::fs::rename(&path, dl.join(path.file_name().unwrap_or_default()));
+            }
+        }
+    }
+    Ok(drained)
+}
