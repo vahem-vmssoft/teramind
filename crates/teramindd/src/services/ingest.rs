@@ -117,11 +117,13 @@ fn redact_envelope(r: &Redactor, mut env: EventEnvelope) -> EventEnvelope {
         },
         ToolCallStart {
             turn_id,
+            tool_call_id,
             ordinal,
             name,
             input,
         } => ToolCallStart {
             turn_id,
+            tool_call_id,
             ordinal,
             name,
             input: serde_json::from_str(&r.apply(&input.to_string())).unwrap_or(input),
@@ -213,16 +215,11 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
                 .await?;
             d.sessions.touch(session_id, ts, None).await;
         }
-        ToolCallStart {
-            turn_id,
-            ordinal,
-            name,
-            input,
-        } => {
-            let _ = d
-                .trace
-                .insert_tool_call_start(turn_id, ordinal, &name, &input, ts)
-                .await?;
+        ToolCallStart { turn_id, tool_call_id, ordinal, name, input } => {
+            match tool_call_id {
+                Some(id) => { d.trace.insert_tool_call_start_with_id(id, turn_id, ordinal, &name, &input, ts).await?; }
+                None     => { let _ = d.trace.insert_tool_call_start(turn_id, ordinal, &name, &input, ts).await?; }
+            }
         }
         ToolCallEnd {
             tool_call_id,

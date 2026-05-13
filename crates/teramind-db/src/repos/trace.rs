@@ -88,6 +88,26 @@ impl TraceRepo {
         Ok(ToolCallId(r.0))
     }
 
+    pub async fn insert_tool_call_start_with_id(
+        &self,
+        id: ToolCallId,
+        turn_id: TurnId,
+        ordinal: i32,
+        name: &str,
+        input: &serde_json::Value,
+        started_at: OffsetDateTime,
+    ) -> Result<ToolCallId> {
+        sqlx::query(
+            r#"
+            INSERT INTO tool_calls (id, turn_id, ordinal, name, input, started_at)
+            VALUES ($1,$2,$3,$4,$5,$6)
+            ON CONFLICT (turn_id, ordinal) DO NOTHING
+            "#)
+            .bind(id.0).bind(turn_id.0).bind(ordinal).bind(name).bind(input).bind(started_at)
+            .execute(self.pool.pg()).await?;
+        Ok(id)
+    }
+
     pub async fn finalize_tool_call(
         &self,
         id: ToolCallId,

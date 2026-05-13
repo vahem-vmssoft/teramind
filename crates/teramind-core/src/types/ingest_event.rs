@@ -32,6 +32,8 @@ pub enum IngestEvent {
     },
     ToolCallStart {
         turn_id: TurnId,
+        #[serde(default)]
+        tool_call_id: Option<ToolCallId>,
         ordinal: i32,
         name: String,
         input: Value,

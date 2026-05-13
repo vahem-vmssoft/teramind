@@ -35,8 +35,10 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
             let turn_ord = current_turn_ordinal(&session_id);
             let turn_id = claude_turn_to_uuid(sid_uuid, turn_ord);
             let tool_ord = next_tool_ordinal(&session_id, turn_ord);
+            let tool_call_id = claude_tool_call_to_uuid(turn_id, tool_ord);
             IngestEvent::ToolCallStart {
                 turn_id,
+                tool_call_id: Some(tool_call_id),
                 ordinal: tool_ord,
                 name: tool_name,
                 input: tool_input,
@@ -220,11 +222,12 @@ mod tests {
         };
         let env = translate(input).expect("must translate");
         match env.event {
-            IngestEvent::ToolCallStart { turn_id, ordinal, name, input } => {
+            IngestEvent::ToolCallStart { turn_id, ordinal, name, input, tool_call_id } => {
                 assert_eq!(turn_id, claude_turn_to_uuid(claude_session_to_uuid(&sid), 0));
                 assert_eq!(ordinal, 0);
                 assert_eq!(name, "Edit");
                 assert_eq!(input["file_path"], "/w/x.rs");
+                assert!(tool_call_id.is_some());
             }
             other => panic!("expected ToolCallStart, got {other:?}"),
         }
