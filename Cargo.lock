@@ -2693,6 +2693,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "teramind-hook"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "teramind-core",
+ "teramind-ipc",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "teramind-ipc"
 version = "0.1.0"
 dependencies = [
