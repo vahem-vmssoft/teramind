@@ -2,6 +2,6 @@
 
 pub mod hook_input;
 pub mod inbox;
-// pub mod selftest;  // Section 10
+pub mod selftest;
 pub mod spawn;
 pub mod translate;

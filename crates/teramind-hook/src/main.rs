@@ -4,6 +4,13 @@ use teramind_ipc::{client::{IpcClient, StreamClient}, proto::Notify, transport::
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--selftest") {
+        match teramind_hook::selftest::run() {
+            Ok(()) => std::process::exit(0),
+            Err(e) => { eprintln!("teramind-hook selftest FAILED: {e}"); std::process::exit(1); }
+        }
+    }
     let mut buf = String::new();
     if std::io::stdin().read_to_string(&mut buf).is_err() {
         std::process::exit(0);
