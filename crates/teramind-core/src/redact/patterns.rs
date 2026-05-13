@@ -5,4 +5,6 @@ pub struct Pattern {
     pub regex: &'static str,
 }
 
-pub const PATTERNS: &[Pattern] = &[];
+pub const PATTERNS: &[Pattern] = &[
+    Pattern { name: "aws_access_key", regex: r"AKIA[0-9A-Z]{16}" },
+];
