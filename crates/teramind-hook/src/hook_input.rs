@@ -36,6 +36,10 @@ pub enum HookInput {
         #[serde(default)]
         stop_hook_active: bool,
     },
+    PreCompact {
+        session_id: String,
+        cwd: String,
+    },
 }
 
 #[cfg(test)]
@@ -156,5 +160,16 @@ mod tests {
             }
             other => panic!("expected Stop, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn pre_compact_parses() {
+        let raw = r#"{
+            "hook_event_name": "PreCompact",
+            "session_id": "abc-123",
+            "cwd": "/w"
+        }"#;
+        let parsed: HookInput = serde_json::from_str(raw).unwrap();
+        matches!(parsed, HookInput::PreCompact { .. });
     }
 }
