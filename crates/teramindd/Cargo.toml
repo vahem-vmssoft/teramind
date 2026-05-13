@@ -28,6 +28,7 @@ tracing-appender   = { workspace = true }
 clap        = { workspace = true }
 time        = { workspace = true }
 uuid        = { workspace = true }
+async-trait = { workspace = true }
 toml        = "0.8"
 
 [dev-dependencies]
