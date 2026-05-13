@@ -28,6 +28,10 @@ impl IpcServer for DaemonIpcHandler {
             }),
             Request::Ping => Response::Pong,
             Request::Shutdown => Response::Ok,
+            Request::Search(_)
+            | Request::Recall(_)
+            | Request::AutoRecall(_)
+            | Request::SaveSkill(_) => Response::Error("not implemented".into()),
         }
     }
     async fn handle_notify(&self, n: Notify) {

@@ -5,6 +5,8 @@ pub mod session;
 pub mod skill;
 pub mod storage_stats;
 pub mod trace;
+pub mod search;
+pub use search::SearchRepo;
 
 pub use agent::AgentRepo;
 pub use diff::DiffRepo;
