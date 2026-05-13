@@ -1,0 +1,29 @@
+[package]
+name = "teramindd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "teramindd"
+path = "src/main.rs"
+
+[dependencies]
+teramind-core = { path = "../teramind-core" }
+teramind-ipc  = { path = "../teramind-ipc" }
+teramind-db   = { path = "../teramind-db" }
+tokio       = { workspace = true }
+anyhow      = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+thiserror   = { workspace = true }
+tracing     = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender   = { workspace = true }
+clap        = { workspace = true }
+time        = { workspace = true }
+uuid        = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

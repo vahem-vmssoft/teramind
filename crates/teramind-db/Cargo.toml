@@ -1,0 +1,23 @@
+[package]
+name = "teramind-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+teramind-core = { path = "../teramind-core" }
+sqlx        = { workspace = true }
+postgresql_embedded = { workspace = true }
+tokio       = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+thiserror   = { workspace = true }
+tracing     = { workspace = true }
+uuid        = { workspace = true }
+time        = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+anyhow   = { workspace = true }
