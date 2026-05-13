@@ -2,7 +2,7 @@
 
 pub mod error;
 pub mod ids;
-// pub mod redact;  // Task 13+ adds this
+pub mod redact;
 pub mod types;
 
 pub use error::Error;
