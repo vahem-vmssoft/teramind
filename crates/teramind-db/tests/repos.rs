@@ -111,3 +111,32 @@ async fn trace_repo_full_turn_lifecycle() {
 
     f.shutdown().await;
 }
+
+#[tokio::test]
+async fn diff_repo_inserts_a_file_diff() {
+    let f = Fixture::new().await;
+    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let agent = agents.upsert("claude_code", None).await.unwrap();
+    let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let now = time::OffsetDateTime::now_utc();
+    let session_id = sessions.insert(teramind_db::repos::session::NewSession {
+        agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
+        parent_session_id: None, git_head: None, git_branch: None,
+        os: "linux", hostname: "h", user_login: "u", started_at: now,
+    }).await.unwrap();
+    let diffs = teramind_db::repos::DiffRepo::new(f.pool.clone());
+    let id = diffs.insert(teramind_db::repos::diff::NewFileDiff {
+        turn_id: None,
+        session_id,
+        file_path: "/w/x.rs", rel_path: "x.rs",
+        attribution: teramind_core::types::file_diff::Attribution::Agent,
+        language: Some("rust"),
+        pre_excerpt: "a", post_excerpt: "b",
+        unified_diff: "--- a\n+++ b\n", pre_hash: [1u8;32], post_hash: [2u8;32],
+        byte_size: 1, captured_at: now,
+    }).await.unwrap();
+    let row: (i32,) = sqlx::query_as("SELECT byte_size FROM file_diffs WHERE id=$1")
+        .bind(id.0).fetch_one(f.pool.pg()).await.unwrap();
+    assert_eq!(row.0, 1);
+    f.shutdown().await;
+}
