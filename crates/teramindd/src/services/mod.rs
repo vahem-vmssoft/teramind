@@ -1,3 +1,4 @@
+pub mod grep_fallback;
 pub mod ingest;
 pub mod ipc_server;
 pub mod jsonl_writer;
