@@ -30,6 +30,12 @@ pub enum HookInput {
         #[serde(default)]
         is_error: bool,
     },
+    Stop {
+        session_id: String,
+        cwd: String,
+        #[serde(default)]
+        stop_hook_active: bool,
+    },
 }
 
 #[cfg(test)]
@@ -131,6 +137,24 @@ mod tests {
         match parsed {
             HookInput::PostToolUse { is_error, .. } => assert!(is_error),
             other => panic!("expected PostToolUse, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stop_final_parses() {
+        let raw = r#"{
+            "hook_event_name": "Stop",
+            "session_id": "abc-123",
+            "cwd": "/w",
+            "stop_hook_active": false
+        }"#;
+        let parsed: HookInput = serde_json::from_str(raw).unwrap();
+        match parsed {
+            HookInput::Stop { session_id, stop_hook_active, .. } => {
+                assert_eq!(session_id, "abc-123");
+                assert!(!stop_hook_active);
+            }
+            other => panic!("expected Stop, got {other:?}"),
         }
     }
 }
