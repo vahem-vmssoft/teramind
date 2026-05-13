@@ -110,10 +110,12 @@ fn redact_envelope(r: &Redactor, mut env: EventEnvelope) -> EventEnvelope {
             session_id,
             turn_ordinal,
             prompt,
+            turn_id,
         } => UserPrompt {
             session_id,
             turn_ordinal,
             prompt: r.apply(&prompt),
+            turn_id,
         },
         ToolCallStart {
             turn_id,
@@ -208,11 +210,18 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
             session_id,
             turn_ordinal,
             prompt,
+            turn_id,
         } => {
-            let _ = d
-                .trace
-                .upsert_turn(session_id, turn_ordinal, ts, Some(&prompt))
-                .await?;
+            let _ = match turn_id {
+                Some(tid) => d
+                    .trace
+                    .upsert_turn_with_id(tid, session_id, turn_ordinal, ts, Some(&prompt))
+                    .await?,
+                None => d
+                    .trace
+                    .upsert_turn(session_id, turn_ordinal, ts, Some(&prompt))
+                    .await?,
+            };
             d.sessions.touch(session_id, ts, None).await;
         }
         ToolCallStart { turn_id, tool_call_id, ordinal, name, input } => {

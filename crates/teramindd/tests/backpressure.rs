@@ -47,6 +47,7 @@ async fn ingest_drops_when_queue_is_saturated() {
                 session_id: sid,
                 turn_ordinal: i as i32,
                 prompt: format!("p{i}"),
+                turn_id: None,
             },
         };
         match svc.try_enqueue(env) {

@@ -25,6 +25,7 @@ async fn inbox_drainer_consumes_pending_files() {
                 session_id: sid,
                 turn_ordinal: i,
                 prompt: format!("p{i}"),
+                turn_id: None,
             },
         };
         let path = inbox.join(format!("{}.json", env.client_event_id.0));
@@ -102,6 +103,7 @@ async fn dead_letter_receives_unroutable_events() {
             session_id: teramind_core::ids::SessionId::new(),
             turn_ordinal: 0,
             prompt: "x".into(),
+            turn_id: None,
         },
     };
     svc.try_enqueue(env).unwrap();

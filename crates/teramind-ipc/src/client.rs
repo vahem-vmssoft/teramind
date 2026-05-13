@@ -67,6 +67,7 @@ mod tests {
                 session_id: SessionId::new(),
                 turn_ordinal: 0,
                 prompt: "hi".into(),
+                turn_id: None,
             },
         };
         client

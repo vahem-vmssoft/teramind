@@ -29,6 +29,8 @@ pub enum IngestEvent {
         session_id: SessionId,
         turn_ordinal: i32,
         prompt: String,
+        #[serde(default)]
+        turn_id: Option<TurnId>,
     },
     ToolCallStart {
         turn_id: TurnId,
@@ -73,6 +75,7 @@ mod tests {
                 session_id: SessionId::new(),
                 turn_ordinal: 0,
                 prompt: "hi".into(),
+                turn_id: None,
             },
         };
         let j = serde_json::to_string(&env).unwrap();

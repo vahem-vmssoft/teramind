@@ -81,6 +81,7 @@ mod tests {
                 session_id: SessionId::new(),
                 turn_ordinal: 0,
                 prompt: "x".into(),
+                turn_id: None,
             },
         };
         w.append(&env).await.unwrap();

@@ -41,7 +41,7 @@ mod tests {
             client_event_id: ClientEventId::new(),
             ts: OffsetDateTime::now_utc(),
             event: IngestEvent::UserPrompt {
-                session_id: SessionId::new(), turn_ordinal: 0, prompt: "x".into(),
+                session_id: SessionId::new(), turn_ordinal: 0, prompt: "x".into(), turn_id: None,
             },
         };
         let path = write_envelope(&env).unwrap();

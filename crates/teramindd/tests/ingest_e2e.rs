@@ -59,6 +59,7 @@ async fn ingest_session_start_then_user_prompt_writes_rows() {
             session_id,
             turn_ordinal: 0,
             prompt: "hi key=AKIAIOSFODNN7EXAMPLE end".into(),
+            turn_id: None,
         },
     })
     .unwrap();

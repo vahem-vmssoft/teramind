@@ -24,10 +24,13 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
         },
         HookInput::UserPromptSubmit { session_id, cwd: _, prompt } => {
             let ordinal = next_turn_ordinal(&session_id);
+            let sid_uuid = claude_session_to_uuid(&session_id);
+            let turn_id = claude_turn_to_uuid(sid_uuid, ordinal);
             IngestEvent::UserPrompt {
-                session_id: claude_session_to_uuid(&session_id),
+                session_id: sid_uuid,
                 turn_ordinal: ordinal,
                 prompt,
+                turn_id: Some(turn_id),
             }
         }
         HookInput::PreToolUse { session_id, cwd: _, tool_name, tool_input } => {
@@ -288,10 +291,11 @@ mod tests {
         };
         let env = translate(input).expect("must translate");
         match env.event {
-            IngestEvent::UserPrompt { session_id, turn_ordinal, prompt } => {
+            IngestEvent::UserPrompt { session_id, turn_ordinal, prompt, turn_id } => {
                 assert_eq!(session_id, claude_session_to_uuid(&sid));
                 assert_eq!(turn_ordinal, 0);
                 assert_eq!(prompt, "hello");
+                assert!(turn_id.is_some());
             }
             other => panic!("expected UserPrompt, got {other:?}"),
         }

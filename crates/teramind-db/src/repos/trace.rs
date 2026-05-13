@@ -32,6 +32,29 @@ impl TraceRepo {
         Ok(TurnId(r.0))
     }
 
+    /// Like `upsert_turn` but uses a caller-provided `TurnId` on insert (so the
+    /// hook's deterministic UUID derivation aligns with subsequent
+    /// `ToolCallStart` events that reference the same turn).
+    pub async fn upsert_turn_with_id(
+        &self,
+        id: TurnId,
+        session_id: SessionId,
+        ordinal: i32,
+        started_at: OffsetDateTime,
+        user_prompt: Option<&str>,
+    ) -> Result<TurnId> {
+        let r: (uuid::Uuid,) = sqlx::query_as(
+            r#"
+            INSERT INTO turns (id, session_id, ordinal, started_at, user_prompt)
+            VALUES ($1,$2,$3,$4,$5)
+            ON CONFLICT (session_id, ordinal) DO UPDATE SET user_prompt = COALESCE(EXCLUDED.user_prompt, turns.user_prompt)
+            RETURNING id
+            "#)
+            .bind(id.0).bind(session_id.0).bind(ordinal).bind(started_at).bind(user_prompt)
+            .fetch_one(self.pool.pg()).await?;
+        Ok(TurnId(r.0))
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub async fn finalize_turn(
         &self,
