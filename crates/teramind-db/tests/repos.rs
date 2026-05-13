@@ -39,3 +39,15 @@ async fn agent_repo_upserts_and_finds() {
     assert_eq!(found.id, a1.id);
     f.shutdown().await;
 }
+
+#[tokio::test]
+async fn project_repo_upserts_by_root_path() {
+    let f = Fixture::new().await;
+    let repo = teramind_db::repos::ProjectRepo::new(f.pool.clone());
+    let p1 = repo.upsert_by_root("/home/dev/x", Some("git@github.com:org/x.git"), None).await.unwrap();
+    let p2 = repo.upsert_by_root("/home/dev/x", None, Some("X")).await.unwrap();
+    assert_eq!(p1.id, p2.id);
+    assert_eq!(p2.git_remote.as_deref(), Some("git@github.com:org/x.git"));
+    assert_eq!(p2.display_name.as_deref(), Some("X"));
+    f.shutdown().await;
+}
