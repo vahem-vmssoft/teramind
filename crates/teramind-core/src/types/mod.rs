@@ -1,13 +1,19 @@
 pub mod agent;
 pub mod file_diff;
+pub mod hit;
 pub mod project;
 pub mod session;
+pub mod skill;
+pub mod storage_stats;
 pub mod tool_call;
 pub mod turn;
 
 pub use agent::Agent;
 pub use file_diff::{Attribution, FileDiff};
+pub use hit::Hit;
 pub use project::Project;
 pub use session::{Session, SessionEndReason};
+pub use skill::{Skill, SkillSource};
+pub use storage_stats::StorageStats;
 pub use tool_call::ToolCall;
 pub use turn::Turn;
