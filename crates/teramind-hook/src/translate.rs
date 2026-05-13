@@ -22,6 +22,14 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
             git_head: None,
             git_branch: None,
         },
+        HookInput::UserPromptSubmit { session_id, cwd: _, prompt } => {
+            let ordinal = next_turn_ordinal(&session_id);
+            IngestEvent::UserPrompt {
+                session_id: claude_session_to_uuid(&session_id),
+                turn_ordinal: ordinal,
+                prompt,
+            }
+        }
         _ => return None,
     };
     Some(EventEnvelope { client_event_id, ts, event })
@@ -40,6 +48,39 @@ fn hostname() -> Option<String> {
 
 fn whoami_login() -> Option<String> {
     std::env::var("USER").ok().or_else(|| std::env::var("USERNAME").ok())
+}
+
+use std::path::PathBuf;
+
+/// Atomically increment a per-session turn counter on disk.
+/// Returns the new (post-increment) ordinal, 0-indexed.
+fn next_turn_ordinal(session_id: &str) -> i32 {
+    let dir = teramind_state_dir().join("turns");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return 0;
+    }
+    let path: PathBuf = dir.join(format!("{session_id}.count"));
+    let current: i32 = std::fs::read_to_string(&path).ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(-1);
+    let next = current + 1;
+    let _ = std::fs::write(&path, next.to_string());
+    next
+}
+
+fn teramind_state_dir() -> PathBuf {
+    #[cfg(unix)] {
+        let home = std::env::var_os("HOME").map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/tmp"));
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from)
+            .unwrap_or_else(|| home.join(".local/share"))
+            .join("teramind")
+    }
+    #[cfg(windows)] {
+        std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Temp"))
+            .join("teramind")
+    }
 }
 
 /// Deterministically derive a `SessionId` UUID from Claude's session string.
@@ -63,6 +104,31 @@ mod tests {
         assert_eq!(a, b);
         let c = claude_session_to_uuid("different");
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn translates_user_prompt_with_ordinal() {
+        let sid = format!("test-up-{}", uuid::Uuid::new_v4());
+        let input = HookInput::UserPromptSubmit {
+            session_id: sid.clone(),
+            cwd: "/w".into(),
+            prompt: "hello".into(),
+        };
+        let env = translate(input).expect("must translate");
+        match env.event {
+            IngestEvent::UserPrompt { session_id, turn_ordinal, prompt } => {
+                assert_eq!(session_id, claude_session_to_uuid(&sid));
+                assert_eq!(turn_ordinal, 0);
+                assert_eq!(prompt, "hello");
+            }
+            other => panic!("expected UserPrompt, got {other:?}"),
+        }
+        let env2 = translate(HookInput::UserPromptSubmit {
+            session_id: sid, cwd: "/w".into(), prompt: "next".into(),
+        }).unwrap();
+        if let IngestEvent::UserPrompt { turn_ordinal, .. } = env2.event {
+            assert_eq!(turn_ordinal, 1);
+        }
     }
 
     #[test]
