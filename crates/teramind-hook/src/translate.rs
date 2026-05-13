@@ -44,6 +44,9 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 input: tool_input,
             }
         }
+        HookInput::PreCompact { session_id, cwd: _ } => {
+            IngestEvent::PreCompact { session_id: claude_session_to_uuid(&session_id) }
+        }
         HookInput::Stop { session_id, cwd: _, stop_hook_active } => {
             if stop_hook_active {
                 return None;
@@ -190,6 +193,13 @@ mod tests {
         assert_eq!(a, b);
         let c = claude_session_to_uuid("different");
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn translates_pre_compact() {
+        let input = HookInput::PreCompact { session_id: "abc-pc".into(), cwd: "/w".into() };
+        let env = translate(input).expect("must translate");
+        matches!(env.event, IngestEvent::PreCompact { .. });
     }
 
     #[test]
