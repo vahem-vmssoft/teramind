@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[lib]
+name = "teramindd"
+path = "src/lib.rs"
+
 [[bin]]
 name = "teramindd"
 path = "src/main.rs"
@@ -24,6 +28,7 @@ tracing-appender   = { workspace = true }
 clap        = { workspace = true }
 time        = { workspace = true }
 uuid        = { workspace = true }
+toml        = "0.8"
 
 [dev-dependencies]
 tempfile = { workspace = true }
