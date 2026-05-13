@@ -196,6 +196,11 @@ mod tests {
     }
 
     #[test]
+    fn other_input_returns_none() {
+        assert!(translate(HookInput::Other).is_none());
+    }
+
+    #[test]
     fn translates_pre_compact() {
         let input = HookInput::PreCompact { session_id: "abc-pc".into(), cwd: "/w".into() };
         let env = translate(input).expect("must translate");
