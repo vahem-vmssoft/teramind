@@ -43,7 +43,7 @@ pub struct Envelope {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "variant", rename_all = "snake_case")]
 pub enum Payload {
     Request(Request),
     Response(Response),

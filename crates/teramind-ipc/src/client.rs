@@ -11,16 +11,16 @@ pub trait IpcClient: Send + Sync {
     async fn notify(&mut self, n: Notify) -> Result<(), IpcError>;
 }
 
-pub struct StreamClient<S: AsyncRead + AsyncWrite + Unpin + Send> {
+pub struct StreamClient<S: AsyncRead + AsyncWrite + Unpin + Send + Sync> {
     stream: S,
 }
 
-impl<S: AsyncRead + AsyncWrite + Unpin + Send> StreamClient<S> {
+impl<S: AsyncRead + AsyncWrite + Unpin + Send + Sync> StreamClient<S> {
     pub fn new(stream: S) -> Self { Self { stream } }
 }
 
 #[async_trait]
-impl<S: AsyncRead + AsyncWrite + Unpin + Send> IpcClient for StreamClient<S> {
+impl<S: AsyncRead + AsyncWrite + Unpin + Send + Sync> IpcClient for StreamClient<S> {
     async fn request(&mut self, req: Request) -> Result<Response, IpcError> {
         let env = Envelope { id: Uuid::new_v4(), payload: Payload::Request(req) };
         write_frame(&mut self.stream, &env).await?;
