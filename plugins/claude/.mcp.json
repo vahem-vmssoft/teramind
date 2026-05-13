@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "teramind": {
+      "command": "@TERAMIND_MCP_BIN@",
+      "args": [],
+      "type": "stdio"
+    }
+  }
+}
