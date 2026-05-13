@@ -1,4 +1,4 @@
-use crate::proto::{Envelope, Payload, Request};
+use crate::proto::Envelope;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub async fn write_frame<W: AsyncWrite + Unpin>(w: &mut W, env: &Envelope) -> Result<(), crate::IpcError> {
@@ -25,6 +25,7 @@ pub async fn read_frame<R: AsyncRead + Unpin>(r: &mut R) -> Result<Envelope, cra
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proto::{Payload, Request};
     use tokio::io::duplex;
     use uuid::Uuid;
     #[tokio::test]

@@ -27,7 +27,7 @@ uuid        = { version = "1", features = ["v4", "serde"] }
 time        = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
 clap        = { version = "4", features = ["derive", "env"] }
 sqlx        = { version = "0.7", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "time", "json", "macros", "migrate"] }
-postgresql_embedded = { version = "0.16", features = ["blocking"] }
+postgresql_embedded = { version = "0.18", features = ["blocking"] }
 interprocess = { version = "2", features = ["tokio"] }
 notify      = "6"
 regex       = "1"
