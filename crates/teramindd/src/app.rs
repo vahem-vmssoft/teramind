@@ -79,6 +79,8 @@ impl App {
             started: Instant::now(),
             last_pg_bytes: 0.into(),
             last_jsonl_bytes: 0.into(),
+            search_repo: teramind_db::repos::SearchRepo::new(pool.clone()),
+            jsonl_dir: paths.raw_dir.clone(),
         });
         let listener = listen(&paths.socket_path)?;
         let h2 = handler.clone();

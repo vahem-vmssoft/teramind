@@ -1,7 +1,7 @@
 #![cfg(unix)]
 use std::sync::Arc;
 use teramind_core::redact::Redactor;
-use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
+use teramind_db::repos::{AgentRepo, DiffRepo, SearchRepo, SessionRepo, TraceRepo};
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_ipc::client::{IpcClient, StreamClient};
 use teramind_ipc::proto::{Request, Response};
@@ -42,6 +42,8 @@ async fn status_request_returns_status_report() {
         started: std::time::Instant::now(),
         last_pg_bytes: 0.into(),
         last_jsonl_bytes: 0.into(),
+        search_repo: SearchRepo::new(pool.clone()),
+        jsonl_dir: tmp.path().join("raw"),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

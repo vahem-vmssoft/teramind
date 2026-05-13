@@ -10,7 +10,7 @@ use teramindd::services::{
     jsonl_writer::JsonlWriter,
     session_manager::SessionManager,
 };
-use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
+use teramind_db::repos::{AgentRepo, DiffRepo, SearchRepo, SessionRepo, TraceRepo};
 use teramind_core::redact::Redactor;
 use tempfile::tempdir;
 
@@ -49,6 +49,8 @@ async fn hook_session_start_persists_to_postgres() {
         ingest: ingest.clone(), stats: stats.clone(),
         started: std::time::Instant::now(),
         last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
+        search_repo: SearchRepo::new(pool.clone()),
+        jsonl_dir: tmp.path().join("raw"),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -101,6 +103,8 @@ async fn hook_tool_call_lifecycle_persists() {
         ingest: ingest.clone(), stats: stats.clone(),
         started: std::time::Instant::now(),
         last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
+        search_repo: SearchRepo::new(pool.clone()),
+        jsonl_dir: tmp.path().join("raw"),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

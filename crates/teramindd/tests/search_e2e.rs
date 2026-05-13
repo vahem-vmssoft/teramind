@@ -67,3 +67,72 @@ async fn do_search_falls_back_to_grep_when_pg_dies() {
     assert!(out.degraded, "expected degraded result");
     assert!(!out.hits.is_empty(), "expected grep hit to come through");
 }
+
+#[tokio::test]
+async fn ipc_search_request_returns_search_results() {
+    use std::sync::Arc;
+    use teramind_core::redact::Redactor;
+    use teramind_ipc::client::{IpcClient, StreamClient};
+    use teramind_ipc::proto::{Request, Response};
+    use teramind_ipc::transport::{connect, listen};
+    use teramindd::services::ingest::{IngestService, IngestStats, IngestDeps};
+    use teramindd::services::jsonl_writer::JsonlWriter;
+    use teramindd::services::session_manager::SessionManager;
+    use teramindd::services::ipc_server::{DaemonIpcHandler, run_accept_loop};
+    use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo, SearchRepo};
+
+    let tmp = tempdir().unwrap();
+    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test").await.unwrap();
+    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
+    migrate::run(&pool).await.unwrap();
+
+    let agents = AgentRepo::new(pool.clone());
+    let agent = agents.upsert("claude_code", None).await.unwrap();
+    let sessions = SessionRepo::new(pool.clone());
+    let now = time::OffsetDateTime::now_utc();
+    let sid = sessions.insert(teramind_db::repos::session::NewSession {
+        agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
+        parent_session_id: None, git_head: None, git_branch: None,
+        os: "linux", hostname: "h", user_login: "u", started_at: now,
+    }).await.unwrap();
+    let trace = TraceRepo::new(pool.clone());
+    let turn = trace.upsert_turn(sid, 0, now, Some("kafka consumer lag")).await.unwrap();
+    trace.finalize_turn(turn, now, Some("the kafka consumer was behind"), None, None, None, None).await.unwrap();
+    sqlx::query("REFRESH MATERIALIZED VIEW traces_fts").execute(pool.pg()).await.unwrap();
+
+    let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
+    let stats = Arc::new(IngestStats::default());
+    let svc = IngestService::spawn(64, IngestDeps {
+        redactor: Arc::new(Redactor::with_default_rules()),
+        jsonl: jsonl.clone(), sessions: SessionManager::new(),
+        agents: AgentRepo::new(pool.clone()), session_repo: SessionRepo::new(pool.clone()),
+        trace: TraceRepo::new(pool.clone()), diffs: DiffRepo::new(pool.clone()),
+        stats: stats.clone(), dead_letter_dir: tmp.path().join("dl"),
+    });
+    let handler = Arc::new(DaemonIpcHandler {
+        ingest: Arc::new(svc), stats: stats.clone(),
+        started: std::time::Instant::now(),
+        last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
+        search_repo: SearchRepo::new(pool.clone()),
+        jsonl_dir: tmp.path().join("raw"),
+    });
+    let sock = tmp.path().join("t.sock");
+    let listener = listen(&sock).unwrap();
+    let h2 = handler.clone();
+    tokio::spawn(async move { let _ = run_accept_loop(listener, h2).await; });
+
+    let stream = connect(&sock).await.unwrap();
+    let mut client = StreamClient::new(stream);
+    let r = client.request(Request::Search(teramind_core::types::SearchRequest {
+        query: "kafka".into(), limit: 10,
+    })).await.unwrap();
+    match r {
+        Response::SearchResults(sr) => {
+            assert!(!sr.hits.is_empty(), "expected at least one hit");
+            assert!(!sr.degraded);
+        }
+        other => panic!("unexpected response: {other:?}"),
+    }
+
+    sup.shutdown().await.unwrap();
+}

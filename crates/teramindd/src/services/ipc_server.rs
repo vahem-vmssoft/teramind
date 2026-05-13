@@ -12,6 +12,8 @@ pub struct DaemonIpcHandler {
     pub started: Instant,
     pub last_pg_bytes: std::sync::atomic::AtomicI64,
     pub last_jsonl_bytes: std::sync::atomic::AtomicI64,
+    pub search_repo: teramind_db::repos::SearchRepo,
+    pub jsonl_dir: std::path::PathBuf,
 }
 
 #[async_trait]
@@ -28,10 +30,32 @@ impl IpcServer for DaemonIpcHandler {
             }),
             Request::Ping => Response::Pong,
             Request::Shutdown => Response::Ok,
-            Request::Search(_)
-            | Request::Recall(_)
-            | Request::AutoRecall(_)
-            | Request::SaveSkill(_) => Response::Error("not implemented".into()),
+            Request::Search(r) => {
+                let out = crate::services::search::do_search_with_fallback(&self.search_repo, &self.jsonl_dir, &r).await;
+                Response::SearchResults(teramind_core::types::SearchResults {
+                    hits: out.hits, degraded: out.degraded, took_ms: out.took_ms,
+                })
+            }
+            Request::Recall(r) => {
+                match crate::services::search::do_recall(&self.search_repo, &r).await {
+                    Ok(out) => Response::SearchResults(teramind_core::types::SearchResults {
+                        hits: out.hits, degraded: out.degraded, took_ms: out.took_ms,
+                    }),
+                    Err(e) => Response::Error(format!("recall failed: {e}")),
+                }
+            }
+            Request::AutoRecall(r) => {
+                match crate::services::search::do_auto_recall(&self.search_repo, &r).await {
+                    Ok(md) => Response::AutoRecallDigest { markdown: md, degraded: false },
+                    Err(_) => Response::AutoRecallDigest { markdown: String::new(), degraded: true },
+                }
+            }
+            Request::SaveSkill(r) => {
+                match self.search_repo.upsert_skill(&r).await {
+                    Ok(s) => Response::SkillRef(s),
+                    Err(e) => Response::Error(format!("save_skill failed: {e}")),
+                }
+            }
         }
     }
     async fn handle_notify(&self, n: Notify) {
