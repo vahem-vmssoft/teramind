@@ -30,3 +30,12 @@ fn slack_token_is_redacted() {
     assert!(!out.contains(s));
     assert!(out.contains("«redacted:slack_token»"));
 }
+
+#[test]
+fn jwt_is_redacted() {
+    let r = Redactor::with_default_rules();
+    let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1MSJ9.ZmFrZXNpZ25hdHVyZQ";
+    let out = r.apply(jwt);
+    assert!(!out.contains(jwt));
+    assert!(out.contains("«redacted:jwt»"));
+}
