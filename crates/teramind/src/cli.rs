@@ -38,6 +38,20 @@ pub enum Command {
         #[command(subcommand)]
         action: ClaudeAction,
     },
+    /// Search prior traces and skills.
+    Search {
+        /// The query text.
+        query: String,
+        /// Maximum hits to return.
+        #[arg(short, long, default_value = "10")]
+        limit: u32,
+        /// Output as JSON instead of pretty text.
+        #[arg(long)]
+        json: bool,
+        /// Force the grep fallback path.
+        #[arg(long)]
+        grep: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]

@@ -22,5 +22,7 @@ async fn main() -> anyhow::Result<()> {
             cli::ClaudeAction::Install   => commands::claude::install().await,
             cli::ClaudeAction::Uninstall => commands::claude::uninstall().await,
         },
+        Command::Search { query, limit, json, grep } =>
+            commands::search::run(query, limit, json, grep).await,
     }
 }
