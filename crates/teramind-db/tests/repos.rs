@@ -140,3 +140,26 @@ async fn diff_repo_inserts_a_file_diff() {
     assert_eq!(row.0, 1);
     f.shutdown().await;
 }
+
+#[tokio::test]
+async fn skill_repo_upserts_authored() {
+    let f = Fixture::new().await;
+    let r = teramind_db::repos::SkillRepo::new(f.pool.clone());
+    let id1 = r.upsert_authored("k", "d", "b1").await.unwrap();
+    let id2 = r.upsert_authored("k", "d", "b2").await.unwrap();
+    assert_eq!(id1, id2);
+    let (body,): (String,) = sqlx::query_as("SELECT body FROM skills WHERE id=$1").bind(id1.0).fetch_one(f.pool.pg()).await.unwrap();
+    assert_eq!(body, "b2");
+    f.shutdown().await;
+}
+
+#[tokio::test]
+async fn storage_stats_repo_inserts_and_counts() {
+    let f = Fixture::new().await;
+    let r = teramind_db::repos::StorageStatsRepo::new(f.pool.clone());
+    r.insert(teramind_db::repos::storage_stats::Sample {
+        pg_bytes: 100, jsonl_bytes: 200, session_count: 0, turn_count: 0, diff_count: 0
+    }).await.unwrap();
+    assert_eq!(r.count_sessions().await.unwrap(), 0);
+    f.shutdown().await;
+}
