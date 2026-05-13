@@ -44,6 +44,15 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 input: tool_input,
             }
         }
+        HookInput::Stop { session_id, cwd: _, stop_hook_active } => {
+            if stop_hook_active {
+                return None;
+            }
+            IngestEvent::SessionEnd {
+                session_id: claude_session_to_uuid(&session_id),
+                reason: "stop_hook".to_string(),
+            }
+        }
         HookInput::PostToolUse { session_id, cwd: _, tool_name: _, tool_input: _, tool_response, is_error } => {
             let sid_uuid = claude_session_to_uuid(&session_id);
             let turn_ord = current_turn_ordinal(&session_id);
@@ -181,6 +190,27 @@ mod tests {
         assert_eq!(a, b);
         let c = claude_session_to_uuid("different");
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn translates_stop_final_to_session_end() {
+        let input = HookInput::Stop {
+            session_id: "abc-stop".into(),
+            cwd: "/w".into(),
+            stop_hook_active: false,
+        };
+        let env = translate(input).expect("must translate");
+        matches!(env.event, IngestEvent::SessionEnd { .. });
+    }
+
+    #[test]
+    fn translates_stop_inner_to_none() {
+        let input = HookInput::Stop {
+            session_id: "abc-stop".into(),
+            cwd: "/w".into(),
+            stop_hook_active: true,
+        };
+        assert!(translate(input).is_none());
     }
 
     #[test]
