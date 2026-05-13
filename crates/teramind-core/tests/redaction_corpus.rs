@@ -39,3 +39,12 @@ fn jwt_is_redacted() {
     assert!(!out.contains(jwt));
     assert!(out.contains("«redacted:jwt»"));
 }
+
+#[test]
+fn pem_private_key_is_redacted() {
+    let r = Redactor::with_default_rules();
+    let pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAKj...==\n-----END RSA PRIVATE KEY-----";
+    let out = r.apply(pem);
+    assert!(!out.contains("MIIBOgIBAAJBAKj"));
+    assert!(out.contains("«redacted:pem_private_key»"));
+}
