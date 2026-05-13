@@ -58,3 +58,13 @@ fn password_kv_is_redacted() {
         assert!(!out.contains("correcthorsebatterystaple"));
     }
 }
+
+#[test]
+fn env_key_allowlist_is_redacted() {
+    let r = Redactor::with_default_rules();
+    for s in ["API_SECRET=abcdef ", "MY_TOKEN=xyz123 ", "DB_PASSWORD=p", "FOO_CREDENTIAL=bar", "X_KEY=val"] {
+        let out = r.apply(s);
+        let val = s.split('=').nth(1).unwrap().split_whitespace().next().unwrap();
+        assert!(!out.contains(val), "leaked: {s} -> {out}");
+    }
+}

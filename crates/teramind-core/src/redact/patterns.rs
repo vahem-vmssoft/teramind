@@ -12,4 +12,5 @@ pub const PATTERNS: &[Pattern] = &[
     Pattern { name: "jwt",            regex: r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+" },
     Pattern { name: "pem_private_key", regex: r"(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----" },
     Pattern { name: "password_kv", regex: r"(?i)\b(?:password|pwd)\s*=\s*\S+" },
+    Pattern { name: "env_secret", regex: r"(?i)\b[A-Z_][A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL)\s*=\s*\S+" },
 ];
