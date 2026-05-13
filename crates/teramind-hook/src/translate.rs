@@ -42,6 +42,19 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 input: tool_input,
             }
         }
+        HookInput::PostToolUse { session_id, cwd: _, tool_name: _, tool_input: _, tool_response, is_error } => {
+            let sid_uuid = claude_session_to_uuid(&session_id);
+            let turn_ord = current_turn_ordinal(&session_id);
+            let turn_id = claude_turn_to_uuid(sid_uuid, turn_ord);
+            let tool_ord = current_tool_ordinal(&session_id, turn_ord);
+            let tool_call_id = claude_tool_call_to_uuid(turn_id, tool_ord);
+            IngestEvent::ToolCallEnd {
+                tool_call_id,
+                output: tool_response.unwrap_or_default(),
+                is_error,
+                duration_ms: 0,
+            }
+        }
         _ => return None,
     };
     Some(EventEnvelope { client_event_id, ts, event })
@@ -98,6 +111,24 @@ fn current_turn_ordinal(session_id: &str) -> i32 {
         .unwrap_or(0)
 }
 
+pub fn claude_tool_call_to_uuid(turn_id: TurnId, tool_ordinal: i32) -> ToolCallId {
+    const NAMESPACE: Uuid = Uuid::from_bytes([
+        0xc1, 0xd2, 0xe3, 0xf4, 0x05, 0x16, 0x27, 0x38,
+        0x49, 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0xaf, 0xb0,
+    ]);
+    let mut bytes = [0u8; 20];
+    bytes[..16].copy_from_slice(turn_id.0.as_bytes());
+    bytes[16..].copy_from_slice(&tool_ordinal.to_be_bytes());
+    ToolCallId(Uuid::new_v5(&NAMESPACE, &bytes))
+}
+
+fn current_tool_ordinal(session_id: &str, turn_ordinal: i32) -> i32 {
+    let path = teramind_state_dir().join("tools").join(format!("{session_id}-{turn_ordinal}.count"));
+    std::fs::read_to_string(&path).ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0)
+}
+
 fn next_tool_ordinal(session_id: &str, turn_ordinal: i32) -> i32 {
     let dir = teramind_state_dir().join("tools");
     if std::fs::create_dir_all(&dir).is_err() {
@@ -148,6 +179,33 @@ mod tests {
         assert_eq!(a, b);
         let c = claude_session_to_uuid("different");
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn translates_post_tool_use() {
+        let sid = format!("test-post-{}", uuid::Uuid::new_v4());
+        let _ = next_turn_ordinal(&sid);
+        let _ = next_tool_ordinal(&sid, 0);
+        let input = HookInput::PostToolUse {
+            session_id: sid.clone(),
+            cwd: "/w".into(),
+            tool_name: "Edit".into(),
+            tool_input: serde_json::json!({}),
+            tool_response: Some("ok".into()),
+            is_error: false,
+        };
+        let env = translate(input).expect("must translate");
+        match env.event {
+            IngestEvent::ToolCallEnd { tool_call_id, output, is_error, duration_ms } => {
+                let expected_turn = claude_turn_to_uuid(claude_session_to_uuid(&sid), 0);
+                let expected_tc = claude_tool_call_to_uuid(expected_turn, 0);
+                assert_eq!(tool_call_id, expected_tc);
+                assert_eq!(output, "ok");
+                assert_eq!(is_error, false);
+                assert_eq!(duration_ms, 0);
+            }
+            other => panic!("expected ToolCallEnd, got {other:?}"),
+        }
     }
 
     #[test]
