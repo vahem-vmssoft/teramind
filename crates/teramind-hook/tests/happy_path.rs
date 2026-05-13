@@ -75,3 +75,75 @@ async fn hook_session_start_persists_to_postgres() {
 
     sup.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn hook_tool_call_lifecycle_persists() {
+    let _ = Command::new("cargo").args(["build", "-p", "teramind-hook"]).status();
+    let tmp = tempdir().unwrap();
+    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test").await.unwrap();
+    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
+    migrate::run(&pool).await.unwrap();
+
+    let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
+    let stats = Arc::new(IngestStats::default());
+    let ingest = Arc::new(IngestService::spawn(64, IngestDeps {
+        redactor: Arc::new(Redactor::with_default_rules()),
+        jsonl: jsonl.clone(),
+        sessions: SessionManager::new(),
+        agents: AgentRepo::new(pool.clone()),
+        session_repo: SessionRepo::new(pool.clone()),
+        trace: TraceRepo::new(pool.clone()),
+        diffs: DiffRepo::new(pool.clone()),
+        stats: stats.clone(),
+        dead_letter_dir: tmp.path().join("dl"),
+    }));
+    let handler = Arc::new(DaemonIpcHandler {
+        ingest: ingest.clone(), stats: stats.clone(),
+        started: std::time::Instant::now(),
+        last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
+    });
+    let sock = tmp.path().join("t.sock");
+    let listener = listen(&sock).unwrap();
+    let h2 = handler.clone();
+    tokio::spawn(async move { let _ = run_accept_loop(listener, h2).await; });
+
+    let hook = cargo_bin("teramind-hook");
+    let sid = format!("tc-{}", uuid::Uuid::new_v4());
+    let tmp_state = tempdir().unwrap();
+    let payloads = vec![
+        format!(r#"{{"hook_event_name":"SessionStart","session_id":"{sid}","cwd":"/w","source":"startup"}}"#),
+        format!(r#"{{"hook_event_name":"UserPromptSubmit","session_id":"{sid}","cwd":"/w","prompt":"do it"}}"#),
+        format!(r#"{{"hook_event_name":"PreToolUse","session_id":"{sid}","cwd":"/w","tool_name":"Edit","tool_input":{{"file_path":"/w/x.rs"}}}}"#),
+        format!(r#"{{"hook_event_name":"PostToolUse","session_id":"{sid}","cwd":"/w","tool_name":"Edit","tool_input":{{"file_path":"/w/x.rs"}},"tool_response":"ok"}}"#),
+    ];
+
+    for p in &payloads {
+        let mut child = Command::new(&hook)
+            .env("TERAMIND_SOCKET", sock.to_string_lossy().to_string())
+            .env("TERAMIND_HOOK_NO_SPAWN", "1")
+            .env("XDG_DATA_HOME", tmp_state.path())
+            .stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null())
+            .spawn().unwrap();
+        child.stdin.as_mut().unwrap().write_all(p.as_bytes()).unwrap();
+        assert!(child.wait().unwrap().success());
+    }
+
+    tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+
+    let session_uuid = teramind_hook::translate::claude_session_to_uuid(&sid).0;
+
+    let (s_count,): (i64,) = sqlx::query_as("SELECT count(*) FROM sessions WHERE id=$1")
+        .bind(session_uuid).fetch_one(pool.pg()).await.unwrap();
+    assert_eq!(s_count, 1);
+
+    let (t_count,): (i64,) = sqlx::query_as("SELECT count(*) FROM turns WHERE session_id=$1")
+        .bind(session_uuid).fetch_one(pool.pg()).await.unwrap();
+    assert_eq!(t_count, 1);
+
+    let (tc_count,): (i64,) = sqlx::query_as(
+        "SELECT count(*) FROM tool_calls tc JOIN turns t ON tc.turn_id=t.id WHERE t.session_id=$1 AND tc.name='Edit' AND tc.output='ok'")
+        .bind(session_uuid).fetch_one(pool.pg()).await.unwrap();
+    assert_eq!(tc_count, 1);
+
+    sup.shutdown().await.unwrap();
+}
