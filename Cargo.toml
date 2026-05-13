@@ -6,6 +6,7 @@ members = [
     "crates/teramind-db",
     "crates/teramindd",
     "crates/teramind",
+    "crates/teramind-hook",
 ]
 
 [workspace.package]
