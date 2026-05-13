@@ -1,5 +1,6 @@
-fn main() {
-    // Real entrypoint is wired in Task 36.
-    eprintln!("teramindd: not yet implemented");
-    std::process::exit(2);
+use teramindd::app::App;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    App::run().await
 }
