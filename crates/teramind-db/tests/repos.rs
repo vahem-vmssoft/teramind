@@ -51,3 +51,34 @@ async fn project_repo_upserts_by_root_path() {
     assert_eq!(p2.display_name.as_deref(), Some("X"));
     f.shutdown().await;
 }
+
+#[tokio::test]
+async fn session_repo_inserts_and_ends() {
+    let f = Fixture::new().await;
+    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let agent = agents.upsert("claude_code", Some("0.1.0")).await.unwrap();
+    let repo = teramind_db::repos::SessionRepo::new(f.pool.clone());
+
+    let now = time::OffsetDateTime::now_utc();
+    let id = repo.insert(teramind_db::repos::session::NewSession {
+        agent_id: agent.id,
+        agent_session_id: Some("abc"),
+        cwd: "/work",
+        project_id: None,
+        parent_session_id: None,
+        git_head: None, git_branch: None,
+        os: "linux", hostname: "h", user_login: "u",
+        started_at: now,
+    }).await.unwrap();
+
+    repo.end(id, now + time::Duration::seconds(60), "stop_hook").await.unwrap();
+
+    let (ended_at, end_reason): (Option<time::OffsetDateTime>, Option<String>) = sqlx::query_as(
+        "SELECT ended_at, end_reason FROM sessions WHERE id=$1")
+        .bind(id.0)
+        .fetch_one(f.pool.pg()).await.unwrap();
+    assert!(ended_at.is_some());
+    assert_eq!(end_reason.as_deref(), Some("stop_hook"));
+
+    f.shutdown().await;
+}
