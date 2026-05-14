@@ -164,6 +164,33 @@ fn redact_envelope(r: &Redactor, mut env: EventEnvelope) -> EventEnvelope {
             input_tokens,
             output_tokens,
         },
+        FileDiff {
+            session_id,
+            turn_id,
+            file_path,
+            rel_path,
+            attribution,
+            language,
+            pre_excerpt,
+            post_excerpt,
+            unified_diff,
+            pre_hash,
+            post_hash,
+            byte_size,
+        } => FileDiff {
+            session_id,
+            turn_id,
+            file_path,
+            rel_path,
+            attribution,
+            language,
+            pre_excerpt: r.apply(&pre_excerpt),
+            post_excerpt: r.apply(&post_excerpt),
+            unified_diff: r.apply(&unified_diff),
+            pre_hash,
+            post_hash,
+            byte_size,
+        },
         other => other,
     };
     env
@@ -296,8 +323,40 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
                 )
                 .await?;
         }
-        // FileDiff routing is implemented in Section 7 of Plan D.
-        FileDiff { .. } => {}
+        FileDiff {
+            session_id,
+            turn_id,
+            file_path,
+            rel_path,
+            attribution,
+            language,
+            pre_excerpt,
+            post_excerpt,
+            unified_diff,
+            pre_hash,
+            post_hash,
+            byte_size,
+        } => {
+            use teramind_db::repos::diff::NewFileDiff;
+            d.diffs
+                .insert(NewFileDiff {
+                    turn_id,
+                    session_id,
+                    file_path: &file_path,
+                    rel_path: &rel_path,
+                    attribution,
+                    language: language.as_deref(),
+                    pre_excerpt: &pre_excerpt,
+                    post_excerpt: &post_excerpt,
+                    unified_diff: &unified_diff,
+                    pre_hash,
+                    post_hash,
+                    byte_size,
+                    captured_at: ts,
+                })
+                .await?;
+            d.sessions.touch(session_id, ts, turn_id).await;
+        }
     }
     Ok(())
 }
