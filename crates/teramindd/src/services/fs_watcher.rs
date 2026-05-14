@@ -105,6 +105,40 @@ impl WatchRegistry {
     }
 }
 
+/// Per-(cwd, abs_path) debouncer. Each incoming event for a given key
+/// aborts the previous pending timer so only the *last* event in a
+/// `quiet` window is emitted downstream.
+pub struct Debouncer {
+    in_tx: mpsc::UnboundedSender<RawEvent>,
+}
+
+impl Debouncer {
+    pub fn start(quiet: Duration, out_tx: mpsc::UnboundedSender<RawEvent>) -> Self {
+        let (in_tx, mut in_rx) = mpsc::unbounded_channel::<RawEvent>();
+        tokio::spawn(async move {
+            type Key = (PathBuf, PathBuf);
+            let mut timers: HashMap<Key, tokio::task::JoinHandle<()>> = HashMap::new();
+            while let Some(ev) = in_rx.recv().await {
+                let key = (ev.cwd.clone(), ev.abs_path.clone());
+                if let Some(h) = timers.remove(&key) {
+                    h.abort();
+                }
+                let out = out_tx.clone();
+                let handle = tokio::spawn(async move {
+                    tokio::time::sleep(quiet).await;
+                    let _ = out.send(ev);
+                });
+                timers.insert(key, handle);
+            }
+        });
+        Self { in_tx }
+    }
+
+    pub async fn enqueue(&self, ev: RawEvent) {
+        let _ = self.in_tx.send(ev);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +188,27 @@ mod tests {
         let evt = tokio::time::timeout(Duration::from_secs(2), rx.recv())
             .await.expect("timed out").expect("channel closed");
         assert!(evt.abs_path.ends_with("a.rs"), "got {:?}", evt.abs_path);
+    }
+
+    #[tokio::test]
+    async fn debouncer_coalesces_rapid_events() {
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<RawEvent>();
+        let deb = Debouncer::start(Duration::from_millis(80), out_tx);
+
+        let cwd = PathBuf::from("/p");
+        let p = PathBuf::from("/p/a.rs");
+        let now = OffsetDateTime::now_utc();
+        for _ in 0..5 {
+            deb.enqueue(RawEvent { cwd: cwd.clone(), abs_path: p.clone(), at: now }).await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        // After the 80ms quiet period we should get exactly one resolved event.
+        let first = tokio::time::timeout(Duration::from_millis(500), out_rx.recv())
+            .await.expect("timeout").unwrap();
+        assert_eq!(first.abs_path, p);
+
+        // No additional events expected.
+        let extra = tokio::time::timeout(Duration::from_millis(150), out_rx.recv()).await;
+        assert!(extra.is_err(), "expected no further events, got {:?}", extra.unwrap());
     }
 }
