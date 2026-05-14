@@ -50,6 +50,23 @@ impl SnapshotCache {
     }
 }
 
+use std::path::Path;
+
+/// Resolve pre-content for (cwd, rel_path) using cache -> git index -> empty string.
+pub async fn resolve_pre_content(
+    cache: &SnapshotCache,
+    cwd: &Path,
+    rel_path: &str,
+) -> String {
+    if let Some(s) = cache.get(&cwd.to_path_buf(), rel_path).await {
+        return s;
+    }
+    if let Some(s) = crate::services::git_index::show_index(cwd, rel_path).await {
+        return s;
+    }
+    String::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,5 +93,22 @@ mod tests {
         assert_eq!(c.len().await, 1);
         assert!(c.get(&cwd, "a").await.is_none());
         assert_eq!(c.get(&cwd, "b").await.as_deref(), Some("y"));
+    }
+
+    #[tokio::test]
+    async fn resolve_pre_content_returns_cache_first() {
+        let c = SnapshotCache::new(time::Duration::seconds(60));
+        let cwd = PathBuf::from("/nonexistent-no-git");
+        c.put(cwd.clone(), "a.rs".into(), "CACHED".into()).await;
+        let s = resolve_pre_content(&c, &cwd, "a.rs").await;
+        assert_eq!(s, "CACHED");
+    }
+
+    #[tokio::test]
+    async fn resolve_pre_content_falls_back_to_empty_string_when_no_git() {
+        let c = SnapshotCache::new(time::Duration::seconds(60));
+        let dir = tempfile::tempdir().unwrap();
+        let s = resolve_pre_content(&c, &dir.path().to_path_buf(), "ghost.rs").await;
+        assert_eq!(s, "");
     }
 }
