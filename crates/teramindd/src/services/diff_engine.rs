@@ -2,6 +2,24 @@
 
 use std::path::Path;
 use sha2::{Digest, Sha256};
+use similar::TextDiff;
+
+/// Produce a unified diff string in `git diff --no-index` style.
+/// Header uses `a/<rel>` and `b/<rel>` to match standard parsers.
+/// Returns the empty string when `pre == post`.
+pub fn unified_diff(pre: &str, post: &str, rel_path: &str) -> String {
+    if pre == post {
+        return String::new();
+    }
+    let diff = TextDiff::from_lines(pre, post);
+    let mut out = String::new();
+    out.push_str(&format!("--- a/{rel_path}\n"));
+    out.push_str(&format!("+++ b/{rel_path}\n"));
+    for hunk in diff.unified_diff().context_radius(3).iter_hunks() {
+        out.push_str(&hunk.to_string());
+    }
+    out
+}
 
 /// SHA-256 of arbitrary bytes, returned as a fixed-size 32-byte array
 /// to match the `file_diffs.pre_hash` / `post_hash` columns.
@@ -73,5 +91,22 @@ mod tests {
         // Known-answer test:
         let expected = hex::decode("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824").unwrap();
         assert_eq!(&h1[..], expected.as_slice());
+    }
+
+    #[test]
+    fn unified_diff_emits_hunks_for_changed_text() {
+        let pre = "line1\nline2\nline3\n";
+        let post = "line1\nLINE TWO\nline3\n";
+        let diff = unified_diff(pre, post, "foo.txt");
+        assert!(diff.contains("--- a/foo.txt"), "diff: {diff}");
+        assert!(diff.contains("+++ b/foo.txt"));
+        assert!(diff.contains("-line2"));
+        assert!(diff.contains("+LINE TWO"));
+    }
+
+    #[test]
+    fn unified_diff_empty_when_identical() {
+        let s = "same\n";
+        assert!(unified_diff(s, s, "x").is_empty());
     }
 }
