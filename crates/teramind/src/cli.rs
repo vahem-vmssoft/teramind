@@ -52,6 +52,15 @@ pub enum Command {
         #[arg(long)]
         grep: bool,
     },
+    /// Uninstall the Teramind binaries. With --purge, also remove data + config.
+    Uninstall {
+        /// Also remove `~/.local/share/teramind/` and `~/.config/teramind/`.
+        #[arg(long)]
+        purge: bool,
+        /// Skip the interactive confirmation.
+        #[arg(long)]
+        confirm: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
