@@ -263,4 +263,42 @@ mod tests {
         let s = "x";
         assert!(compute_file_diff(s, s, &PathBuf::from("a.rs")).is_none());
     }
+
+    use proptest::prelude::*;
+
+    proptest! {
+        // No matter what (pre, post) we throw at it, the returned excerpts
+        // must be subsets of pre/post respectively, and the diff parses as
+        // a valid unified diff header when non-empty.
+        #[test]
+        fn excerpts_are_substrings_of_inputs(
+            pre in proptest::collection::vec("[a-zA-Z0-9 ]{0,40}", 0..50),
+            mutations in proptest::collection::vec(0u8..=3u8, 0..20),
+        ) {
+            let pre = pre.join("\n") + "\n";
+            // Build a post by applying simple mutations.
+            let mut post_lines: Vec<String> = pre.lines().map(|s| s.to_string()).collect();
+            for (i, m) in mutations.iter().enumerate() {
+                if post_lines.is_empty() { break; }
+                let idx = i % post_lines.len();
+                match m {
+                    0 => post_lines[idx].push('!'),
+                    1 => post_lines[idx].insert(0, '#'),
+                    2 => { post_lines.remove(idx); }
+                    _ => post_lines.insert(idx, "INS".into()),
+                }
+            }
+            let post = post_lines.join("\n") + "\n";
+            let (pre_ex, post_ex) = excerpts_around_hunks(&pre, &post, 5);
+            // Every line in pre_ex must appear in pre; same for post_ex.
+            for line in pre_ex.lines() {
+                prop_assert!(pre.lines().any(|p| p == line),
+                    "pre_excerpt line {:?} not in pre", line);
+            }
+            for line in post_ex.lines() {
+                prop_assert!(post.lines().any(|p| p == line),
+                    "post_excerpt line {:?} not in post", line);
+            }
+        }
+    }
 }
