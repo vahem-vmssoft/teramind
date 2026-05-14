@@ -34,6 +34,7 @@ pub struct IngestDeps {
     pub stats: Arc<IngestStats>,
     pub dead_letter_dir: std::path::PathBuf,
     pub write_tool_ring: crate::services::write_tool_ring::WriteToolRing,
+    pub fs_registry: std::sync::Arc<crate::services::fs_watcher::WatchRegistry>,
 }
 
 impl IngestService {

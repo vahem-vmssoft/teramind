@@ -34,6 +34,13 @@ async fn hook_session_start_persists_to_postgres() {
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
+    let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
+    let registry = std::sync::Arc::new(
+        teramindd::services::fs_watcher::WatchRegistry::new(
+            raw_tx,
+            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        ),
+    );
     let ingest = Arc::new(IngestService::spawn(64, IngestDeps {
         redactor: Arc::new(Redactor::with_default_rules()),
         jsonl: jsonl.clone(),
@@ -44,6 +51,11 @@ async fn hook_session_start_persists_to_postgres() {
         diffs: DiffRepo::new(pool.clone()),
         stats: stats.clone(),
         dead_letter_dir: tmp.path().join("dl"),
+        write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+            64,
+            time::Duration::seconds(5),
+        ),
+        fs_registry: registry,
     }));
     let handler = Arc::new(DaemonIpcHandler {
         ingest: ingest.clone(), stats: stats.clone(),
@@ -88,6 +100,13 @@ async fn hook_tool_call_lifecycle_persists() {
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
+    let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
+    let registry = std::sync::Arc::new(
+        teramindd::services::fs_watcher::WatchRegistry::new(
+            raw_tx,
+            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        ),
+    );
     let ingest = Arc::new(IngestService::spawn(64, IngestDeps {
         redactor: Arc::new(Redactor::with_default_rules()),
         jsonl: jsonl.clone(),
@@ -98,6 +117,11 @@ async fn hook_tool_call_lifecycle_persists() {
         diffs: DiffRepo::new(pool.clone()),
         stats: stats.clone(),
         dead_letter_dir: tmp.path().join("dl"),
+        write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+            64,
+            time::Duration::seconds(5),
+        ),
+        fs_registry: registry,
     }));
     let handler = Arc::new(DaemonIpcHandler {
         ingest: ingest.clone(), stats: stats.clone(),
@@ -178,12 +202,24 @@ async fn hook_session_start_emits_auto_recall_digest() {
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
+    let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
+    let registry = std::sync::Arc::new(
+        teramindd::services::fs_watcher::WatchRegistry::new(
+            raw_tx,
+            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        ),
+    );
     let ingest = Arc::new(IngestService::spawn(64, IngestDeps {
         redactor: Arc::new(Redactor::with_default_rules()),
         jsonl: jsonl.clone(), sessions: SessionManager::new(),
         agents: AgentRepo::new(pool.clone()), session_repo: SessionRepo::new(pool.clone()),
         trace: TraceRepo::new(pool.clone()), diffs: DiffRepo::new(pool.clone()),
         stats: stats.clone(), dead_letter_dir: tmp.path().join("dl"),
+        write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+            64,
+            time::Duration::seconds(5),
+        ),
+        fs_registry: registry,
     }));
     let handler = Arc::new(DaemonIpcHandler {
         ingest: ingest.clone(), stats: stats.clone(),

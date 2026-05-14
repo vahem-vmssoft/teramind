@@ -23,6 +23,13 @@ async fn status_request_returns_status_report() {
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
+    let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
+    let registry = std::sync::Arc::new(
+        teramindd::services::fs_watcher::WatchRegistry::new(
+            raw_tx,
+            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        ),
+    );
     let svc = IngestService::spawn(
         64,
         IngestDeps {
@@ -39,6 +46,7 @@ async fn status_request_returns_status_report() {
                 64,
                 time::Duration::seconds(5),
             ),
+            fs_registry: registry,
         },
     );
     let handler = Arc::new(DaemonIpcHandler {

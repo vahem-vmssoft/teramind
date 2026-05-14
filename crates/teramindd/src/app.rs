@@ -50,6 +50,24 @@ impl App {
             64,
             time::Duration::seconds(5),
         );
+
+        // FS watcher pipeline: raw -> debounced -> resolved -> handle_event
+        let (raw_tx, mut raw_rx) =
+            tokio::sync::mpsc::unbounded_channel::<crate::services::fs_watcher::RawEvent>();
+        let (resolved_tx, resolved_rx) =
+            tokio::sync::mpsc::unbounded_channel::<crate::services::fs_watcher::RawEvent>();
+        let debouncer = std::sync::Arc::new(
+            crate::services::fs_watcher::Debouncer::start(
+                std::time::Duration::from_millis(200),
+                resolved_tx,
+            ),
+        );
+        let gaps_counter: std::sync::Arc<std::sync::atomic::AtomicU64> =
+            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let registry = std::sync::Arc::new(
+            crate::services::fs_watcher::WatchRegistry::new(raw_tx, gaps_counter.clone()),
+        );
+
         let ingest = Arc::new(IngestService::spawn(
             config.ingest_queue_capacity,
             IngestDeps {
@@ -63,6 +81,7 @@ impl App {
                 stats: stats.clone(),
                 dead_letter_dir: paths.dead_letter_dir.clone(),
                 write_tool_ring: write_tool_ring.clone(),
+                fs_registry: registry.clone(),
             },
         ));
         let drained = crate::services::ingest::drain_inbox(&paths.inbox_dir, &ingest)
@@ -76,6 +95,31 @@ impl App {
             paths.raw_dir.clone(),
             "teramind".into(),
             Duration::from_secs(config.storage_sample_interval_secs),
+        );
+
+        // Pump raw -> debouncer.
+        {
+            let deb = debouncer.clone();
+            tokio::spawn(async move {
+                while let Some(ev) = raw_rx.recv().await {
+                    deb.enqueue(ev).await;
+                }
+            });
+        }
+
+        let snapshot_cache = crate::services::snapshot_cache::SnapshotCache::new(
+            time::Duration::minutes(30),
+        );
+
+        crate::services::fs_watcher::FsWatcherService::spawn(
+            crate::services::fs_watcher::FsWatcherDeps {
+                registry: registry.clone(),
+                debouncer: debouncer.clone(),
+                cache: snapshot_cache.clone(),
+                ring: write_tool_ring.clone(),
+                ingest_tx: ingest.clone(),
+            },
+            resolved_rx,
         );
 
         let handler = Arc::new(DaemonIpcHandler {

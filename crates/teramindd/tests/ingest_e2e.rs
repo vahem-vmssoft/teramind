@@ -21,6 +21,13 @@ async fn ingest_session_start_then_user_prompt_writes_rows() {
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
+    let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
+    let registry = std::sync::Arc::new(
+        teramindd::services::fs_watcher::WatchRegistry::new(
+            raw_tx,
+            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        ),
+    );
     let deps = IngestDeps {
         redactor: Arc::new(Redactor::with_default_rules()),
         jsonl: jsonl.clone(),
@@ -35,6 +42,7 @@ async fn ingest_session_start_then_user_prompt_writes_rows() {
             64,
             time::Duration::seconds(5),
         ),
+        fs_registry: registry,
     };
     let svc = IngestService::spawn(64, deps);
 
