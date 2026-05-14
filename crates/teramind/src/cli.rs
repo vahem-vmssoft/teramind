@@ -61,6 +61,15 @@ pub enum Command {
         #[arg(long)]
         confirm: bool,
     },
+    /// Check for and apply Teramind updates.
+    SelfUpdate {
+        /// Don't actually replace anything; just report the available version.
+        #[arg(long)]
+        check_only: bool,
+        /// Force the upgrade even if the local version is already at the latest.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]

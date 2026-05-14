@@ -11,3 +11,4 @@ pub mod claude_install;
 pub mod claude_uninstall;
 pub mod search;
 pub mod uninstall;
+pub mod self_update;
