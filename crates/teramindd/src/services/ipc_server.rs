@@ -27,6 +27,7 @@ impl IpcServer for DaemonIpcHandler {
                 ingest_drops_total: self.stats.drops.load(Ordering::Relaxed),
                 last_storage_pg_bytes: self.last_pg_bytes.load(Ordering::Relaxed),
                 last_storage_jsonl_bytes: self.last_jsonl_bytes.load(Ordering::Relaxed),
+                fs_watcher_gaps_total: self.stats.fs_watcher_gaps.load(Ordering::Relaxed),
             }),
             Request::Ping => Response::Pong,
             Request::Shutdown => Response::Ok,

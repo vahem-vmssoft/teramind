@@ -68,6 +68,18 @@ impl App {
             crate::services::fs_watcher::WatchRegistry::new(raw_tx, gaps_counter.clone()),
         );
 
+        {
+            let s = stats.clone();
+            let g = gaps_counter.clone();
+            tokio::spawn(async move {
+                loop {
+                    let v = g.load(std::sync::atomic::Ordering::Relaxed);
+                    s.fs_watcher_gaps.store(v, std::sync::atomic::Ordering::Relaxed);
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                }
+            });
+        }
+
         let ingest = Arc::new(IngestService::spawn(
             config.ingest_queue_capacity,
             IngestDeps {

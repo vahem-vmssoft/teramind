@@ -15,6 +15,7 @@ pub struct IngestStats {
     pub queue_depth: AtomicU64,
     pub pg_write_failures: AtomicU64,
     pub dead_letters: AtomicU64,
+    pub fs_watcher_gaps: AtomicU64,
 }
 
 pub struct IngestService {

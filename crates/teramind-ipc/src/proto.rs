@@ -34,6 +34,8 @@ pub struct StatusReport {
     pub ingest_drops_total: u64,
     pub last_storage_pg_bytes: i64,
     pub last_storage_jsonl_bytes: i64,
+    #[serde(default)]
+    pub fs_watcher_gaps_total: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
