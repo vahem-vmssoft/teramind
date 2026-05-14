@@ -127,6 +127,39 @@ fn collect_window(lines: &[&str], ranges: &[(usize, usize)], radius: usize) -> S
     out
 }
 
+/// Plain-old-data payload assembled by `compute_file_diff` and consumed
+/// by the FS watcher to build an `IngestEvent::FileDiff`.
+#[derive(Debug, Clone)]
+pub struct ComputedDiff {
+    pub unified_diff: String,
+    pub pre_excerpt: String,
+    pub post_excerpt: String,
+    pub pre_hash: [u8; 32],
+    pub post_hash: [u8; 32],
+    pub byte_size: i32,
+    pub language: Option<String>,
+}
+
+/// Compute everything we need to persist for a (pre, post, path) triple.
+/// Returns `None` when `pre == post`.
+pub fn compute_file_diff(pre: &str, post: &str, rel_path: &Path) -> Option<ComputedDiff> {
+    if pre == post {
+        return None;
+    }
+    let rel = rel_path.to_string_lossy();
+    let unified = unified_diff(pre, post, &rel);
+    let (pre_ex, post_ex) = excerpts_around_hunks(pre, post, 50);
+    Some(ComputedDiff {
+        unified_diff: unified,
+        pre_excerpt: pre_ex,
+        post_excerpt: post_ex,
+        pre_hash: sha256_hash(pre.as_bytes()),
+        post_hash: sha256_hash(post.as_bytes()),
+        byte_size: post.as_bytes().len() as i32,
+        language: language_from_extension(rel_path).map(String::from),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,5 +241,26 @@ mod tests {
         let (pre_ex, post_ex) = excerpts_around_hunks("same\n", "same\n", 50);
         assert!(pre_ex.is_empty());
         assert!(post_ex.is_empty());
+    }
+
+    #[test]
+    fn compute_file_diff_assembles_full_payload() {
+        let pre = "fn old() {}\n";
+        let post = "fn new() {}\n";
+        let path = PathBuf::from("src/lib.rs");
+        let d = compute_file_diff(pre, post, &path).expect("Some when changed");
+        assert_eq!(d.language.as_deref(), Some("rust"));
+        assert!(d.unified_diff.contains("-fn old() {}"));
+        assert!(d.unified_diff.contains("+fn new() {}"));
+        assert!(d.pre_excerpt.contains("fn old"));
+        assert!(d.post_excerpt.contains("fn new"));
+        assert_eq!(d.byte_size, post.as_bytes().len() as i32);
+        assert_ne!(d.pre_hash, d.post_hash);
+    }
+
+    #[test]
+    fn compute_file_diff_none_when_unchanged() {
+        let s = "x";
+        assert!(compute_file_diff(s, s, &PathBuf::from("a.rs")).is_none());
     }
 }
