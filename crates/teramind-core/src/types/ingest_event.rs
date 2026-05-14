@@ -67,6 +67,36 @@ pub enum IngestEvent {
     PreCompact {
         session_id: SessionId,
     },
+    FileDiff {
+        session_id: SessionId,
+        #[serde(default)]
+        turn_id: Option<TurnId>,
+        file_path: String,
+        rel_path: String,
+        attribution: crate::types::file_diff::Attribution,
+        #[serde(default)]
+        language: Option<String>,
+        pre_excerpt: String,
+        post_excerpt: String,
+        unified_diff: String,
+        #[serde(with = "hex_array_32")]
+        pre_hash: [u8; 32],
+        #[serde(with = "hex_array_32")]
+        post_hash: [u8; 32],
+        byte_size: i32,
+    },
+}
+
+mod hex_array_32 {
+    use serde::{Deserialize, Deserializer, Serializer};
+    pub fn serialize<S: Serializer>(v: &[u8; 32], s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&hex::encode(v))
+    }
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<[u8; 32], D::Error> {
+        let s = String::deserialize(d)?;
+        let v = hex::decode(&s).map_err(serde::de::Error::custom)?;
+        v.try_into().map_err(|_| serde::de::Error::custom("expected 32 bytes"))
+    }
 }
 
 #[cfg(test)]
@@ -122,5 +152,30 @@ mod tests {
             }
             other => panic!("expected ToolCallEnd, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn file_diff_event_roundtrips() {
+        let env = EventEnvelope {
+            client_event_id: ClientEventId::new(),
+            ts: OffsetDateTime::from_unix_timestamp(1_700_000_030).unwrap(),
+            event: IngestEvent::FileDiff {
+                session_id: SessionId::new(),
+                turn_id: Some(TurnId::new()),
+                file_path: "/proj/src/foo.rs".into(),
+                rel_path: "src/foo.rs".into(),
+                attribution: crate::types::file_diff::Attribution::Agent,
+                language: Some("rust".into()),
+                pre_excerpt: "fn old() {}".into(),
+                post_excerpt: "fn new() {}".into(),
+                unified_diff: "@@ -1 +1 @@\n-fn old() {}\n+fn new() {}\n".into(),
+                pre_hash: [0u8; 32],
+                post_hash: [1u8; 32],
+                byte_size: 12,
+            },
+        };
+        let j = serde_json::to_string(&env).unwrap();
+        let back: EventEnvelope = serde_json::from_str(&j).unwrap();
+        assert_eq!(env, back);
     }
 }
