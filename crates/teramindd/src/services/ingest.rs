@@ -241,6 +241,14 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
                     last_turn_id: None,
                 })
                 .await;
+            // Start watching this cwd; per-cwd refcount in the registry
+            // handles duplicate sessions in the same directory.
+            if let Err(e) = d.fs_registry
+                .register(std::path::PathBuf::from(&cwd), sid)
+                .await
+            {
+                warn!(error = %e, cwd, "fs_watcher: register failed");
+            }
         }
         UserPrompt {
             session_id,
@@ -313,7 +321,11 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
         }
         SessionEnd { session_id, reason } => {
             d.session_repo.end(session_id, ts, &reason).await?;
-            d.sessions.end(session_id).await;
+            if let Some(active) = d.sessions.end(session_id).await {
+                d.fs_registry
+                    .unregister(std::path::Path::new(&active.cwd), session_id)
+                    .await;
+            }
         }
         PreCompact { session_id } => {
             d.session_repo
