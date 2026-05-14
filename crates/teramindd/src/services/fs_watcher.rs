@@ -3,16 +3,22 @@
 //! debounces per (cwd, rel_path) and dispatches a full
 //! pre/post/diff/excerpts/attribution pipeline.
 
+use crate::services::diff_engine::compute_file_diff;
 use crate::services::ignore_filter::IgnoreFilter;
+use crate::services::snapshot_cache::{resolve_pre_content, SnapshotCache};
+use crate::services::write_tool_ring::WriteToolRing;
 use notify::event::EventKind;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use teramind_core::ids::SessionId;
+use teramind_core::ids::{ClientEventId, SessionId};
+use teramind_core::types::file_diff::Attribution;
+use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
 use time::OffsetDateTime;
 use tokio::sync::{mpsc, Mutex};
+use tracing::{debug, warn};
 
 /// One watcher per unique cwd. Refcounted by active session_ids; the
 /// watcher is dropped when the last session in that cwd ends.
@@ -137,6 +143,124 @@ impl Debouncer {
     pub async fn enqueue(&self, ev: RawEvent) {
         let _ = self.in_tx.send(ev);
     }
+}
+
+/// All the wiring the FS watcher needs to do its job.
+#[derive(Clone)]
+pub struct FsWatcherDeps {
+    pub registry: Arc<WatchRegistry>,
+    pub debouncer: Arc<Debouncer>,
+    pub cache: SnapshotCache,
+    pub ring: WriteToolRing,
+    /// Sender into the existing ingest queue. The watcher emits
+    /// `IngestEvent::FileDiff` envelopes here.
+    pub ingest_tx: Arc<crate::services::ingest::IngestService>,
+}
+
+pub struct FsWatcherService;
+
+impl FsWatcherService {
+    /// Spawns the dispatcher loop that consumes resolved debounce events
+    /// and runs the full diff pipeline for each.
+    pub fn spawn(deps: FsWatcherDeps, mut resolved_rx: mpsc::UnboundedReceiver<RawEvent>) {
+        tokio::spawn(async move {
+            while let Some(ev) = resolved_rx.recv().await {
+                if let Err(e) = handle_event(&deps, ev).await {
+                    warn!(error = %e, "fs_watcher handle_event failed");
+                }
+            }
+        });
+    }
+}
+
+/// The full pipeline for one resolved (post-debounce) filesystem event.
+async fn handle_event(deps: &FsWatcherDeps, ev: RawEvent) -> anyhow::Result<()> {
+    // 1. Ignore events for paths that no longer exist (deleted in a flurry).
+    let post = match tokio::fs::read_to_string(&ev.abs_path).await {
+        Ok(s) => s,
+        Err(_) => return Ok(()),
+    };
+
+    // 2. Compute rel_path relative to cwd.
+    let rel_path = match ev.abs_path.strip_prefix(&ev.cwd) {
+        Ok(p) => p.to_string_lossy().to_string(),
+        Err(_) => return Ok(()),
+    };
+
+    // 3. Resolve pre-content from cache OR git index.
+    let pre = resolve_pre_content(&deps.cache, &ev.cwd, &rel_path).await;
+    if pre == post {
+        // Update cache regardless so future diffs are accurate.
+        deps.cache
+            .put(ev.cwd.clone(), rel_path.clone(), post.clone())
+            .await;
+        return Ok(());
+    }
+
+    // 4. Compute the diff bundle.
+    let Some(computed) = compute_file_diff(&pre, &post, Path::new(&rel_path)) else {
+        return Ok(());
+    };
+
+    // 5. Look up active session for this cwd (via the registry) and decide
+    //    attribution by consulting the write-tool ring.
+    let (session_id, turn_id, attribution) = decide_attribution(deps, &ev.cwd).await;
+    let Some(session_id) = session_id else {
+        // No active session for this cwd — drop silently.
+        return Ok(());
+    };
+
+    // 6. Emit through the existing ingest pipeline.
+    let env = EventEnvelope {
+        client_event_id: ClientEventId::new(),
+        ts: ev.at,
+        event: IngestEvent::FileDiff {
+            session_id,
+            turn_id,
+            file_path: ev.abs_path.to_string_lossy().to_string(),
+            rel_path: rel_path.clone(),
+            attribution,
+            language: computed.language.clone(),
+            pre_excerpt: computed.pre_excerpt.clone(),
+            post_excerpt: computed.post_excerpt.clone(),
+            unified_diff: computed.unified_diff.clone(),
+            pre_hash: computed.pre_hash,
+            post_hash: computed.post_hash,
+            byte_size: computed.byte_size,
+        },
+    };
+    let _ = deps.ingest_tx.try_enqueue(env);
+
+    // 7. Update snapshot cache with the new content.
+    deps.cache
+        .put(ev.cwd.clone(), rel_path, post)
+        .await;
+
+    debug!(abs_path = ?ev.abs_path, "fs_watcher emitted FileDiff");
+    Ok(())
+}
+
+/// Pick a session_id whose cwd matches `ev_cwd`, then ask the write-tool
+/// ring if there was a recent write-tool completion for that session.
+/// If yes -> agent attribution + turn_id. Else -> human, turn_id=None.
+async fn decide_attribution(
+    deps: &FsWatcherDeps,
+    ev_cwd: &Path,
+) -> (Option<SessionId>, Option<teramind_core::ids::TurnId>, Attribution) {
+    let sessions: Vec<SessionId> = {
+        let g = deps.registry.inner.lock().await;
+        match g.get(ev_cwd) {
+            Some(e) => e.sessions.iter().copied().collect(),
+            None => return (None, None, Attribution::Human),
+        }
+    }; // lock released here
+    let now = OffsetDateTime::now_utc();
+    for sid in &sessions {
+        if let Some(w) = deps.ring.most_recent_for(*sid, now).await {
+            return (Some(*sid), Some(w.turn_id), Attribution::Agent);
+        }
+    }
+    (sessions.into_iter().next(), None, Attribution::Human)
 }
 
 #[cfg(test)]
