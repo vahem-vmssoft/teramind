@@ -1,3 +1,4 @@
+pub mod diff_engine;
 pub mod grep_fallback;
 pub mod ingest;
 pub mod ipc_server;
