@@ -1,4 +1,5 @@
 pub mod diff_engine;
+pub mod fs_watcher;
 pub mod git_index;
 pub mod grep_fallback;
 pub mod ignore_filter;
