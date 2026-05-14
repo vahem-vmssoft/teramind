@@ -1,6 +1,7 @@
 pub mod diff_engine;
 pub mod git_index;
 pub mod grep_fallback;
+pub mod ignore_filter;
 pub mod ingest;
 pub mod ipc_server;
 pub mod jsonl_writer;
