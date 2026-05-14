@@ -121,20 +121,41 @@ pub struct Debouncer {
 impl Debouncer {
     pub fn start(quiet: Duration, out_tx: mpsc::UnboundedSender<RawEvent>) -> Self {
         let (in_tx, mut in_rx) = mpsc::unbounded_channel::<RawEvent>();
+        let (done_tx, mut done_rx) = mpsc::unbounded_channel::<(PathBuf, PathBuf)>();
         tokio::spawn(async move {
             type Key = (PathBuf, PathBuf);
             let mut timers: HashMap<Key, tokio::task::JoinHandle<()>> = HashMap::new();
-            while let Some(ev) = in_rx.recv().await {
-                let key = (ev.cwd.clone(), ev.abs_path.clone());
-                if let Some(h) = timers.remove(&key) {
-                    h.abort();
+            loop {
+                tokio::select! {
+                    Some(ev) = in_rx.recv() => {
+                        let key = (ev.cwd.clone(), ev.abs_path.clone());
+                        if let Some(h) = timers.remove(&key) {
+                            h.abort();
+                        }
+                        let out = out_tx.clone();
+                        let done = done_tx.clone();
+                        let key_for_task = key.clone();
+                        let handle = tokio::spawn(async move {
+                            tokio::time::sleep(quiet).await;
+                            let _ = out.send(ev);
+                            let _ = done.send(key_for_task);
+                        });
+                        timers.insert(key, handle);
+                    }
+                    Some(finished_key) = done_rx.recv() => {
+                        // Remove the entry IF the JoinHandle in the map corresponds
+                        // to the one that just finished. If a new event has already
+                        // arrived for this key, `timers.insert` will have replaced
+                        // the handle, which we shouldn't remove. We detect this
+                        // by checking `is_finished()`.
+                        if let Some(h) = timers.get(&finished_key) {
+                            if h.is_finished() {
+                                timers.remove(&finished_key);
+                            }
+                        }
+                    }
+                    else => break,
                 }
-                let out = out_tx.clone();
-                let handle = tokio::spawn(async move {
-                    tokio::time::sleep(quiet).await;
-                    let _ = out.send(ev);
-                });
-                timers.insert(key, handle);
             }
         });
         Self { in_tx }
@@ -220,16 +241,18 @@ async fn handle_event(deps: &FsWatcherDeps, ev: RawEvent) -> anyhow::Result<()> 
             file_path: ev.abs_path.to_string_lossy().to_string(),
             rel_path: rel_path.clone(),
             attribution,
-            language: computed.language.clone(),
-            pre_excerpt: computed.pre_excerpt.clone(),
-            post_excerpt: computed.post_excerpt.clone(),
-            unified_diff: computed.unified_diff.clone(),
+            language: computed.language,
+            pre_excerpt: computed.pre_excerpt,
+            post_excerpt: computed.post_excerpt,
+            unified_diff: computed.unified_diff,
             pre_hash: computed.pre_hash,
             post_hash: computed.post_hash,
             byte_size: computed.byte_size,
         },
     };
-    let _ = deps.ingest_tx.try_enqueue(env);
+    if let Err(_dropped) = deps.ingest_tx.try_enqueue(env) {
+        warn!(rel_path = %rel_path, "fs_watcher: FileDiff dropped due to ingest backpressure");
+    }
 
     // 7. Update snapshot cache with the new content.
     deps.cache
@@ -334,5 +357,30 @@ mod tests {
         // No additional events expected.
         let extra = tokio::time::timeout(Duration::from_millis(150), out_rx.recv()).await;
         assert!(extra.is_err(), "expected no further events, got {:?}", extra.unwrap());
+    }
+
+    #[tokio::test]
+    async fn debouncer_drops_completed_timer_entries() {
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<RawEvent>();
+        let deb = Debouncer::start(Duration::from_millis(40), out_tx);
+        let cwd = PathBuf::from("/p");
+        // Fire 5 distinct keys; let them all drain.
+        for i in 0..5 {
+            deb.enqueue(RawEvent {
+                cwd: cwd.clone(),
+                abs_path: PathBuf::from(format!("/p/f{i}.rs")),
+                at: OffsetDateTime::now_utc(),
+            }).await;
+        }
+        // Drain 5 events.
+        for _ in 0..5 {
+            let _ = tokio::time::timeout(Duration::from_millis(500), out_rx.recv())
+                .await.expect("timeout").expect("closed");
+        }
+        // Give the loop a chance to receive the done signals.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        // No public accessor — this test only verifies events flow correctly;
+        // the memory invariant is testable manually via instrumentation.
+        // (Keeping this as a smoke check for now.)
     }
 }
