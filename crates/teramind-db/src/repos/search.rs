@@ -1,6 +1,5 @@
 use crate::error::Result;
 use crate::pool::DbPool;
-use teramind_core::ids::SessionId;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -141,6 +140,42 @@ impl SearchRepo {
         Ok(rows.into_iter().map(|(turn_id, session_id, ordinal, ts, project_id, prompt, text)| {
             RankedTurn { turn_id, session_id, ordinal, ts, project_id, fts_score: 0.0, trgm_score: 0.0,
                          user_prompt: prompt, assistant_text: text }
+        }).collect())
+    }
+
+    /// Return the most recent diff excerpts whose `rel_path` is in `paths`.
+    /// Empty `paths` yields an empty result without touching the DB.
+    pub async fn diff_excerpts_for_cwd_files(
+        &self,
+        paths: &[String],
+        limit: u32,
+    ) -> Result<Vec<RankedDiff>> {
+        if paths.is_empty() {
+            return Ok(Vec::new());
+        }
+        let paths_vec: Vec<String> = paths.to_vec();
+        let rows: Vec<(Uuid, Uuid, String, OffsetDateTime, Option<Uuid>, String, String)> = sqlx::query_as(
+            r#"
+            SELECT
+                fd.id, fd.session_id, fd.rel_path, fd.captured_at,
+                s.project_id,
+                fd.pre_excerpt, fd.post_excerpt
+            FROM file_diffs fd
+            JOIN sessions s ON s.id = fd.session_id
+            WHERE fd.rel_path = ANY($1)
+            ORDER BY fd.captured_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(paths_vec)
+        .bind(limit as i64)
+        .fetch_all(self.pool.pg()).await?;
+
+        Ok(rows.into_iter().map(|(diff_id, session_id, rel_path, ts, project_id, pre, post)| {
+            RankedDiff {
+                diff_id, session_id, rel_path, ts, project_id,
+                trgm_score: 0.0, pre_excerpt: pre, post_excerpt: post,
+            }
         }).collect())
     }
 
