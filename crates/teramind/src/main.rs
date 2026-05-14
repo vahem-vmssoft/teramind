@@ -24,5 +24,6 @@ async fn main() -> anyhow::Result<()> {
         },
         Command::Search { query, limit, json, grep } =>
             commands::search::run(query, limit, json, grep).await,
+        Command::Uninstall { purge, confirm } => commands::uninstall::run(purge, confirm).await,
     }
 }
