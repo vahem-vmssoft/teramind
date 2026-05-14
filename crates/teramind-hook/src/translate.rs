@@ -59,7 +59,7 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 reason: "stop_hook".to_string(),
             }
         }
-        HookInput::PostToolUse { session_id, cwd: _, tool_name: _, tool_input: _, tool_response, is_error } => {
+        HookInput::PostToolUse { session_id, cwd: _, tool_name, tool_input: _, tool_response, is_error } => {
             let sid_uuid = claude_session_to_uuid(&session_id);
             let turn_ord = current_turn_ordinal(&session_id);
             let turn_id = claude_turn_to_uuid(sid_uuid, turn_ord);
@@ -70,6 +70,9 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 output: tool_response.unwrap_or_default(),
                 is_error,
                 duration_ms: 0,
+                session_id: Some(sid_uuid),
+                turn_id: Some(turn_id),
+                tool_name: Some(tool_name),
             }
         }
         _ => return None,
@@ -246,13 +249,19 @@ mod tests {
         };
         let env = translate(input).expect("must translate");
         match env.event {
-            IngestEvent::ToolCallEnd { tool_call_id, output, is_error, duration_ms } => {
+            IngestEvent::ToolCallEnd {
+                tool_call_id, output, is_error, duration_ms,
+                session_id, turn_id, tool_name
+            } => {
                 let expected_turn = claude_turn_to_uuid(claude_session_to_uuid(&sid), 0);
                 let expected_tc = claude_tool_call_to_uuid(expected_turn, 0);
                 assert_eq!(tool_call_id, expected_tc);
                 assert_eq!(output, "ok");
                 assert_eq!(is_error, false);
                 assert_eq!(duration_ms, 0);
+                assert!(session_id.is_some(), "session_id should be populated");
+                assert!(turn_id.is_some(), "turn_id should be populated");
+                assert_eq!(tool_name.as_deref(), Some("Edit"));
             }
             other => panic!("expected ToolCallEnd, got {other:?}"),
         }
