@@ -135,11 +135,17 @@ fn redact_envelope(r: &Redactor, mut env: EventEnvelope) -> EventEnvelope {
             output,
             is_error,
             duration_ms,
+            session_id,
+            turn_id,
+            tool_name,
         } => ToolCallEnd {
             tool_call_id,
             output: r.apply(&output),
             is_error,
             duration_ms,
+            session_id,
+            turn_id,
+            tool_name,
         },
         AssistantTurn {
             turn_id,
@@ -235,6 +241,9 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
             output,
             is_error,
             duration_ms,
+            session_id: _,
+            turn_id: _,
+            tool_name: _,
         } => {
             d.trace
                 .finalize_tool_call(tool_call_id, &output, is_error, duration_ms)
@@ -273,6 +282,8 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
                 )
                 .await?;
         }
+        // FileDiff routing is implemented in Section 7 of Plan D.
+        FileDiff { .. } => {}
     }
     Ok(())
 }
