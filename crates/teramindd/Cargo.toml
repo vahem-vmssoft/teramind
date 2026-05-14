@@ -29,6 +29,11 @@ clap        = { workspace = true }
 time        = { workspace = true }
 uuid        = { workspace = true }
 async-trait = { workspace = true }
+hex         = { workspace = true }
+ignore      = { workspace = true }
+notify      = { workspace = true }
+sha2        = { workspace = true }
+similar     = { workspace = true }
 toml        = "0.8"
 
 [dev-dependencies]
