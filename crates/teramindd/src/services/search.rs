@@ -167,23 +167,51 @@ pub async fn do_search_with_fallback(
     }
 }
 
-pub async fn do_auto_recall(repo: &SearchRepo, req: &AutoRecallRequest) -> Result<String, teramind_db::DbError> {
-    let recent = repo.recent_turns_in_project(None, &req.cwd, req.limit).await?;
-    if recent.is_empty() {
+pub fn render_auto_recall_md(
+    recent: &[teramind_db::repos::search::RankedTurn],
+    diffs: &[teramind_db::repos::search::RankedDiff],
+) -> String {
+    let mut out = String::new();
+    if !recent.is_empty() {
+        out.push_str("## Recent Teramind context\n\n");
+        for t in recent {
+            let prompt_snippet = t.user_prompt.as_deref().unwrap_or("(no prompt)");
+            let text_snippet = t.assistant_text.as_deref().unwrap_or("");
+            out.push_str(&format!(
+                "- **{}**: {} · {}\n",
+                t.ts.date(),
+                truncate(prompt_snippet, 80),
+                truncate(text_snippet, 120),
+            ));
+        }
+        out.push('\n');
+    }
+    if !diffs.is_empty() {
+        out.push_str("## Recent diffs in this project\n\n");
+        for d in diffs {
+            out.push_str(&format!(
+                "- `{}` @ {}: {}\n",
+                d.rel_path,
+                d.ts.date(),
+                truncate(&d.post_excerpt, 120),
+            ));
+        }
+    }
+    out
+}
+
+pub async fn do_auto_recall(
+    repo: &SearchRepo,
+    req: &AutoRecallRequest,
+) -> Result<String, teramind_db::DbError> {
+    let (recent, diffs) = tokio::try_join!(
+        repo.recent_turns_in_project(None, &req.cwd, req.limit),
+        repo.diff_excerpts_for_cwd_files(&req.cwd_files, req.limit),
+    )?;
+    if recent.is_empty() && diffs.is_empty() {
         return Ok(String::new());
     }
-    let mut out = String::new();
-    out.push_str("## Recent Teramind context\n\n");
-    for t in recent {
-        let prompt_snippet = t.user_prompt.as_deref().unwrap_or("(no prompt)");
-        let text_snippet = t.assistant_text.as_deref().unwrap_or("");
-        out.push_str(&format!("- **{}**: {} · {}\n",
-            t.ts.date(),
-            truncate(prompt_snippet, 80),
-            truncate(text_snippet, 120),
-        ));
-    }
-    Ok(out)
+    Ok(render_auto_recall_md(&recent, &diffs))
 }
 
 #[cfg(test)]
@@ -233,5 +261,32 @@ mod tests {
             Hit::Turn { turn_id, .. } => assert_eq!(turn_id.0, rank_a.turn_id),
             other => panic!("expected Turn, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn render_auto_recall_md_includes_diffs_section_when_present() {
+        let recent_turns: Vec<RankedTurn> = vec![RankedTurn {
+            turn_id: Uuid::new_v4(), session_id: Uuid::new_v4(),
+            ordinal: 0, ts: OffsetDateTime::now_utc(), project_id: None,
+            fts_score: 0.0, trgm_score: 0.0,
+            user_prompt: Some("fix bug".into()),
+            assistant_text: Some("done".into()),
+        }];
+        let diff_hits: Vec<teramind_db::repos::search::RankedDiff> =
+            vec![teramind_db::repos::search::RankedDiff {
+                diff_id: Uuid::new_v4(),
+                session_id: Uuid::new_v4(),
+                rel_path: "src/foo.rs".into(),
+                ts: OffsetDateTime::now_utc(),
+                project_id: None,
+                trgm_score: 0.0,
+                pre_excerpt: "old foo".into(),
+                post_excerpt: "new foo".into(),
+            }];
+        let md = render_auto_recall_md(&recent_turns, &diff_hits);
+        assert!(md.contains("Recent Teramind context"));
+        assert!(md.contains("fix bug"));
+        assert!(md.contains("Recent diffs"));
+        assert!(md.contains("src/foo.rs"));
     }
 }

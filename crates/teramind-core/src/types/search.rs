@@ -30,11 +30,13 @@ impl RecallRequest {
     fn default_limit() -> u32 { 10 }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct AutoRecallRequest {
     pub cwd: String,
     #[serde(default = "AutoRecallRequest::default_limit")]
     pub limit: u32,
+    #[serde(default)]
+    pub cwd_files: Vec<String>,
 }
 
 impl AutoRecallRequest {
