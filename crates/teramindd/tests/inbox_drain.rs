@@ -51,6 +51,10 @@ async fn inbox_drainer_consumes_pending_files() {
             diffs: DiffRepo::new(pool.clone()),
             stats: stats.clone(),
             dead_letter_dir: tmp.path().join("dl"),
+            write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+                64,
+                time::Duration::seconds(5),
+            ),
         },
     );
 
@@ -92,6 +96,10 @@ async fn dead_letter_receives_unroutable_events() {
             diffs: teramind_db::repos::DiffRepo::new(pool.clone()),
             stats: stats.clone(),
             dead_letter_dir: dl_dir.clone(),
+            write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+                64,
+                time::Duration::seconds(5),
+            ),
         },
     );
 

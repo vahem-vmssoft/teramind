@@ -33,6 +33,7 @@ pub struct IngestDeps {
     pub diffs: DiffRepo,
     pub stats: Arc<IngestStats>,
     pub dead_letter_dir: std::path::PathBuf,
+    pub write_tool_ring: crate::services::write_tool_ring::WriteToolRing,
 }
 
 impl IngestService {
@@ -241,13 +242,25 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
             output,
             is_error,
             duration_ms,
-            session_id: _,
-            turn_id: _,
-            tool_name: _,
+            session_id,
+            turn_id,
+            tool_name,
         } => {
             d.trace
                 .finalize_tool_call(tool_call_id, &output, is_error, duration_ms)
                 .await?;
+            if let (Some(sid), Some(tid), Some(name)) = (session_id, turn_id, tool_name.as_deref()) {
+                if crate::services::write_tool_ring::is_write_tool(name) {
+                    d.write_tool_ring
+                        .push(crate::services::write_tool_ring::WriteCompletion {
+                            session_id: sid,
+                            turn_id: tid,
+                            tool_name: name.to_string(),
+                            at: ts,
+                        })
+                        .await;
+                }
+            }
         }
         AssistantTurn {
             turn_id,

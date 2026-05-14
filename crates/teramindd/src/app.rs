@@ -46,6 +46,10 @@ impl App {
 
         let jsonl = Arc::new(JsonlWriter::open(paths.raw_dir.clone()).await?);
         let stats = Arc::new(IngestStats::default());
+        let write_tool_ring = crate::services::write_tool_ring::WriteToolRing::new(
+            64,
+            time::Duration::seconds(5),
+        );
         let ingest = Arc::new(IngestService::spawn(
             config.ingest_queue_capacity,
             IngestDeps {
@@ -58,6 +62,7 @@ impl App {
                 diffs: DiffRepo::new(pool.clone()),
                 stats: stats.clone(),
                 dead_letter_dir: paths.dead_letter_dir.clone(),
+                write_tool_ring: write_tool_ring.clone(),
             },
         ));
         let drained = crate::services::ingest::drain_inbox(&paths.inbox_dir, &ingest)

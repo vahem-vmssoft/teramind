@@ -32,6 +32,10 @@ async fn ingest_drops_when_queue_is_saturated() {
         diffs: DiffRepo::new(pool.clone()),
         stats: stats.clone(),
         dead_letter_dir: tmp.path().join("dl"),
+        write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+            64,
+            time::Duration::seconds(5),
+        ),
     };
     let svc = IngestService::spawn(4, deps);
 

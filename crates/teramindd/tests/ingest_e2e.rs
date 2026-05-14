@@ -31,6 +31,10 @@ async fn ingest_session_start_then_user_prompt_writes_rows() {
         diffs: DiffRepo::new(pool.clone()),
         stats: stats.clone(),
         dead_letter_dir: tmp.path().join("dl"),
+        write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+            64,
+            time::Duration::seconds(5),
+        ),
     };
     let svc = IngestService::spawn(64, deps);
 

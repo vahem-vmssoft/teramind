@@ -1,5 +1,6 @@
 #![cfg(unix)]
 use std::sync::Arc;
+use time;
 use teramind_core::redact::Redactor;
 use teramind_db::repos::{AgentRepo, DiffRepo, SearchRepo, SessionRepo, TraceRepo};
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
@@ -34,6 +35,10 @@ async fn status_request_returns_status_report() {
             diffs: DiffRepo::new(pool.clone()),
             stats: stats.clone(),
             dead_letter_dir: tmp.path().join("dl"),
+            write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+                64,
+                time::Duration::seconds(5),
+            ),
         },
     );
     let handler = Arc::new(DaemonIpcHandler {

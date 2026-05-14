@@ -108,6 +108,10 @@ async fn ipc_search_request_returns_search_results() {
         agents: AgentRepo::new(pool.clone()), session_repo: SessionRepo::new(pool.clone()),
         trace: TraceRepo::new(pool.clone()), diffs: DiffRepo::new(pool.clone()),
         stats: stats.clone(), dead_letter_dir: tmp.path().join("dl"),
+        write_tool_ring: teramindd::services::write_tool_ring::WriteToolRing::new(
+            64,
+            time::Duration::seconds(5),
+        ),
     });
     let handler = Arc::new(DaemonIpcHandler {
         ingest: Arc::new(svc), stats: stats.clone(),
