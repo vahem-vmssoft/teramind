@@ -63,6 +63,70 @@ pub fn language_from_extension(path: &Path) -> Option<&'static str> {
     })
 }
 
+/// Extract ±`radius` line windows around each change in (pre, post).
+///
+/// Uses `similar::TextDiff` to identify changed line ranges, then projects
+/// those ranges back onto the original line vectors with a `radius`-line
+/// context. Overlapping windows merge.
+///
+/// Returns `(pre_excerpt, post_excerpt)`. Both empty when `pre == post`.
+pub fn excerpts_around_hunks(pre: &str, post: &str, radius: usize) -> (String, String) {
+    if pre == post {
+        return (String::new(), String::new());
+    }
+    let pre_lines: Vec<&str> = pre.split_inclusive('\n').collect();
+    let post_lines: Vec<&str> = post.split_inclusive('\n').collect();
+
+    let mut pre_ranges: Vec<(usize, usize)> = Vec::new();
+    let mut post_ranges: Vec<(usize, usize)> = Vec::new();
+    let diff = TextDiff::from_lines(pre, post);
+    for op in diff.ops() {
+        // op gives (tag, old_start..old_end, new_start..new_end).
+        let old = op.old_range();
+        let new = op.new_range();
+        // Only record changed segments (skip equal runs).
+        if matches!(op.tag(), similar::DiffTag::Equal) {
+            continue;
+        }
+        pre_ranges.push((old.start, old.end));
+        post_ranges.push((new.start, new.end));
+    }
+
+    let pre_ex = collect_window(&pre_lines, &pre_ranges, radius);
+    let post_ex = collect_window(&post_lines, &post_ranges, radius);
+    (pre_ex, post_ex)
+}
+
+fn collect_window(lines: &[&str], ranges: &[(usize, usize)], radius: usize) -> String {
+    if ranges.is_empty() {
+        return String::new();
+    }
+    // Compute windows then merge overlaps.
+    let mut windows: Vec<(usize, usize)> = ranges
+        .iter()
+        .map(|(s, e)| {
+            let start = s.saturating_sub(radius);
+            let end = (*e + radius).min(lines.len());
+            (start, end)
+        })
+        .collect();
+    windows.sort_by_key(|w| w.0);
+    let mut merged: Vec<(usize, usize)> = Vec::new();
+    for w in windows {
+        match merged.last_mut() {
+            Some(prev) if prev.1 >= w.0 => prev.1 = prev.1.max(w.1),
+            _ => merged.push(w),
+        }
+    }
+    let mut out = String::new();
+    for (start, end) in merged {
+        for line in &lines[start..end] {
+            out.push_str(line);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +172,41 @@ mod tests {
     fn unified_diff_empty_when_identical() {
         let s = "same\n";
         assert!(unified_diff(s, s, "x").is_empty());
+    }
+
+    #[test]
+    fn excerpts_extract_50_line_window_around_hunk() {
+        // 200-line file; change happens at line 100.
+        let pre_lines: Vec<String> = (1..=200).map(|i| format!("line{i}")).collect();
+        let mut post_lines = pre_lines.clone();
+        post_lines[99] = "CHANGED".to_string();
+        let pre = pre_lines.join("\n") + "\n";
+        let post = post_lines.join("\n") + "\n";
+
+        let (pre_ex, post_ex) = excerpts_around_hunks(&pre, &post, 50);
+        // Expect lines 50..=150 in the excerpt (100 ± 50).
+        assert!(pre_ex.contains("line50\n"), "missing line50:\n{pre_ex}");
+        assert!(pre_ex.contains("line100\n"));
+        assert!(pre_ex.contains("line150\n"));
+        assert!(!pre_ex.contains("line49\n"), "excerpt should not include line49");
+        assert!(!pre_ex.contains("line151\n"));
+
+        assert!(post_ex.contains("CHANGED\n"));
+    }
+
+    #[test]
+    fn excerpts_handle_small_file() {
+        let pre = "a\nb\nc\n";
+        let post = "a\nB\nc\n";
+        let (pre_ex, post_ex) = excerpts_around_hunks(pre, post, 50);
+        assert!(pre_ex.contains("a\n") && pre_ex.contains("b\n") && pre_ex.contains("c\n"));
+        assert!(post_ex.contains("B\n"));
+    }
+
+    #[test]
+    fn excerpts_empty_when_unchanged() {
+        let (pre_ex, post_ex) = excerpts_around_hunks("same\n", "same\n", 50);
+        assert!(pre_ex.is_empty());
+        assert!(post_ex.is_empty());
     }
 }
