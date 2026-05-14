@@ -1,0 +1,97 @@
+name: release
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.2.0)"
+        required: true
+
+permissions:
+  contents: write     # for creating GitHub releases
+  id-token: write     # for cosign keyless OIDC
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-14
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            runner: macos-14
+            archive: tar.gz
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            archive: tar.gz
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            archive: tar.gz
+            cross: true
+          - target: x86_64-pc-windows-msvc
+            runner: windows-2022
+            archive: zip
+          - target: aarch64-pc-windows-msvc
+            runner: windows-2022
+            archive: zip
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: install cross (Linux arm64)
+        if: matrix.cross
+        run: cargo install cross --locked
+
+      - name: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.tag }}"
+            version="${version#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_ENV"
+          if [[ "${{ matrix.cross }}" == "true" ]]; then
+            cross build --release --target ${{ matrix.target }} --workspace --bins
+          else
+            cargo build --release --target ${{ matrix.target }} --workspace --bins
+          fi
+
+      - name: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          v="$version"
+          name="teramind-${v}-${{ matrix.target }}"
+          stage="staging/${name}"
+          mkdir -p "${stage}"
+          exe_suffix=""
+          if [[ "${{ matrix.target }}" == *windows* ]]; then exe_suffix=".exe"; fi
+          for bin in teramind teramindd teramind-hook teramind-mcp; do
+            cp "target/${{ matrix.target }}/release/${bin}${exe_suffix}" "${stage}/"
+          done
+          cp -r plugins/claude "${stage}/plugins-claude"
+          cp LICENSE "${stage}/LICENSE" 2>/dev/null || echo "Apache-2.0" > "${stage}/LICENSE"
+          mkdir -p dist
+          if [[ "${{ matrix.archive }}" == "tar.gz" ]]; then
+            (cd staging && tar -czf "../dist/${name}.tar.gz" "${name}")
+          else
+            (cd staging && 7z a "../dist/${name}.zip" "${name}" >/dev/null)
+          fi
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
