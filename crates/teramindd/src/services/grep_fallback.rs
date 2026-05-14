@@ -3,7 +3,6 @@ use tokio::process::Command;
 use teramind_core::types::Hit;
 use teramind_core::ids::{ClientEventId, SessionId, TurnId};
 use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 pub async fn run(jsonl_dir: &Path, query: &str, limit: u32) -> std::io::Result<Vec<Hit>> {
@@ -18,8 +17,7 @@ pub async fn run(jsonl_dir: &Path, query: &str, limit: u32) -> std::io::Result<V
         .output().await?;
 
     if !output.status.success() && output.status.code() != Some(1) {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other,
-            format!("grep failed: status={:?}", output.status)));
+        return Err(std::io::Error::other(format!("grep failed: status={:?}", output.status)));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut hits: Vec<Hit> = Vec::new();
@@ -68,6 +66,7 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
     use std::io::Write;
+    use time::OffsetDateTime;
 
     #[tokio::test]
     async fn grep_finds_matching_user_prompt_line() {

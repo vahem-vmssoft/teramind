@@ -1,5 +1,5 @@
 use teramind_core::types::Hit;
-use teramind_core::ids::{FileDiffId, SessionId, SkillId, ToolCallId, TurnId};
+use teramind_core::ids::{FileDiffId, SessionId, SkillId, TurnId};
 use teramind_db::repos::search::{RankedDiff, RankedSkill, RankedTurn};
 use std::time::Instant;
 use time::OffsetDateTime;
@@ -140,7 +140,7 @@ pub async fn do_recall(repo: &SearchRepo, req: &RecallRequest) -> Result<SearchO
             else { repo.trgm_diffs(&path_query, req.limit).await }
         },
     )?;
-    let merged: Vec<_> = fts_sym.into_iter().chain(fts_st.into_iter()).collect();
+    let merged: Vec<_> = fts_sym.into_iter().chain(fts_st).collect();
     let hits = rank_and_hydrate(merged, trgm_paths, vec![], BlendWeights::default(), None, req.limit);
     Ok(SearchOutcome { hits, degraded: false, took_ms: started.elapsed().as_millis() as u32 })
 }

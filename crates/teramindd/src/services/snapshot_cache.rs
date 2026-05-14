@@ -5,7 +5,7 @@
 //! configured TTL are evicted on insert.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use time::OffsetDateTime;
 use tokio::sync::Mutex;
@@ -30,9 +30,9 @@ impl SnapshotCache {
         }
     }
 
-    pub async fn get(&self, cwd: &PathBuf, rel_path: &str) -> Option<String> {
+    pub async fn get(&self, cwd: &Path, rel_path: &str) -> Option<String> {
         let m = self.inner.lock().await;
-        m.get(&(cwd.clone(), rel_path.to_string()))
+        m.get(&(cwd.to_path_buf(), rel_path.to_string()))
             .map(|e| e.content.clone())
     }
 
@@ -48,9 +48,12 @@ impl SnapshotCache {
     pub async fn len(&self) -> usize {
         self.inner.lock().await.len()
     }
-}
 
-use std::path::Path;
+    #[cfg(test)]
+    pub async fn is_empty(&self) -> bool {
+        self.inner.lock().await.is_empty()
+    }
+}
 
 /// Resolve pre-content for (cwd, rel_path) using cache -> git index -> empty string.
 pub async fn resolve_pre_content(
@@ -58,7 +61,7 @@ pub async fn resolve_pre_content(
     cwd: &Path,
     rel_path: &str,
 ) -> String {
-    if let Some(s) = cache.get(&cwd.to_path_buf(), rel_path).await {
+    if let Some(s) = cache.get(cwd, rel_path).await {
         return s;
     }
     if let Some(s) = crate::services::git_index::show_index(cwd, rel_path).await {
@@ -108,7 +111,7 @@ mod tests {
     async fn resolve_pre_content_falls_back_to_empty_string_when_no_git() {
         let c = SnapshotCache::new(time::Duration::seconds(60));
         let dir = tempfile::tempdir().unwrap();
-        let s = resolve_pre_content(&c, &dir.path().to_path_buf(), "ghost.rs").await;
+        let s = resolve_pre_content(&c, dir.path(), "ghost.rs").await;
         assert_eq!(s, "");
     }
 }

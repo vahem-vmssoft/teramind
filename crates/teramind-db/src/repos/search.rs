@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use crate::error::Result;
 use crate::pool::DbPool;
 use time::OffsetDateTime;

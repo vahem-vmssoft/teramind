@@ -122,7 +122,7 @@ mod tests {
                 assert_eq!(session_id, "abc-123");
                 assert_eq!(tool_name, "Edit");
                 assert_eq!(tool_response, Some("edited successfully".to_string()));
-                assert_eq!(is_error, false);
+                assert!(!is_error);
             }
             other => panic!("expected PostToolUse, got {other:?}"),
         }

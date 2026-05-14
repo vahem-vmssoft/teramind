@@ -59,7 +59,7 @@ impl WriteToolRing {
 }
 
 pub fn is_write_tool(name: &str) -> bool {
-    WRITE_TOOLS.iter().any(|w| *w == name)
+    WRITE_TOOLS.contains(&name)
 }
 
 #[cfg(test)]

@@ -23,10 +23,10 @@ pub async fn run(socket: &Path, cwd: String, deadline: Duration) -> std::io::Res
     let cwd_files = list_cwd_files(std::path::Path::new(&cwd), 50);
     let result = tokio::time::timeout(deadline, async {
         let stream = connect(socket).await
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         let mut client = StreamClient::new(stream);
         let resp = client.request(Request::AutoRecall(teramind_core::types::AutoRecallRequest { cwd, limit: 5, cwd_files })).await
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         Ok::<_, std::io::Error>(resp)
     }).await;
     match result {

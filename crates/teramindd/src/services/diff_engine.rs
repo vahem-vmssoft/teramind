@@ -155,7 +155,7 @@ pub fn compute_file_diff(pre: &str, post: &str, rel_path: &Path) -> Option<Compu
         post_excerpt: post_ex,
         pre_hash: sha256_hash(pre.as_bytes()),
         post_hash: sha256_hash(post.as_bytes()),
-        byte_size: post.as_bytes().len() as i32,
+        byte_size: post.len() as i32,
         language: language_from_extension(rel_path).map(String::from),
     })
 }
@@ -254,7 +254,7 @@ mod tests {
         assert!(d.unified_diff.contains("+fn new() {}"));
         assert!(d.pre_excerpt.contains("fn old"));
         assert!(d.post_excerpt.contains("fn new"));
-        assert_eq!(d.byte_size, post.as_bytes().len() as i32);
+        assert_eq!(d.byte_size, post.len() as i32);
         assert_ne!(d.pre_hash, d.post_hash);
     }
 

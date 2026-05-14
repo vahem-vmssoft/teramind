@@ -28,7 +28,7 @@ async fn do_search_finds_seeded_turn_via_fts() {
     let repo = SearchRepo::new(pool.clone());
     let req = SearchRequest { query: "replication lag".into(), limit: 10 };
     let out = search::do_search(&repo, &req).await.unwrap();
-    assert!(out.hits.len() >= 1);
+    assert!(!out.hits.is_empty());
     assert!(!out.degraded);
 
     sup.shutdown().await.unwrap();

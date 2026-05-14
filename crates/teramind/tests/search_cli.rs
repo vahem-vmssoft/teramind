@@ -20,7 +20,7 @@ fn teramind_search_returns_seeded_hit() {
     let target_dir = cargo_bin("teramind").parent().unwrap().to_path_buf();
     let path_with_target = format!("{}:{}", target_dir.display(), std::env::var("PATH").unwrap_or_default());
 
-    let env = vec![
+    let env = [
         ("HOME", tmp.path().to_string_lossy().into_owned()),
         ("XDG_DATA_HOME", tmp.path().join("xdg-data").to_string_lossy().into_owned()),
         ("XDG_CONFIG_HOME", tmp.path().join("xdg-config").to_string_lossy().into_owned()),

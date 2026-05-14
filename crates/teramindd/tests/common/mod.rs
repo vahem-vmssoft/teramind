@@ -17,10 +17,15 @@ use teramindd::services::write_tool_ring::WriteToolRing;
 pub struct Harness {
     pub pool: DbPool,
     pub ingest: Arc<IngestService>,
+    // Kept to hold the registry alive; tests drive it via ingest.
+    #[allow(dead_code)]
     pub registry: Arc<WatchRegistry>,
     pub _sup: PgSupervisor,
     pub _tmp: tempfile::TempDir,
+    // Kept for potential diagnostics / future tests; not read yet.
+    #[allow(dead_code)]
     pub raw_dir: PathBuf,
+    #[allow(dead_code)]
     pub dead_letter_dir: PathBuf,
 }
 

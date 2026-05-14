@@ -1,6 +1,5 @@
 #![cfg(unix)]
 use std::sync::Arc;
-use time;
 use teramind_core::redact::Redactor;
 use teramind_db::repos::{AgentRepo, DiffRepo, SearchRepo, SessionRepo, TraceRepo};
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};

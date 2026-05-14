@@ -35,4 +35,5 @@ fn mcp_server_responds_to_initialize() {
     assert!(line.contains("\"result\""), "expected initialize result: {line}");
 
     let _ = child.kill();
+    let _ = child.wait();
 }

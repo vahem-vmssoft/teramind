@@ -257,7 +257,7 @@ mod tests {
                 let expected_tc = claude_tool_call_to_uuid(expected_turn, 0);
                 assert_eq!(tool_call_id, expected_tc);
                 assert_eq!(output, "ok");
-                assert_eq!(is_error, false);
+                assert!(!is_error);
                 assert_eq!(duration_ms, 0);
                 assert!(session_id.is_some(), "session_id should be populated");
                 assert!(turn_id.is_some(), "turn_id should be populated");

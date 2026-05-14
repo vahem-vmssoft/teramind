@@ -25,7 +25,7 @@ async fn main() {
     };
 
     let socket = default_socket_path();
-    if let Err(_) = spawn::ensure_daemon_connected(&socket).await {
+    if spawn::ensure_daemon_connected(&socket).await.is_err() {
         let _ = inbox::write_envelope(&envelope);
         std::process::exit(0);
     }

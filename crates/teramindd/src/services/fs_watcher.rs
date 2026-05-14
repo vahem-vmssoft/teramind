@@ -32,7 +32,11 @@ pub struct WatchRegistry {
 
 pub(crate) struct WatchEntry {
     pub(crate) sessions: HashSet<SessionId>,
+    // Must be held to keep the OS watch alive; dropping it unregisters the watch.
+    #[allow(dead_code)]
     watcher: RecommendedWatcher,
+    // Must be held so the closure inside the watcher callback can reference it.
+    #[allow(dead_code)]
     filter: IgnoreFilter,
 }
 
