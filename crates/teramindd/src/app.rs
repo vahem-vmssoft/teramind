@@ -48,7 +48,7 @@ impl App {
         let stats = Arc::new(IngestStats::default());
         let write_tool_ring = crate::services::write_tool_ring::WriteToolRing::new(
             64,
-            time::Duration::seconds(5),
+            time::Duration::milliseconds(config.fs_attribution_window_ms as i64),
         );
 
         // FS watcher pipeline: raw -> debounced -> resolved -> handle_event
@@ -58,7 +58,7 @@ impl App {
             tokio::sync::mpsc::unbounded_channel::<crate::services::fs_watcher::RawEvent>();
         let debouncer = std::sync::Arc::new(
             crate::services::fs_watcher::Debouncer::start(
-                std::time::Duration::from_millis(200),
+                std::time::Duration::from_millis(config.fs_debounce_ms),
                 resolved_tx,
             ),
         );
@@ -120,7 +120,7 @@ impl App {
         }
 
         let snapshot_cache = crate::services::snapshot_cache::SnapshotCache::new(
-            time::Duration::minutes(30),
+            time::Duration::seconds(config.fs_snapshot_ttl_secs as i64),
         );
 
         crate::services::fs_watcher::FsWatcherService::spawn(

@@ -13,6 +13,12 @@ pub struct Config {
     pub autorecall_enabled: bool,
     #[serde(default = "Config::default_storage_sample_interval_secs")]
     pub storage_sample_interval_secs: u64,
+    #[serde(default = "Config::default_fs_debounce_ms")]
+    pub fs_debounce_ms: u64,
+    #[serde(default = "Config::default_attribution_window_ms")]
+    pub fs_attribution_window_ms: u64,
+    #[serde(default = "Config::default_snapshot_ttl_secs")]
+    pub fs_snapshot_ttl_secs: u64,
 }
 
 impl Config {
@@ -30,6 +36,15 @@ impl Config {
     }
     fn default_storage_sample_interval_secs() -> u64 {
         300
+    }
+    fn default_fs_debounce_ms() -> u64 {
+        200
+    }
+    fn default_attribution_window_ms() -> u64 {
+        5_000
+    }
+    fn default_snapshot_ttl_secs() -> u64 {
+        1_800
     }
 
     pub fn defaults() -> Self {
@@ -53,5 +68,13 @@ mod tests {
         let c = Config::defaults();
         assert!(c.ingest_queue_capacity >= 1024);
         assert!(c.redaction_enabled);
+    }
+
+    #[test]
+    fn fs_watcher_defaults_match_spec() {
+        let c = Config::defaults();
+        assert_eq!(c.fs_debounce_ms, 200);
+        assert_eq!(c.fs_attribution_window_ms, 5_000);
+        assert_eq!(c.fs_snapshot_ttl_secs, 1_800);
     }
 }
