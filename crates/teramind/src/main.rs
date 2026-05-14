@@ -1,6 +1,7 @@
 mod cli;
 mod commands;
 mod ipc;
+mod updater;
 
 use clap::Parser;
 use cli::{Cli, Command};
