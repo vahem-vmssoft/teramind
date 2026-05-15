@@ -1,0 +1,49 @@
+name: search-eval
+on:
+  pull_request:
+    paths:
+      - "crates/teramind-db/src/repos/search.rs"
+      - "crates/teramindd/src/services/search.rs"
+      - "crates/teramind-search-eval/**"
+      - "benches/search-eval/**"
+  schedule:
+    - cron: "0 6 * * 1"   # weekly Monday 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  eval:
+    name: run L5 benchmark
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run benchmark
+        env:
+          TERAMIND_LOG: warn
+        run: cargo run --release -p teramind-search-eval -- run
+      - name: detect rebaseline marker
+        id: rebaseline
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && \
+             echo "${{ github.event.pull_request.body }}" | grep -q "\[eval-baseline-update\]"; then
+            echo "permitted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "permitted=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: compare against baseline
+        if: steps.rebaseline.outputs.permitted != 'true'
+        run: cargo run --release -p teramind-search-eval -- compare-baseline
+      - name: report (rebaseline mode)
+        if: steps.rebaseline.outputs.permitted == 'true'
+        run: |
+          echo "PR opted into [eval-baseline-update]; gates SKIPPED."
+          echo "Reviewer must inspect the new baseline.json in the diff."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-scorecard
+          path: |
+            benches/search-eval/eval-results.json
+            benches/search-eval/eval-scorecard.md
+          if-no-files-found: error
