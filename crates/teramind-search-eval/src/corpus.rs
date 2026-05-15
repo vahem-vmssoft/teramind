@@ -88,6 +88,82 @@ fn load_jsonl<T: serde::de::DeserializeOwned>(path: &Path) -> anyhow::Result<Vec
     Ok(out)
 }
 
+use teramind_core::ids::{FileDiffId, SessionId, ToolCallId, TurnId};
+use teramind_db::pool::DbPool;
+use teramind_db::repos::diff::NewFileDiff;
+use teramind_db::repos::session::NewSession;
+use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
+
+pub async fn ingest(pool: &DbPool, c: &Corpus) -> anyhow::Result<()> {
+    let agents = AgentRepo::new(pool.clone());
+    let sessions = SessionRepo::new(pool.clone());
+    let trace = TraceRepo::new(pool.clone());
+    let diffs = DiffRepo::new(pool.clone());
+
+    let claude_agent = agents.upsert("claude_code", None).await?;
+
+    for s in &c.sessions {
+        let _ = sessions.insert_with_id(SessionId(s.id), NewSession {
+            agent_id: claude_agent.id,
+            agent_session_id: None,
+            cwd: &s.cwd,
+            project_id: None,
+            parent_session_id: None,
+            git_head: None,
+            git_branch: None,
+            os: "linux",
+            hostname: "eval",
+            user_login: "eval",
+            started_at: s.started_at,
+        }).await?;
+    }
+    for t in &c.turns {
+        let tid = trace.upsert_turn_with_id(
+            TurnId(t.id),
+            SessionId(t.session_id),
+            t.ordinal,
+            t.started_at,
+            t.user_prompt.as_deref(),
+        ).await?;
+        trace.finalize_turn(
+            tid, t.started_at,
+            t.assistant_text.as_deref(),
+            t.thinking.as_deref(),
+            Some("eval-model"), None, None,
+        ).await?;
+    }
+    for tc in &c.tool_calls {
+        let _ = trace.insert_tool_call_start_with_id(
+            ToolCallId(tc.id),
+            TurnId(tc.turn_id),
+            tc.ordinal, &tc.name, &tc.input, tc.started_at,
+        ).await?;
+        trace.finalize_tool_call(ToolCallId(tc.id), &tc.output, false, 0).await?;
+    }
+    for d in &c.file_diffs {
+        let _: FileDiffId = diffs.insert(NewFileDiff {
+            turn_id: d.turn_id.map(TurnId),
+            session_id: SessionId(d.session_id),
+            file_path: &d.file_path,
+            rel_path: &d.rel_path,
+            attribution: d.attribution,
+            language: d.language.as_deref(),
+            pre_excerpt: &d.pre_excerpt,
+            post_excerpt: &d.post_excerpt,
+            unified_diff: &d.unified_diff,
+            pre_hash: [0u8; 32],
+            post_hash: [1u8; 32],
+            byte_size: d.post_excerpt.len() as i32,
+            captured_at: d.captured_at,
+        }).await?;
+    }
+
+    sqlx::query("REFRESH MATERIALIZED VIEW traces_fts")
+        .execute(pool.pg()).await?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,5 +198,35 @@ mod tests {
         let c = load(dir.path()).unwrap();
         assert!(c.sessions.is_empty());
         assert!(c.turns.is_empty());
+    }
+
+    use teramind_db::{migrate, pg_supervisor::PgSupervisor};
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn ingest_loads_a_minimal_corpus_into_pg() -> anyhow::Result<()> {
+        let dir = TempDir::new().unwrap();
+        let pgdata = dir.path().join("pgdata");
+        let sup = PgSupervisor::start(pgdata, "teramind").await?;
+        let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
+        migrate::run(&pool).await?;
+
+        let c = Corpus {
+            sessions: vec![SessionRow {
+                id: Uuid::new_v4(),
+                agent_kind: "claude_code".into(),
+                cwd: "/proj".into(),
+                project_tag: "rust-web".into(),
+                started_at: OffsetDateTime::from_unix_timestamp(1_700_000_000).unwrap(),
+            }],
+            turns: vec![], tool_calls: vec![], file_diffs: vec![],
+        };
+        ingest(&pool, &c).await?;
+
+        let (n,): (i64,) = sqlx::query_as("SELECT count(*) FROM sessions")
+            .fetch_one(pool.pg()).await?;
+        assert_eq!(n, 1);
+
+        sup.shutdown().await?;
+        Ok(())
     }
 }
