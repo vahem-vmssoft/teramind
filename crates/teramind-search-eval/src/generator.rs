@@ -17,7 +17,7 @@ use teramind_core::types::file_diff::Attribution;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-const SEED: u64 = 0xC0_FFEE_C0_FFEE;
+const SEED: u64 = 0xC0FF_EEC0_FFEE;
 
 #[derive(Debug, Clone, Copy)]
 struct Template {

@@ -2942,6 +2942,7 @@ dependencies = [
  "tempfile",
  "teramind-core",
  "teramind-ipc",
+ "teramind-search-eval",
  "teramindd",
  "time",
  "tokio",
