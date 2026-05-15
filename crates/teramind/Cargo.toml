@@ -13,6 +13,7 @@ path = "src/main.rs"
 teramind-core = { path = "../teramind-core" }
 teramind-ipc  = { path = "../teramind-ipc" }
 teramindd     = { path = "../teramindd" }
+teramind-search-eval = { path = "../teramind-search-eval" }
 anyhow      = { workspace = true }
 clap        = { workspace = true }
 flate2      = { workspace = true }
