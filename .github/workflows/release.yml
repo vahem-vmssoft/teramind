@@ -144,3 +144,72 @@ jobs:
             dist/teramind-*-SHA256SUMS
             dist/teramind-*-SHA256SUMS.sig
           if-no-files-found: error
+
+  notarize:
+    name: notarize macOS (${{ matrix.target }})
+    if: ${{ vars.APPLE_NOTARIZE_ENABLED == 'true' }}
+    needs: [build]
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: in
+
+      - name: import signing identity
+        env:
+          P12_B64:   ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          P12_PASS:  ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$P12_B64" | base64 --decode > /tmp/id.p12
+          security create-keychain -p '' build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p '' build.keychain
+          security import /tmp/id.p12 -k build.keychain -P "$P12_PASS" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k '' build.keychain
+          rm /tmp/id.p12
+
+      - name: extract, codesign, repack
+        env:
+          IDENTITY: ${{ vars.APPLE_DEVELOPER_ID_NAME }}  # e.g. "Developer ID Application: Acme Inc (TEAMID)"
+        run: |
+          set -euo pipefail
+          cd in
+          archive=$(ls teramind-*-${{ matrix.target }}.tar.gz)
+          mkdir staging && tar -xzf "$archive" -C staging
+          dir=$(ls staging)
+          for bin in teramind teramindd teramind-hook teramind-mcp; do
+            codesign --force --options runtime --timestamp \
+              --sign "$IDENTITY" \
+              "staging/$dir/$bin"
+          done
+          (cd staging && tar -czf "../$archive" "$dir")
+
+      - name: notarize
+        env:
+          APPLE_ID:        ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD:  ${{ secrets.APPLE_ID_APP_PASSWORD }}
+          APPLE_TEAM_ID:   ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          cd in
+          archive=$(ls teramind-*-${{ matrix.target }}.tar.gz)
+          xcrun notarytool submit "$archive" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_PASSWORD" \
+            --wait
+          # tar.gz archives can't be stapled directly; the per-binary signatures
+          # are sufficient and the notarization record is captured by Apple's
+          # servers (verified at first run when network is available).
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}-notarized
+          path: in/*.tar.gz
+          if-no-files-found: error
