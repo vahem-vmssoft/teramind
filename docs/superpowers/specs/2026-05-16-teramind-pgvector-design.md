@@ -40,7 +40,7 @@ The L5 benchmark from Plan F serves as the empirical arbiter: a separate `--sema
 
 ### 2.3 Success criteria
 
-1. After `teramind init` on a host with Ollama serving `nomic-embed-text`, the embedding worker fills `embeddings` rows for new turns and file_diffs within 10 s of ingest, with zero impact on ingest latency.
+1. After `teramind init` on a host with Ollama serving `nomic-embed-text-v2-moe`, the embedding worker fills `embeddings` rows for new turns and file_diffs within 10 s of ingest, with zero impact on ingest latency.
 2. With `semantic_weight = 0.4` in `search.toml`, semantic queries return relevant turns whose lexical content does NOT contain the query terms (paraphrase recall).
 3. `teramind-search-eval run --semantic` completes in under 3 minutes on a 500-session corpus with Ollama running locally.
 4. The default (lexical-only) L5 gate from Plan F remains unaffected. Semantic regression is observed independently via `baseline-semantic.json`.
@@ -144,8 +144,8 @@ CREATE TABLE embeddings (
   id           bigserial PRIMARY KEY,
   item_kind    text NOT NULL CHECK (item_kind IN ('turn', 'file_diff')),
   item_id      uuid NOT NULL,
-  model        text NOT NULL,                    -- e.g. "ollama:nomic-embed-text"
-  dim          integer NOT NULL,                 -- 768 for nomic-embed-text
+  model        text NOT NULL,                    -- e.g. "ollama:nomic-embed-text-v2-moe"
+  dim          integer NOT NULL,                 -- 768 for nomic-embed-text-v2-moe
   embedding    vector(768) NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now(),
   UNIQUE (item_kind, item_id, model)
@@ -176,7 +176,7 @@ FROM   file_diffs d;
 **Key decisions:**
 
 - **Separate `embeddings` table, not a column on the parent tables.** Decouples vector storage from main data model; lets us hold multiple embeddings per item during provider transitions; sparse-fill friendly.
-- **Fixed `vector(768)`.** Matches `nomic-embed-text`. Migrating to a different-dim model requires an explicit schema bump.
+- **Fixed `vector(768)`.** Matches `nomic-embed-text-v2-moe`. Migrating to a different-dim model requires an explicit schema bump.
 - **HNSW pre-created.** Cosine distance. ~10% insert overhead at <10k rows, transparent at small scale.
 - **No FK on `item_id`.** Embeddings survive cascading deletes; a daily sweeper drops orphans (`WHERE NOT EXISTS ... turns/file_diffs`). Acceptable lag: ≤24h.
 
@@ -187,7 +187,7 @@ FROM   file_diffs d;
 
 #[async_trait]
 pub trait EmbeddingProvider: Send + Sync {
-    fn model_id(&self) -> &str;            // e.g. "ollama:nomic-embed-text"
+    fn model_id(&self) -> &str;            // e.g. "ollama:nomic-embed-text-v2-moe"
     fn dimension(&self) -> usize;          // e.g. 768
     fn max_tokens(&self) -> usize;         // truncation threshold
     fn distance_metric(&self) -> DistanceMetric;  // Cosine | Dot
@@ -206,7 +206,7 @@ pub enum DistanceMetric { Cosine, Dot }
 
 | Provider | Wire | Setup |
 |---|---|---|
-| `OllamaProvider` (**default**) | HTTP POST `http://localhost:11434/api/embeddings` per text | User runs `ollama pull nomic-embed-text` once. Health check is `GET /api/version`. |
+| `OllamaProvider` (**default**) | HTTP POST `http://localhost:11434/api/embeddings` per text | User runs `ollama pull nomic-embed-text-v2-moe` once. Health check is `GET /api/version`. |
 | `FastEmbedProvider` | In-process via `fastembed-rs` crate | Bundled. Downloads model weights to `~/.local/share/teramind/embed-models/` on first use (~150 MB). No external runtime. |
 | `CloudProvider` | HTTPS to vendor API | v1.0 ships the trait shape + config validation; full HTTPS plumbing is v1.1. |
 
@@ -322,7 +322,7 @@ Two TOML files under `~/.config/teramind/`:
 
 ```toml
 provider = "ollama"                  # ollama | fastembed | anthropic | openai | voyage
-model    = "nomic-embed-text"        # provider-scoped model id
+model    = "nomic-embed-text-v2-moe"        # provider-scoped model id
 
 poll_interval_secs       = 5
 batch_size               = 32
@@ -405,7 +405,7 @@ Both baselines are gated by the same thresholds (≤2 pp overall nDCG drop, ≤5
         run: |
           ollama serve &
           sleep 5
-          ollama pull nomic-embed-text
+          ollama pull nomic-embed-text-v2-moe
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: run benchmark
@@ -422,7 +422,7 @@ Both baselines are gated by the same thresholds (≤2 pp overall nDCG drop, ≤5
 **`teramind doctor`** picks up two new lines when embeddings exist:
 
 ```
-embedding provider: ollama (model=nomic-embed-text, healthy)
+embedding provider: ollama (model=nomic-embed-text-v2-moe, healthy)
 embedding backlog:  0 rows (last filled 14s ago)
 ```
 
@@ -470,7 +470,7 @@ Five-layer model from Core spec §9.
 Tagged tests `[ollama]`. CI matrix dimensions: `macos-arm64` (Metal GPU expected via local install), `ubuntu-22.04-with-ollama` (preinstall step), `ubuntu-22.04-fallback` (Docker, CPU only).
 
 Tests at this layer:
-- Embed real text via `nomic-embed-text`; assert dimension matches the trait's `dimension()`; assert `‖v‖ > 0`.
+- Embed real text via `nomic-embed-text-v2-moe`; assert dimension matches the trait's `dimension()`; assert `‖v‖ > 0`.
 - End-to-end: insert a turn whose `user_prompt` paraphrases a target query, fill the embedding via the real worker, search with `semantic_weight = 0.6`, assert the paraphrased turn appears in the top-3 hits.
 - Outage simulation: kill the Ollama process mid-batch, observe worker retry on next tick, confirm no data loss.
 
@@ -498,7 +498,7 @@ Tests at this layer:
 | Path | Budget |
 |---|---|
 | Vector top-K=10 on 10k vectors (cosine, HNSW) | p99 < 50 ms |
-| Embedding worker throughput (`nomic-embed-text` on M1 GPU via Ollama) | ≥ 100 rows/s |
+| Embedding worker throughput (`nomic-embed-text-v2-moe` on M1 GPU via Ollama) | ≥ 100 rows/s |
 | Backfill of 10k-row corpus (worker default throughput) | < 100 s |
 | Search blended (`semantic_weight = 0.4`) | p99 ≤ 1 s, target ≤ 800 ms |
 
@@ -544,8 +544,8 @@ Tests at this layer:
 
 - **Embedding** — a fixed-dimensional float vector that encodes a text's semantics. Two texts are "semantically similar" if the cosine distance between their embeddings is small.
 - **Provider** — the source of embeddings. Local (Ollama/FastEmbed) or cloud (Anthropic/OpenAI/Voyage).
-- **Model** — a specific embedding model within a provider, e.g. `nomic-embed-text` under Ollama.
-- **Dimension** — vector length, tied to the model. `nomic-embed-text` = 768. Switching to a different-dim model requires a schema bump.
+- **Model** — a specific embedding model within a provider, e.g. `nomic-embed-text-v2-moe` under Ollama.
+- **Dimension** — vector length, tied to the model. `nomic-embed-text-v2-moe` = 768. Switching to a different-dim model requires a schema bump.
 - **HNSW** — Hierarchical Navigable Small World, the pgvector index type used. Trades build time for query latency at scale.
 - **Cosine distance** — pgvector's `<=>` operator. Bounded in `[0, 2]` for normalized vectors; we report `1 - distance` as `semantic_score` in `[0, 1]`.
 - **Backlog** — count of rows in `traces_to_embed` that the worker hasn't filled yet for the active model. Surfaced via `teramind doctor`.
