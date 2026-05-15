@@ -1,42 +1,38 @@
 [package]
-name = "teramindd"
+name = "teramind-search-eval"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
-[lib]
-name = "teramindd"
-path = "src/lib.rs"
-
 [[bin]]
-name = "teramindd"
+name = "teramind-search-eval"
 path = "src/main.rs"
+
+[lib]
+name = "teramind_search_eval"
+path = "src/lib.rs"
 
 [dependencies]
 teramind-core = { path = "../teramind-core" }
-teramind-ipc  = { path = "../teramind-ipc" }
 teramind-db   = { path = "../teramind-db" }
-tokio       = { workspace = true }
+teramindd     = { path = "../teramindd" }
 anyhow      = { workspace = true }
+clap        = { workspace = true }
 serde       = { workspace = true }
 serde_json  = { workspace = true }
-thiserror   = { workspace = true }
+toml        = { workspace = true }
+tokio       = { workspace = true }
 tracing     = { workspace = true }
 tracing-subscriber = { workspace = true }
-tracing-appender   = { workspace = true }
-clap        = { workspace = true }
+sqlx        = { workspace = true }
 time        = { workspace = true }
 uuid        = { workspace = true }
-async-trait = { workspace = true }
-hex         = { workspace = true }
-ignore      = { workspace = true }
-notify      = { workspace = true }
+rand        = { workspace = true }
+rand_chacha = { workspace = true }
 sha2        = { workspace = true }
-similar     = { workspace = true }
-toml        = { workspace = true }
+hex         = { workspace = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
-sqlx     = { workspace = true }
 proptest = { workspace = true }
+tempfile = { workspace = true }

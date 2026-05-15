@@ -4,6 +4,7 @@ members = [
     "crates/teramind-core",
     "crates/teramind-ipc",
     "crates/teramind-db",
+    "crates/teramind-search-eval",
     "crates/teramindd",
     "crates/teramind",
     "crates/teramind-hook",
@@ -46,6 +47,9 @@ tracing     = "0.1"
 tracing-appender   = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid        = { version = "1", features = ["v4", "v5", "serde"] }
+rand        = "0.8"
+rand_chacha = "0.3"
+toml        = "0.8"
 
 [profile.release]
 lto = "thin"

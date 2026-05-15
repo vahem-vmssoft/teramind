@@ -3043,6 +3043,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "teramind-search-eval"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "hex",
+ "proptest",
+ "rand 0.8.6",
+ "rand_chacha 0.3.1",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "sqlx",
+ "tempfile",
+ "teramind-core",
+ "teramind-db",
+ "teramindd",
+ "time",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "teramindd"
 version = "0.1.0"
 dependencies = [
