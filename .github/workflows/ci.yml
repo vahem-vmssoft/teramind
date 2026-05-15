@@ -28,3 +28,22 @@ jobs:
         run: cargo test --workspace --test '*'
         env:
           TERAMIND_LOG: warn
+
+  lint-scripts:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck install.sh
+        run: shellcheck installer/install.sh
+
+  lint-ps1:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $issues = Invoke-ScriptAnalyzer -Path installer/install.ps1 -Severity Warning,Error
+          $issues | Format-Table
+          if ($issues.Count -gt 0) { exit 1 }
