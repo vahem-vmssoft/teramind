@@ -1,0 +1,34 @@
+{
+  "latest": "0.2.0",
+  "releases": [
+    {
+      "version": "0.2.0",
+      "artifacts": {
+        "aarch64-apple-darwin": {
+          "url": "https://get.teramind.dev/0.2.0/teramind-0.2.0-aarch64-apple-darwin.tar.gz",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "x86_64-apple-darwin": {
+          "url": "https://get.teramind.dev/0.2.0/teramind-0.2.0-x86_64-apple-darwin.tar.gz",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "x86_64-unknown-linux-gnu": {
+          "url": "https://get.teramind.dev/0.2.0/teramind-0.2.0-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "aarch64-unknown-linux-gnu": {
+          "url": "https://get.teramind.dev/0.2.0/teramind-0.2.0-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "x86_64-pc-windows-msvc": {
+          "url": "https://get.teramind.dev/0.2.0/teramind-0.2.0-x86_64-pc-windows-msvc.zip",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "aarch64-pc-windows-msvc": {
+          "url": "https://get.teramind.dev/0.2.0/teramind-0.2.0-aarch64-pc-windows-msvc.zip",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      }
+    }
+  ]
+}
