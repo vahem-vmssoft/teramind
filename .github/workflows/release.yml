@@ -95,3 +95,52 @@ jobs:
           name: ${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
+
+  sums:
+    name: SHA256SUMS + cosign
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: write SHA256SUMS
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.tag }}"; version="${version#v}"
+          fi
+          cd dist
+          shopt -s nullglob
+          : > "teramind-${version}-SHA256SUMS"
+          for f in *.tar.gz *.zip; do
+            sha256sum "$f" >> "teramind-${version}-SHA256SUMS"
+          done
+          cat "teramind-${version}-SHA256SUMS"
+
+      - name: install cosign
+        if: ${{ vars.COSIGN_ENABLED == 'true' }}
+        uses: sigstore/cosign-installer@v3
+
+      - name: sign with cosign (keyless OIDC)
+        if: ${{ vars.COSIGN_ENABLED == 'true' }}
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          cd dist
+          cosign sign-blob --yes \
+            --output-signature "teramind-${version}-SHA256SUMS.sig" \
+            "teramind-${version}-SHA256SUMS"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sums
+          path: |
+            dist/teramind-*-SHA256SUMS
+            dist/teramind-*-SHA256SUMS.sig
+          if-no-files-found: error
