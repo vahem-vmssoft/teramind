@@ -213,3 +213,25 @@ jobs:
           name: ${{ matrix.target }}-notarized
           path: in/*.tar.gz
           if-no-files-found: error
+
+  release:
+    name: publish GitHub release
+    needs: [build, sums]
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: upload to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/teramind-*.tar.gz
+            out/teramind-*.zip
+            out/teramind-*-SHA256SUMS
+            out/teramind-*-SHA256SUMS.sig
+          fail_on_unmatched_files: false
+          generate_release_notes: true
