@@ -6,7 +6,7 @@
 
 use crate::updater::release_index::ReleaseIndex;
 use crate::updater::{atomic_swap, extract_tarball, verify_sha256};
-use std::path::PathBuf;
+use std::path::Path;
 
 const DEFAULT_INDEX_URL: &str = "https://get.teramind.dev/releases.json";
 
@@ -51,13 +51,13 @@ pub async fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
     let bin_dir = current_exe.parent()
         .ok_or_else(|| anyhow::anyhow!("current_exe() has no parent dir"))?
         .to_path_buf();
-    swap_all(&staging.path().to_path_buf(), &bin_dir)?;
+    swap_all(staging.path(), &bin_dir)?;
 
     println!("teramind self-update: upgraded {current} -> {latest}");
     Ok(())
 }
 
-fn swap_all(staging: &PathBuf, bin_dir: &PathBuf) -> anyhow::Result<()> {
+fn swap_all(staging: &Path, bin_dir: &Path) -> anyhow::Result<()> {
     for name in ["teramind", "teramindd", "teramind-hook", "teramind-mcp"] {
         let exe = if cfg!(windows) { format!("{name}.exe") } else { name.to_string() };
         let staged = staging.join(&exe);
