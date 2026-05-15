@@ -7,3 +7,5 @@ Cargo.lock.bak
 *.swp
 # Teramind local state (must never be committed)
 /.local-data/
+benches/search-eval/eval-results.json
+benches/search-eval/eval-scorecard.md

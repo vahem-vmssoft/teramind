@@ -1,0 +1,59 @@
+{
+  "overall": {
+    "n_queries": 100,
+    "ndcg_at_10": 0.14,
+    "mrr": 0.14,
+    "p_at_5": 0.06999999999999999,
+    "p_at_10": 0.037,
+    "r_at_10": 0.10250000000000002
+  },
+  "by_class": {
+    "natural_language": {
+      "n_queries": 20,
+      "ndcg_at_10": 0.15,
+      "mrr": 0.15,
+      "p_at_5": 0.09,
+      "p_at_10": 0.045,
+      "r_at_10": 0.08333333333333333
+    },
+    "stack_trace": {
+      "n_queries": 20,
+      "ndcg_at_10": 0.1,
+      "mrr": 0.1,
+      "p_at_5": 0.03000000000000001,
+      "p_at_10": 0.015000000000000005,
+      "r_at_10": 0.041666666666666664
+    },
+    "code_snippet": {
+      "n_queries": 20,
+      "ndcg_at_10": 0.0,
+      "mrr": 0.0,
+      "p_at_5": 0.0,
+      "p_at_10": 0.0,
+      "r_at_10": 0.0
+    },
+    "tool_typed": {
+      "n_queries": 20,
+      "ndcg_at_10": 0.0,
+      "mrr": 0.0,
+      "p_at_5": 0.0,
+      "p_at_10": 0.0,
+      "r_at_10": 0.0
+    },
+    "symbolic_path": {
+      "n_queries": 20,
+      "ndcg_at_10": 0.45,
+      "mrr": 0.45,
+      "p_at_5": 0.23000000000000004,
+      "p_at_10": 0.125,
+      "r_at_10": 0.3875
+    }
+  },
+  "query_latency_p95_ms": 3,
+  "corpus_size": {
+    "sessions": 500,
+    "turns": 1747,
+    "tool_calls": 1819,
+    "file_diffs": 692
+  }
+}

@@ -1,0 +1,499 @@
+[[queries]]
+id = "nl-01"
+class = "natural_language"
+text = "how did we fix the JWT expiry bug"
+
+[[queries]]
+id = "nl-02"
+class = "natural_language"
+text = "what changed about the rate limiter last week"
+
+[[queries]]
+id = "nl-03"
+class = "natural_language"
+text = "did anyone solve the redis connection pool leak"
+
+[[queries]]
+id = "nl-04"
+class = "natural_language"
+text = "explain the migration to tokio 1.x"
+
+[[queries]]
+id = "nl-05"
+class = "natural_language"
+text = "where do we set the read replica routing"
+
+[[queries]]
+id = "nl-06"
+class = "natural_language"
+text = "how is the websocket reconnect handled"
+
+[[queries]]
+id = "nl-07"
+class = "natural_language"
+text = "summary of the auth refactor"
+
+[[queries]]
+id = "nl-08"
+class = "natural_language"
+text = "why did we switch from reqwest to ureq"
+
+[[queries]]
+id = "nl-09"
+class = "natural_language"
+text = "what does the worker pool sizing logic do"
+
+[[queries]]
+id = "nl-10"
+class = "natural_language"
+text = "fix the cors preflight failure"
+
+[[queries]]
+id = "nl-11"
+class = "natural_language"
+text = "why does the smoke test flake on macos"
+
+[[queries]]
+id = "nl-12"
+class = "natural_language"
+text = "where is the postgres backoff configured"
+
+[[queries]]
+id = "nl-13"
+class = "natural_language"
+text = "how do we generate sitemaps"
+
+[[queries]]
+id = "nl-14"
+class = "natural_language"
+text = "explain the new pricing column"
+
+[[queries]]
+id = "nl-15"
+class = "natural_language"
+text = "what does the cli doctor do"
+
+[[queries]]
+id = "nl-16"
+class = "natural_language"
+text = "trace the audit log entries"
+
+[[queries]]
+id = "nl-17"
+class = "natural_language"
+text = "why is the cache invalidation so slow"
+
+[[queries]]
+id = "nl-18"
+class = "natural_language"
+text = "what was the fix for the pagination off-by-one"
+
+[[queries]]
+id = "nl-19"
+class = "natural_language"
+text = "explain the new error envelope"
+
+[[queries]]
+id = "nl-20"
+class = "natural_language"
+text = "where are http retries configured"
+
+[[queries]]
+id = "st-01"
+class = "stack_trace"
+text = "thread main panicked at serializer.rs:142"
+
+[[queries]]
+id = "st-02"
+class = "stack_trace"
+text = "NullPointerException at UserController.java:88"
+
+[[queries]]
+id = "st-03"
+class = "stack_trace"
+text = "TypeError: cannot read properties of undefined"
+
+[[queries]]
+id = "st-04"
+class = "stack_trace"
+text = "RuntimeError: dictionary changed size during iteration"
+
+[[queries]]
+id = "st-05"
+class = "stack_trace"
+text = "panic: runtime error: index out of range"
+
+[[queries]]
+id = "st-06"
+class = "stack_trace"
+text = "sqlx error: column already exists"
+
+[[queries]]
+id = "st-07"
+class = "stack_trace"
+text = "thread tokio-runtime-worker panicked"
+
+[[queries]]
+id = "st-08"
+class = "stack_trace"
+text = "AttributeError: NoneType object has no attribute"
+
+[[queries]]
+id = "st-09"
+class = "stack_trace"
+text = "ECONNREFUSED 127.0.0.1:5432"
+
+[[queries]]
+id = "st-10"
+class = "stack_trace"
+text = "unrecoverable error: heap out of memory"
+
+[[queries]]
+id = "st-11"
+class = "stack_trace"
+text = "ImportError: cannot import name foo"
+
+[[queries]]
+id = "st-12"
+class = "stack_trace"
+text = "Exception in thread http-handler"
+
+[[queries]]
+id = "st-13"
+class = "stack_trace"
+text = "fatal: not a git repository"
+
+[[queries]]
+id = "st-14"
+class = "stack_trace"
+text = "ValueError: too many values to unpack"
+
+[[queries]]
+id = "st-15"
+class = "stack_trace"
+text = "unhandled rejection: socket hang up"
+
+[[queries]]
+id = "st-16"
+class = "stack_trace"
+text = "panic: assignment to entry in nil map"
+
+[[queries]]
+id = "st-17"
+class = "stack_trace"
+text = "OperationalError: server closed the connection"
+
+[[queries]]
+id = "st-18"
+class = "stack_trace"
+text = "stack overflow"
+
+[[queries]]
+id = "st-19"
+class = "stack_trace"
+text = "Permission denied publickey"
+
+[[queries]]
+id = "st-20"
+class = "stack_trace"
+text = "fatal: Authentication failed"
+
+[[queries]]
+id = "cs-01"
+class = "code_snippet"
+text = "if let Some headers Authorization"
+
+[[queries]]
+id = "cs-02"
+class = "code_snippet"
+text = "tokio::spawn async move"
+
+[[queries]]
+id = "cs-03"
+class = "code_snippet"
+text = "let mut conn pool acquire await"
+
+[[queries]]
+id = "cs-04"
+class = "code_snippet"
+text = "useState initial value"
+
+[[queries]]
+id = "cs-05"
+class = "code_snippet"
+text = "async fn handler Request Response"
+
+[[queries]]
+id = "cs-06"
+class = "code_snippet"
+text = "df groupby user_id agg"
+
+[[queries]]
+id = "cs-07"
+class = "code_snippet"
+text = "ctx Done channel"
+
+[[queries]]
+id = "cs-08"
+class = "code_snippet"
+text = "match self state Active"
+
+[[queries]]
+id = "cs-09"
+class = "code_snippet"
+text = "axios interceptors response use"
+
+[[queries]]
+id = "cs-10"
+class = "code_snippet"
+text = "derive Debug Serialize Deserialize"
+
+[[queries]]
+id = "cs-11"
+class = "code_snippet"
+text = "for i item vec iter enumerate"
+
+[[queries]]
+id = "cs-12"
+class = "code_snippet"
+text = "redis PubSub channel"
+
+[[queries]]
+id = "cs-13"
+class = "code_snippet"
+text = "Component selector tag"
+
+[[queries]]
+id = "cs-14"
+class = "code_snippet"
+text = "DB exec SQL_INSERT_USER"
+
+[[queries]]
+id = "cs-15"
+class = "code_snippet"
+text = "if err nil return nil err go"
+
+[[queries]]
+id = "cs-16"
+class = "code_snippet"
+text = "try JSON parse body catch"
+
+[[queries]]
+id = "cs-17"
+class = "code_snippet"
+text = "ChaCha20Rng seed_from_u64"
+
+[[queries]]
+id = "cs-18"
+class = "code_snippet"
+text = "flask route api v1 health"
+
+[[queries]]
+id = "cs-19"
+class = "code_snippet"
+text = "ErrorKind WouldBlock io"
+
+[[queries]]
+id = "cs-20"
+class = "code_snippet"
+text = "return new Promise resolve reject"
+
+[[queries]]
+id = "tt-01"
+class = "tool_typed"
+text = "tool Edit path src parser.rs"
+
+[[queries]]
+id = "tt-02"
+class = "tool_typed"
+text = "tool Bash command cargo test"
+
+[[queries]]
+id = "tt-03"
+class = "tool_typed"
+text = "tool Read path Cargo.toml"
+
+[[queries]]
+id = "tt-04"
+class = "tool_typed"
+text = "tool Grep pattern TODO"
+
+[[queries]]
+id = "tt-05"
+class = "tool_typed"
+text = "tool Write path README.md"
+
+[[queries]]
+id = "tt-06"
+class = "tool_typed"
+text = "tool Edit path src main.rs"
+
+[[queries]]
+id = "tt-07"
+class = "tool_typed"
+text = "tool Bash command git status"
+
+[[queries]]
+id = "tt-08"
+class = "tool_typed"
+text = "tool Read path package.json"
+
+[[queries]]
+id = "tt-09"
+class = "tool_typed"
+text = "tool Grep pattern fixme"
+
+[[queries]]
+id = "tt-10"
+class = "tool_typed"
+text = "tool Edit path tests integration.rs"
+
+[[queries]]
+id = "tt-11"
+class = "tool_typed"
+text = "tool Bash command npm install"
+
+[[queries]]
+id = "tt-12"
+class = "tool_typed"
+text = "tool Read path src lib.rs"
+
+[[queries]]
+id = "tt-13"
+class = "tool_typed"
+text = "tool Write path src config.rs"
+
+[[queries]]
+id = "tt-14"
+class = "tool_typed"
+text = "tool Edit path Cargo.lock"
+
+[[queries]]
+id = "tt-15"
+class = "tool_typed"
+text = "tool Bash command docker build"
+
+[[queries]]
+id = "tt-16"
+class = "tool_typed"
+text = "tool Grep pattern unwrap"
+
+[[queries]]
+id = "tt-17"
+class = "tool_typed"
+text = "tool MultiEdit path src repo.rs"
+
+[[queries]]
+id = "tt-18"
+class = "tool_typed"
+text = "tool Bash command make test"
+
+[[queries]]
+id = "tt-19"
+class = "tool_typed"
+text = "tool Read path docker-compose.yml"
+
+[[queries]]
+id = "tt-20"
+class = "tool_typed"
+text = "tool Edit path src db.rs"
+
+[[queries]]
+id = "sp-01"
+class = "symbolic_path"
+text = "serialize_with_options"
+
+[[queries]]
+id = "sp-02"
+class = "symbolic_path"
+text = "crates teramind-core src redact.rs"
+
+[[queries]]
+id = "sp-03"
+class = "symbolic_path"
+text = "validate_input"
+
+[[queries]]
+id = "sp-04"
+class = "symbolic_path"
+text = "AuthMiddleware"
+
+[[queries]]
+id = "sp-05"
+class = "symbolic_path"
+text = "openapi yaml"
+
+[[queries]]
+id = "sp-06"
+class = "symbolic_path"
+text = "FeatureFlag enum"
+
+[[queries]]
+id = "sp-07"
+class = "symbolic_path"
+text = "scripts release.sh"
+
+[[queries]]
+id = "sp-08"
+class = "symbolic_path"
+text = "Datadog_client"
+
+[[queries]]
+id = "sp-09"
+class = "symbolic_path"
+text = "k8s deployment.yaml"
+
+[[queries]]
+id = "sp-10"
+class = "symbolic_path"
+text = "format_event_payload"
+
+[[queries]]
+id = "sp-11"
+class = "symbolic_path"
+text = "Prometheus Counter"
+
+[[queries]]
+id = "sp-12"
+class = "symbolic_path"
+text = "lib cache invalidator.go"
+
+[[queries]]
+id = "sp-13"
+class = "symbolic_path"
+text = "RateLimitExceeded"
+
+[[queries]]
+id = "sp-14"
+class = "symbolic_path"
+text = "src utils url.ts"
+
+[[queries]]
+id = "sp-15"
+class = "symbolic_path"
+text = "parse_iso8601"
+
+[[queries]]
+id = "sp-16"
+class = "symbolic_path"
+text = "WorkerHealth struct"
+
+[[queries]]
+id = "sp-17"
+class = "symbolic_path"
+text = ".github workflows ci.yml"
+
+[[queries]]
+id = "sp-18"
+class = "symbolic_path"
+text = "redactPII"
+
+[[queries]]
+id = "sp-19"
+class = "symbolic_path"
+text = "internal auth jwt.go"
+
+[[queries]]
+id = "sp-20"
+class = "symbolic_path"
+text = "EventBus publish"
