@@ -7,6 +7,7 @@ pub mod skill;
 pub mod storage_stats;
 pub mod trace;
 pub mod search;
+pub mod wiki;
 pub use search::SearchRepo;
 
 pub use agent::AgentRepo;
@@ -17,3 +18,4 @@ pub use session::SessionRepo;
 pub use skill::SkillRepo;
 pub use storage_stats::StorageStatsRepo;
 pub use trace::TraceRepo;
+pub use wiki::{WikiRepo, WikiPage, SessionToSummarize};
