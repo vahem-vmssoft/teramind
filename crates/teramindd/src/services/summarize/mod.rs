@@ -8,3 +8,4 @@ pub mod openai;
 pub mod factory;
 
 pub use factory::build_provider;
+pub mod null;

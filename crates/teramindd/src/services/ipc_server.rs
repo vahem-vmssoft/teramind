@@ -20,6 +20,11 @@ pub struct DaemonIpcHandler {
     pub embed_model: String,
     pub search_weights: BlendWeights,
     pub embed_stats: std::sync::Arc<crate::services::embedding_worker::EmbeddingStats>,
+    pub pool: teramind_db::pool::DbPool,
+    pub wiki_repo: teramind_db::repos::WikiRepo,
+    pub summary_provider: std::sync::Arc<dyn teramind_core::summarize::SummaryProvider>,
+    pub summary_model: String,
+    pub summarizer_stats: std::sync::Arc<crate::services::summarizer_worker::SummarizerStats>,
 }
 
 #[async_trait]
@@ -33,6 +38,11 @@ impl IpcServer for DaemonIpcHandler {
                     let v = self.embed_stats.last_filled_at_unix.load(Ordering::Relaxed);
                     if v == 0 { None } else { Some(v) }
                 };
+                let summary_healthy = self.summarizer_stats.provider_unhealthy_since_unix.load(Ordering::Relaxed) == 0;
+                let summary_backlog = self.summarizer_stats.backlog.load(Ordering::Relaxed) as i64;
+                let summary_written = self.summarizer_stats.written.load(Ordering::Relaxed);
+                let summary_in = self.summarizer_stats.input_tokens_total.load(Ordering::Relaxed);
+                let summary_out = self.summarizer_stats.output_tokens_total.load(Ordering::Relaxed);
                 Response::Status(StatusReport {
                     uptime_seconds: self.started.elapsed().as_secs(),
                     pg_connected: true,
@@ -45,6 +55,12 @@ impl IpcServer for DaemonIpcHandler {
                     embedding_healthy: Some(healthy),
                     embedding_backlog: Some(backlog),
                     embedding_last_filled_unix: last_filled,
+                    summary_provider: Some(self.summary_model.clone()),
+                    summary_healthy: Some(summary_healthy),
+                    summary_backlog: Some(summary_backlog),
+                    summary_written_total: Some(summary_written),
+                    summary_input_tokens_total: Some(summary_in),
+                    summary_output_tokens_total: Some(summary_out),
                 })
             }
             Request::Ping => Response::Pong,
@@ -80,6 +96,38 @@ impl IpcServer for DaemonIpcHandler {
                 match self.search_repo.upsert_skill(&r).await {
                     Ok(s) => Response::SkillRef(s),
                     Err(e) => Response::Error(format!("save_skill failed: {e}")),
+                }
+            }
+            Request::WikiLookup { session_id, cwd } => {
+                let result: anyhow::Result<Option<teramind_db::repos::WikiPage>> = async {
+                    if let Some(sid_str) = session_id {
+                        let sid = teramind_core::ids::SessionId(uuid::Uuid::parse_str(&sid_str)?);
+                        let p = self.wiki_repo.get_for_session(sid, &self.summary_model).await?;
+                        Ok(p)
+                    } else if let Some(cwd) = cwd {
+                        let p = self.wiki_repo.latest_for_cwd(&cwd).await?;
+                        Ok(p)
+                    } else {
+                        Ok(None)
+                    }
+                }.await;
+                match result {
+                    Ok(Some(p)) => {
+                        let session_cwd: String = sqlx::query_scalar("SELECT cwd FROM sessions WHERE id = $1")
+                            .bind(p.session_id.0)
+                            .fetch_one(self.pool.pg())
+                            .await
+                            .unwrap_or_default();
+                        Response::WikiPage {
+                            session_id: p.session_id.0.to_string(),
+                            cwd: session_cwd,
+                            model: p.model,
+                            content: p.content,
+                            generated_at: p.generated_at,
+                        }
+                    }
+                    Ok(None) => Response::WikiNotFound,
+                    Err(e) => Response::Error(format!("wiki lookup failed: {e}")),
                 }
             }
         }

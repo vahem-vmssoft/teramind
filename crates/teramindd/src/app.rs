@@ -205,6 +205,11 @@ impl App {
             embed_model: embed_model_db_key.clone(),
             search_weights,
             embed_stats,
+            pool: pool.clone(),
+            wiki_repo,
+            summary_provider,
+            summary_model: summarize_model_db_key,
+            summarizer_stats,
         });
         let listener = listen(&paths.socket_path)?;
         let h2 = handler.clone();

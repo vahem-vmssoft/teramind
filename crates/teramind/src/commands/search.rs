@@ -28,6 +28,8 @@ pub async fn run(query: String, limit: u32, json: bool, _grep: bool) -> anyhow::
                 println!("{i:3}. [diff]    {ts}  {rel_path}  score={score:.3}\n      {hunk_snippet}"),
             Hit::Skill { name, body_snippet, score, .. } =>
                 println!("{i:3}. [skill]   {name}  score={score:.3}\n      {body_snippet}"),
+            Hit::WikiPage { title, snippet, score, ts, .. } =>
+                println!("{i:3}. [wiki]    {ts}  {title}  score={score:.3}\n      {snippet}"),
         }
     }
     Ok(())

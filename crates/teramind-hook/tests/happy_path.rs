@@ -67,6 +67,11 @@ async fn hook_session_start_persists_to_postgres() {
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
         embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
+        pool: pool.clone(),
+        wiki_repo: teramind_db::repos::WikiRepo::new(pool.clone()),
+        summary_provider: std::sync::Arc::new(teramindd::services::summarize::null::NullSummaryProvider),
+        summary_model: "test:null".into(),
+        summarizer_stats: std::sync::Arc::new(teramindd::services::summarizer_worker::SummarizerStats::default()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -137,6 +142,11 @@ async fn hook_tool_call_lifecycle_persists() {
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
         embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
+        pool: pool.clone(),
+        wiki_repo: teramind_db::repos::WikiRepo::new(pool.clone()),
+        summary_provider: std::sync::Arc::new(teramindd::services::summarize::null::NullSummaryProvider),
+        summary_model: "test:null".into(),
+        summarizer_stats: std::sync::Arc::new(teramindd::services::summarizer_worker::SummarizerStats::default()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -239,6 +249,11 @@ async fn hook_session_start_emits_auto_recall_digest() {
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
         embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
+        pool: pool.clone(),
+        wiki_repo: teramind_db::repos::WikiRepo::new(pool.clone()),
+        summary_provider: std::sync::Arc::new(teramindd::services::summarize::null::NullSummaryProvider),
+        summary_model: "test:null".into(),
+        summarizer_stats: std::sync::Arc::new(teramindd::services::summarizer_worker::SummarizerStats::default()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
