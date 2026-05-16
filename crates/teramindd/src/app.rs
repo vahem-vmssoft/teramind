@@ -128,6 +128,35 @@ impl App {
         let embed_stats = embed_worker.stats.clone();
         let _embed_worker_guard = embed_worker;
 
+        // Session summarizer.
+        let summarize_cfg_path = paths.config_dir.join("summarize.toml");
+        let summarize_cfg = crate::config::SummarizeConfig::load_or_default(&summarize_cfg_path)?;
+        let secrets_path = paths.config_dir.join("secrets.toml");
+        let summary_provider = crate::services::summarize::build_provider(
+            &summarize_cfg, &secrets_path,
+        )?;
+        let summarize_model_db_key = format!(
+            "{}:{}",
+            provider_prefix(summary_provider.kind()),
+            summarize_cfg.model,
+        );
+        let wiki_repo = teramind_db::repos::WikiRepo::new(pool.clone());
+        let summarizer = crate::services::summarizer_worker::SummarizerWorker::spawn(
+            crate::services::summarizer_worker::SummarizerDeps {
+                repo: wiki_repo.clone(),
+                provider: summary_provider.clone(),
+                redactor: std::sync::Arc::new(teramind_core::redact::Redactor::with_default_rules()),
+                model: summarize_model_db_key.clone(),
+                poll_interval: std::time::Duration::from_secs(summarize_cfg.poll_interval_secs),
+                min_turns: summarize_cfg.min_turns,
+                min_duration_secs: summarize_cfg.min_duration_secs,
+                input_char_budget: summarize_cfg.input_char_budget,
+                output_token_budget: summarize_cfg.output_token_budget,
+            },
+        );
+        let summarizer_stats = summarizer.stats.clone();
+        let _summarizer_guard = summarizer;  // hold for App::run lifetime
+
         let orphan_interval = std::time::Duration::from_secs(
             embed_cfg.orphan_sweep_interval_hr as u64 * 3600,
         );
