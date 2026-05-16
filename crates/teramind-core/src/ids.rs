@@ -33,6 +33,7 @@ macro_rules! id_newtype {
 
 id_newtype!(AgentId);
 id_newtype!(ClientEventId);
+id_newtype!(DeviceId);
 id_newtype!(FileDiffId);
 id_newtype!(ProjectId);
 id_newtype!(SessionId);
