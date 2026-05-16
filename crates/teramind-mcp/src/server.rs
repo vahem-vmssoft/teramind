@@ -88,6 +88,18 @@ pub struct RecallArgs {
     pub limit: u32,
 }
 
+/// Arguments to the `wiki` MCP tool.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct WikiArgs {
+    /// Optional session id (UUID). If omitted, returns the most recent
+    /// wiki page for `cwd`'s project.
+    #[serde(default)]
+    pub session_id: Option<String>,
+    /// Optional cwd. Defaults to the daemon's notion of current project.
+    #[serde(default)]
+    pub cwd: Option<String>,
+}
+
 /// Arguments to the `save_skill` MCP tool.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SaveSkillArgs {
@@ -156,6 +168,45 @@ impl TeramindMcpServer {
             }
         };
         Ok(CallToolResult::success(vec![Content::text(body)]))
+    }
+
+    /// Read a session's wiki page (session summary).
+    #[tool(description = "Read a session's wiki page. Without session_id, returns \
+        the most recent summary for the cwd's project.")]
+    async fn wiki(
+        &self,
+        Parameters(args): Parameters<WikiArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let req = Request::WikiLookup {
+            session_id: args.session_id,
+            cwd: args.cwd,
+        };
+        let resp = self.ipc_request(req).await?;
+        match resp {
+            Response::WikiPage { session_id, cwd, model, content, generated_at } => {
+                let body = serde_json::json!({
+                    "session_id": session_id,
+                    "cwd": cwd,
+                    "model": model,
+                    "content": content,
+                    "generated_at": generated_at.to_string(),
+                });
+                let text = serde_json::to_string_pretty(&body).map_err(|e| {
+                    McpError::internal_error(format!("serialize wiki page: {e}"), None)
+                })?;
+                Ok(CallToolResult::success(vec![Content::text(text)]))
+            }
+            Response::WikiNotFound => {
+                Ok(CallToolResult::success(vec![
+                    Content::text("{\"status\":\"not_found\"}".to_string()),
+                ]))
+            }
+            Response::Error(e) => Err(McpError::internal_error(e, None)),
+            other => Err(McpError::internal_error(
+                format!("unexpected daemon response: {other:?}"),
+                None,
+            )),
+        }
     }
 
     /// Persist a user-authored skill into Teramind for future recall.
