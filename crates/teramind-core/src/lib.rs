@@ -4,6 +4,7 @@ pub mod embed;
 pub mod error;
 pub mod ids;
 pub mod redact;
+pub mod summarize;
 pub mod types;
 
 pub use error::Error;
