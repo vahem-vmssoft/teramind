@@ -59,3 +59,33 @@ async fn traces_fts_view_exists_and_is_queryable() {
     assert_eq!(n, 0);
     sup.shutdown().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn embeddings_migration_applies_and_view_works() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let sup = teramind_db::pg_supervisor::PgSupervisor::start(
+        dir.path().to_path_buf(), "teramind",
+    ).await?;
+    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
+    teramind_db::migrate::run(&pool).await?;
+
+    // Table exists with the expected columns.
+    let (col_count,): (i64,) = sqlx::query_as(
+        "SELECT count(*) FROM information_schema.columns WHERE table_name='embeddings'",
+    ).fetch_one(pool.pg()).await?;
+    assert_eq!(col_count, 7);
+
+    // HNSW index present.
+    let (idx_count,): (i64,) = sqlx::query_as(
+        "SELECT count(*) FROM pg_indexes WHERE indexname='embeddings_hnsw'",
+    ).fetch_one(pool.pg()).await?;
+    assert_eq!(idx_count, 1);
+
+    // View returns zero rows on an empty corpus.
+    let (n,): (i64,) = sqlx::query_as("SELECT count(*) FROM traces_to_embed")
+        .fetch_one(pool.pg()).await?;
+    assert_eq!(n, 0);
+
+    sup.shutdown().await?;
+    Ok(())
+}
