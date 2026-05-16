@@ -28,5 +28,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Uninstall { purge, confirm } => commands::uninstall::run(purge, confirm).await,
         Command::SelfUpdate { check_only, force } =>
             commands::self_update::run(check_only, force).await,
+        Command::Sessions { action } => match action {
+            cli::SessionsAction::Show { session_id, json } =>
+                commands::sessions::show(session_id, json).await,
+        },
     }
 }

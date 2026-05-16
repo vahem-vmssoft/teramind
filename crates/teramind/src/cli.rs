@@ -52,6 +52,11 @@ pub enum Command {
         #[arg(long)]
         grep: bool,
     },
+    /// Inspect ended sessions.
+    Sessions {
+        #[command(subcommand)]
+        action: SessionsAction,
+    },
     /// Uninstall the Teramind binaries. With --purge, also remove data + config.
     Uninstall {
         /// Also remove `~/.local/share/teramind/` and `~/.config/teramind/`.
@@ -69,6 +74,18 @@ pub enum Command {
         /// Force the upgrade even if the local version is already at the latest.
         #[arg(long)]
         force: bool,
+    },
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum SessionsAction {
+    /// Show a session's wiki page. Defaults to the most recent for $PWD.
+    Show {
+        /// Session UUID. If omitted, returns the most recent for the cwd.
+        session_id: Option<String>,
+        /// Output JSON instead of Markdown.
+        #[arg(long)]
+        json: bool,
     },
 }
 
