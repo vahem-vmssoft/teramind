@@ -4,6 +4,12 @@ use teramind_core::ids::UserId;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+type UserRow = (Uuid, String, Option<String>, OffsetDateTime, Option<OffsetDateTime>);
+
+fn row_to_user(r: UserRow) -> User {
+    User { id: UserId(r.0), email: r.1, display_name: r.2, created_at: r.3, revoked_at: r.4 }
+}
+
 #[derive(Clone)]
 pub struct UserRepo {
     pool: DbPool,
@@ -22,7 +28,7 @@ impl UserRepo {
     pub fn new(pool: DbPool) -> Self { Self { pool } }
 
     pub async fn upsert_by_email(&self, email: &str, display_name: Option<&str>) -> Result<User> {
-        let row: (Uuid, String, Option<String>, OffsetDateTime, Option<OffsetDateTime>) =
+        let row: UserRow =
             sqlx::query_as(
                 r#"
                 INSERT INTO users (email, display_name)
@@ -32,17 +38,15 @@ impl UserRepo {
                 "#)
             .bind(email).bind(display_name)
             .fetch_one(self.pool.pg()).await?;
-        Ok(User { id: UserId(row.0), email: row.1, display_name: row.2,
-                  created_at: row.3, revoked_at: row.4 })
+        Ok(row_to_user(row))
     }
 
     pub async fn get_by_id(&self, id: UserId) -> Result<Option<User>> {
-        let row: Option<(Uuid, String, Option<String>, OffsetDateTime, Option<OffsetDateTime>)> =
+        let row: Option<UserRow> =
             sqlx::query_as(
                 "SELECT id, email, display_name, created_at, revoked_at FROM users WHERE id = $1")
             .bind(id.0).fetch_optional(self.pool.pg()).await?;
-        Ok(row.map(|r| User { id: UserId(r.0), email: r.1, display_name: r.2,
-                              created_at: r.3, revoked_at: r.4 }))
+        Ok(row.map(row_to_user))
     }
 
     pub async fn get_active(&self, id: UserId) -> Result<Option<User>> {
@@ -56,13 +60,10 @@ impl UserRepo {
     }
 
     pub async fn list_all(&self) -> Result<Vec<User>> {
-        let rows: Vec<(Uuid, String, Option<String>, OffsetDateTime, Option<OffsetDateTime>)> =
+        let rows: Vec<UserRow> =
             sqlx::query_as(
                 "SELECT id, email, display_name, created_at, revoked_at FROM users ORDER BY email")
             .fetch_all(self.pool.pg()).await?;
-        Ok(rows.into_iter()
-            .map(|r| User { id: UserId(r.0), email: r.1, display_name: r.2,
-                            created_at: r.3, revoked_at: r.4 })
-            .collect())
+        Ok(rows.into_iter().map(row_to_user).collect())
     }
 }
