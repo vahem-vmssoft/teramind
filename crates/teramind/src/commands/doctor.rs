@@ -56,6 +56,23 @@ pub async fn run() -> anyhow::Result<()> {
                 };
                 println!("  embed backlog  : {backlog} rows ({last_filled})");
             }
+            if let Some(provider) = &s.summary_provider {
+                let healthy = s.summary_healthy.unwrap_or(false);
+                println!(
+                    "  summary        : {provider} ({})",
+                    if healthy { "healthy" } else { "unhealthy" }
+                );
+            }
+            if let Some(backlog) = s.summary_backlog {
+                let written = s.summary_written_total.unwrap_or(0);
+                println!("  summary backlog: {backlog} sessions queued");
+                println!("  summaries written: {written} total");
+            }
+            if let (Some(it), Some(ot)) = (s.summary_input_tokens_total, s.summary_output_tokens_total) {
+                if it > 0 || ot > 0 {
+                    println!("  summary tokens : in={it}  out={ot}");
+                }
+            }
         }
         Ok(other) => println!("  daemon         : unexpected response {:?}", other),
         Err(_) => println!("  daemon         : not responding"),
