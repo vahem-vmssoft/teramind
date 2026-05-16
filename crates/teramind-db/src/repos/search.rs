@@ -44,6 +44,16 @@ pub struct RankedSkill {
     pub trgm_score: f32,
 }
 
+#[derive(Debug, Clone)]
+pub struct RankedWiki {
+    pub page_id: Uuid,
+    pub session_id: Uuid,
+    pub title: String,
+    pub snippet: String,
+    pub fts_score: f32,
+    pub ts: OffsetDateTime,
+}
+
 impl SearchRepo {
     pub fn new(pool: DbPool) -> Self { Self { pool } }
 
@@ -249,6 +259,33 @@ impl SearchRepo {
                 trgm_score: 0.0, semantic_score: sem,
                 pre_excerpt: pre, post_excerpt: post,
             }
+        }).collect())
+    }
+
+    pub async fn fts_wiki_pages(&self, query: &str, limit: u32) -> Result<Vec<RankedWiki>> {
+        let rows: Vec<(Uuid, Uuid, String, OffsetDateTime, f32)> = sqlx::query_as(
+            r#"
+            SELECT w.id, w.session_id, w.content, w.generated_at,
+                   ts_rank_cd(to_tsvector('english', w.content),
+                              plainto_tsquery('english', $1))::float4 AS fts_score
+            FROM   wiki_pages w
+            WHERE  to_tsvector('english', w.content) @@ plainto_tsquery('english', $1)
+              AND  length(w.content) > 0
+            ORDER  BY fts_score DESC
+            LIMIT  $2
+            "#,
+        )
+        .bind(query)
+        .bind(limit as i64)
+        .fetch_all(self.pool.pg()).await?;
+
+        Ok(rows.into_iter().map(|(id, sid, content, ts, score)| {
+            let title = content.lines().find(|l| l.starts_with("# "))
+                .map(|s| s.trim_start_matches("# ").to_string())
+                .unwrap_or_else(|| "(untitled)".to_string());
+            let snippet = content.lines().take(3).collect::<Vec<_>>().join(" ");
+            let snippet: String = snippet.chars().take(200).collect();
+            RankedWiki { page_id: id, session_id: sid, title, snippet, fts_score: score, ts }
         }).collect())
     }
 
