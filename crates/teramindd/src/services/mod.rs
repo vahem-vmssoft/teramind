@@ -15,3 +15,4 @@ pub mod storage_stats;
 pub mod write_tool_ring;
 pub mod embed;
 pub mod summarize;
+pub mod summarizer_worker;
