@@ -151,7 +151,7 @@ A working title that stuck. Tera = trillions of bits of trace data; mind = the s
 | Plan E — Installers + release CI | `install.sh` / `install.ps1`, 6-target build matrix, SHA256SUMS, cosign signing, macOS notarization | Merged |
 | Plan F — L5 search benchmark | 500-session corpus, 100 queries, nDCG@10/MRR/P@K/R@K gates, fail-soft semantic eval mode | Merged |
 | Plan G — pgvector semantic search | EmbeddingProvider trait, OllamaProvider + FastEmbedProvider, async embedding_worker, HNSW index, semantic blend term | Merged |
-| Plan H — Session summarizer | SummaryProvider trait, OllamaChatProvider + AnthropicProvider, summarizer_worker, wiki_pages table, `mcp__teramind__wiki` tool, `teramind sessions show` CLI, traces_fts UNION includes wiki | In flight (this branch) |
+| Plan H — Session summarizer | SummaryProvider trait, OllamaChatProvider + AnthropicProvider, summarizer_worker, wiki_pages table, `mcp__teramind__wiki` tool, `teramind sessions show` CLI, traces_fts UNION includes wiki | Merged |
 
 ---
 
