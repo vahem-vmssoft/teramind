@@ -19,21 +19,34 @@ pub struct DaemonIpcHandler {
     pub embed_provider: Arc<dyn EmbeddingProvider>,
     pub embed_model: String,
     pub search_weights: BlendWeights,
+    pub embed_stats: std::sync::Arc<crate::services::embedding_worker::EmbeddingStats>,
 }
 
 #[async_trait]
 impl IpcServer for DaemonIpcHandler {
     async fn handle_request(&self, req: Request) -> Response {
         match req {
-            Request::Status => Response::Status(StatusReport {
-                uptime_seconds: self.started.elapsed().as_secs(),
-                pg_connected: true,
-                ingest_queue_depth: self.stats.queue_depth.load(Ordering::Relaxed) as u32,
-                ingest_drops_total: self.stats.drops.load(Ordering::Relaxed),
-                last_storage_pg_bytes: self.last_pg_bytes.load(Ordering::Relaxed),
-                last_storage_jsonl_bytes: self.last_jsonl_bytes.load(Ordering::Relaxed),
-                fs_watcher_gaps_total: self.stats.fs_watcher_gaps.load(Ordering::Relaxed),
-            }),
+            Request::Status => {
+                let healthy = self.embed_stats.provider_unhealthy_since_unix.load(Ordering::Relaxed) == 0;
+                let backlog = self.embed_stats.backlog.load(Ordering::Relaxed) as i64;
+                let last_filled = {
+                    let v = self.embed_stats.last_filled_at_unix.load(Ordering::Relaxed);
+                    if v == 0 { None } else { Some(v) }
+                };
+                Response::Status(StatusReport {
+                    uptime_seconds: self.started.elapsed().as_secs(),
+                    pg_connected: true,
+                    ingest_queue_depth: self.stats.queue_depth.load(Ordering::Relaxed) as u32,
+                    ingest_drops_total: self.stats.drops.load(Ordering::Relaxed),
+                    last_storage_pg_bytes: self.last_pg_bytes.load(Ordering::Relaxed),
+                    last_storage_jsonl_bytes: self.last_jsonl_bytes.load(Ordering::Relaxed),
+                    fs_watcher_gaps_total: self.stats.fs_watcher_gaps.load(Ordering::Relaxed),
+                    embedding_provider: Some(self.embed_model.clone()),
+                    embedding_healthy: Some(healthy),
+                    embedding_backlog: Some(backlog),
+                    embedding_last_filled_unix: last_filled,
+                })
+            }
             Request::Ping => Response::Pong,
             Request::Shutdown => Response::Ok,
             Request::Search(r) => {

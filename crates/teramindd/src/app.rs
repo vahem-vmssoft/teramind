@@ -115,7 +115,7 @@ impl App {
         let provider = crate::services::embed::build_provider(&embed_cfg)?;
         let embed_model_db_key = format!("{}:{}", provider_prefix(provider.kind()), embed_cfg.model);
         let embed_repo = teramind_db::repos::EmbeddingRepo::new(pool.clone());
-        let _embed_worker = crate::services::embedding_worker::EmbeddingWorker::spawn(
+        let embed_worker = crate::services::embedding_worker::EmbeddingWorker::spawn(
             crate::services::embedding_worker::EmbeddingWorkerDeps {
                 repo: embed_repo.clone(),
                 provider: provider.clone(),
@@ -125,6 +125,8 @@ impl App {
                 batch_size: embed_cfg.batch_size,
             },
         );
+        let embed_stats = embed_worker.stats.clone();
+        let _embed_worker_guard = embed_worker;
 
         let orphan_interval = std::time::Duration::from_secs(
             embed_cfg.orphan_sweep_interval_hr as u64 * 3600,
@@ -173,6 +175,7 @@ impl App {
             embed_provider: provider.clone(),
             embed_model: embed_model_db_key.clone(),
             search_weights,
+            embed_stats,
         });
         let listener = listen(&paths.socket_path)?;
         let h2 = handler.clone();

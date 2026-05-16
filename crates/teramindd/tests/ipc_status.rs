@@ -59,6 +59,7 @@ async fn status_request_returns_status_report() {
         embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
+        embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

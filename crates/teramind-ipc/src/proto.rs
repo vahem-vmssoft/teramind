@@ -36,6 +36,14 @@ pub struct StatusReport {
     pub last_storage_jsonl_bytes: i64,
     #[serde(default)]
     pub fs_watcher_gaps_total: u64,
+    #[serde(default)]
+    pub embedding_provider: Option<String>,
+    #[serde(default)]
+    pub embedding_healthy: Option<bool>,
+    #[serde(default)]
+    pub embedding_backlog: Option<i64>,
+    #[serde(default)]
+    pub embedding_last_filled_unix: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -38,6 +38,24 @@ pub async fn run() -> anyhow::Result<()> {
             println!("  ingest drops   : {}", s.ingest_drops_total);
             println!("  pg bytes       : {}", s.last_storage_pg_bytes);
             println!("  jsonl bytes    : {}", s.last_storage_jsonl_bytes);
+            if let Some(provider) = &s.embedding_provider {
+                let healthy = s.embedding_healthy.unwrap_or(false);
+                let mark = if healthy { "healthy" } else { "unhealthy" };
+                println!("  embedding      : {provider} ({mark})");
+            }
+            if let Some(backlog) = s.embedding_backlog {
+                let last_filled = match s.embedding_last_filled_unix {
+                    Some(u) => {
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_secs()).unwrap_or(u);
+                        let secs = now.saturating_sub(u);
+                        format!("last filled {secs}s ago")
+                    }
+                    None => "no embeddings yet".into(),
+                };
+                println!("  embed backlog  : {backlog} rows ({last_filled})");
+            }
         }
         Ok(other) => println!("  daemon         : unexpected response {:?}", other),
         Err(_) => println!("  daemon         : not responding"),

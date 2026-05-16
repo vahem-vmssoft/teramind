@@ -66,6 +66,7 @@ async fn hook_session_start_persists_to_postgres() {
         embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
+        embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -135,6 +136,7 @@ async fn hook_tool_call_lifecycle_persists() {
         embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
+        embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -236,6 +238,7 @@ async fn hook_session_start_emits_auto_recall_digest() {
         embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
+        embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
