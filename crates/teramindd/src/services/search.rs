@@ -246,13 +246,13 @@ mod tests {
         let rank_a = RankedTurn {
             turn_id: uuid::Uuid::new_v4(), session_id: uuid::Uuid::new_v4(),
             ordinal: 0, ts: now, project_id: None,
-            fts_score: 0.9, trgm_score: 0.0,
+            fts_score: 0.9, trgm_score: 0.0, semantic_score: 0.0,
             user_prompt: Some("A".into()), assistant_text: None,
         };
         let rank_b = RankedTurn {
             turn_id: uuid::Uuid::new_v4(), session_id: uuid::Uuid::new_v4(),
             ordinal: 0, ts: now, project_id: None,
-            fts_score: 0.5, trgm_score: 0.0,
+            fts_score: 0.5, trgm_score: 0.0, semantic_score: 0.0,
             user_prompt: Some("B".into()), assistant_text: None,
         };
         let hits = rank_and_hydrate(vec![rank_a.clone(), rank_b.clone()], vec![], vec![], BlendWeights::default(), None, 10);
@@ -268,7 +268,7 @@ mod tests {
         let recent_turns: Vec<RankedTurn> = vec![RankedTurn {
             turn_id: Uuid::new_v4(), session_id: Uuid::new_v4(),
             ordinal: 0, ts: OffsetDateTime::now_utc(), project_id: None,
-            fts_score: 0.0, trgm_score: 0.0,
+            fts_score: 0.0, trgm_score: 0.0, semantic_score: 0.0,
             user_prompt: Some("fix bug".into()),
             assistant_text: Some("done".into()),
         }];
@@ -280,6 +280,7 @@ mod tests {
                 ts: OffsetDateTime::now_utc(),
                 project_id: None,
                 trgm_score: 0.0,
+                semantic_score: 0.0,
                 pre_excerpt: "old foo".into(),
                 post_excerpt: "new foo".into(),
             }];

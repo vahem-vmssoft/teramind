@@ -52,3 +52,63 @@ async fn diff_excerpts_for_cwd_files_filters_by_rel_path() -> anyhow::Result<()>
     sup.shutdown().await?;
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn vector_search_turns_returns_nearest_by_cosine() -> anyhow::Result<()> {
+    use teramind_db::repos::{AgentRepo, EmbeddingRepo, SearchRepo, SessionRepo, TraceRepo, ToEmbedRow};
+    use teramind_db::repos::session::NewSession;
+    use teramind_core::ids::TurnId;
+    use time::OffsetDateTime;
+
+    let dir = tempfile::tempdir()?;
+    let sup = teramind_db::pg_supervisor::PgSupervisor::start(
+        dir.path().to_path_buf(), "teramind",
+    ).await?;
+    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
+    teramind_db::migrate::run(&pool).await?;
+
+    let agents = AgentRepo::new(pool.clone());
+    let sessions = SessionRepo::new(pool.clone());
+    let trace = TraceRepo::new(pool.clone());
+    let embed = EmbeddingRepo::new(pool.clone());
+    let search = SearchRepo::new(pool.clone());
+
+    let agent = agents.upsert("claude_code", None).await?;
+    let sid = sessions.insert(NewSession {
+        agent_id: agent.id, agent_session_id: None, cwd: "/p",
+        project_id: None, parent_session_id: None,
+        git_head: None, git_branch: None,
+        os: "linux", hostname: "h", user_login: "u",
+        started_at: OffsetDateTime::now_utc(),
+    }).await?;
+
+    let t_near = trace.upsert_turn_with_id(
+        TurnId(uuid::Uuid::new_v4()), sid, 0,
+        OffsetDateTime::now_utc(), Some("near"),
+    ).await?;
+    let t_far = trace.upsert_turn_with_id(
+        TurnId(uuid::Uuid::new_v4()), sid, 1,
+        OffsetDateTime::now_utc(), Some("far"),
+    ).await?;
+
+    let mut near_v = vec![0.0f32; 768]; near_v[0] = 1.0;
+    let mut far_v  = vec![0.0f32; 768]; far_v[1] = 1.0;
+
+    embed.bulk_insert(
+        &[ToEmbedRow { kind: "turn".into(), item_id: t_near.0, text: "near".into() }],
+        "test-model", 768, &[near_v.clone()],
+    ).await?;
+    embed.bulk_insert(
+        &[ToEmbedRow { kind: "turn".into(), item_id: t_far.0, text: "far".into() }],
+        "test-model", 768, &[far_v.clone()],
+    ).await?;
+
+    let hits = search.vector_search_turns(&near_v, "test-model", 10).await?;
+    assert_eq!(hits.len(), 2);
+    assert_eq!(hits[0].turn_id, t_near.0);
+    assert!(hits[0].semantic_score > hits[1].semantic_score);
+    assert!((hits[0].semantic_score - 1.0).abs() < 1e-6, "got {}", hits[0].semantic_score);
+
+    sup.shutdown().await?;
+    Ok(())
+}

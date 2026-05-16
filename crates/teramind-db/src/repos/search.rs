@@ -18,6 +18,7 @@ pub struct RankedTurn {
     pub project_id: Option<Uuid>,
     pub fts_score: f32,
     pub trgm_score: f32,
+    pub semantic_score: f32,
     pub user_prompt: Option<String>,
     pub assistant_text: Option<String>,
 }
@@ -30,6 +31,7 @@ pub struct RankedDiff {
     pub ts: OffsetDateTime,
     pub project_id: Option<Uuid>,
     pub trgm_score: f32,
+    pub semantic_score: f32,
     pub pre_excerpt: String,
     pub post_excerpt: String,
 }
@@ -66,7 +68,7 @@ impl SearchRepo {
         .fetch_all(self.pool.pg()).await?;
 
         Ok(rows.into_iter().map(|(turn_id, session_id, ordinal, ts, project_id, fts, prompt, text)| {
-            RankedTurn { turn_id, session_id, ordinal, ts, project_id, fts_score: fts, trgm_score: 0.0,
+            RankedTurn { turn_id, session_id, ordinal, ts, project_id, fts_score: fts, trgm_score: 0.0, semantic_score: 0.0,
                          user_prompt: prompt, assistant_text: text }
         }).collect())
     }
@@ -91,7 +93,7 @@ impl SearchRepo {
         .fetch_all(self.pool.pg()).await?;
 
         Ok(rows.into_iter().map(|(diff_id, session_id, rel_path, ts, project_id, trgm, pre, post)| {
-            RankedDiff { diff_id, session_id, rel_path, ts, project_id, trgm_score: trgm, pre_excerpt: pre, post_excerpt: post }
+            RankedDiff { diff_id, session_id, rel_path, ts, project_id, trgm_score: trgm, semantic_score: 0.0, pre_excerpt: pre, post_excerpt: post }
         }).collect())
     }
 
@@ -139,7 +141,7 @@ impl SearchRepo {
             ).bind(cwd).bind(limit as i64).fetch_all(self.pool.pg()).await?,
         };
         Ok(rows.into_iter().map(|(turn_id, session_id, ordinal, ts, project_id, prompt, text)| {
-            RankedTurn { turn_id, session_id, ordinal, ts, project_id, fts_score: 0.0, trgm_score: 0.0,
+            RankedTurn { turn_id, session_id, ordinal, ts, project_id, fts_score: 0.0, trgm_score: 0.0, semantic_score: 0.0,
                          user_prompt: prompt, assistant_text: text }
         }).collect())
     }
@@ -175,7 +177,77 @@ impl SearchRepo {
         Ok(rows.into_iter().map(|(diff_id, session_id, rel_path, ts, project_id, pre, post)| {
             RankedDiff {
                 diff_id, session_id, rel_path, ts, project_id,
-                trgm_score: 0.0, pre_excerpt: pre, post_excerpt: post,
+                trgm_score: 0.0, semantic_score: 0.0, pre_excerpt: pre, post_excerpt: post,
+            }
+        }).collect())
+    }
+
+    pub async fn vector_search_turns(
+        &self,
+        query_embedding: &[f32],
+        model: &str,
+        limit: u32,
+    ) -> Result<Vec<RankedTurn>> {
+        let v = pgvector::Vector::from(query_embedding.to_vec());
+        let rows: Vec<(Uuid, Uuid, i32, OffsetDateTime, Option<Uuid>, f32, Option<String>, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT t.id, t.session_id, t.ordinal, t.started_at,
+                   s.project_id,
+                   (1.0 - (e.embedding <=> $1::vector))::float4 AS semantic_score,
+                   t.user_prompt, t.assistant_text
+            FROM   embeddings e
+            JOIN   turns t      ON e.item_kind = 'turn' AND e.item_id = t.id
+            JOIN   sessions s   ON s.id = t.session_id
+            WHERE  e.model = $2
+            ORDER  BY e.embedding <=> $1::vector
+            LIMIT  $3
+            "#,
+        )
+        .bind(v)
+        .bind(model)
+        .bind(limit as i64)
+        .fetch_all(self.pool.pg()).await?;
+
+        Ok(rows.into_iter().map(|(turn_id, session_id, ordinal, ts, project_id, sem, prompt, text)| {
+            RankedTurn {
+                turn_id, session_id, ordinal, ts, project_id,
+                fts_score: 0.0, trgm_score: 0.0, semantic_score: sem,
+                user_prompt: prompt, assistant_text: text,
+            }
+        }).collect())
+    }
+
+    pub async fn vector_search_diffs(
+        &self,
+        query_embedding: &[f32],
+        model: &str,
+        limit: u32,
+    ) -> Result<Vec<RankedDiff>> {
+        let v = pgvector::Vector::from(query_embedding.to_vec());
+        let rows: Vec<(Uuid, Uuid, String, OffsetDateTime, Option<Uuid>, f32, String, String)> = sqlx::query_as(
+            r#"
+            SELECT fd.id, fd.session_id, fd.rel_path, fd.captured_at,
+                   s.project_id,
+                   (1.0 - (e.embedding <=> $1::vector))::float4 AS semantic_score,
+                   fd.pre_excerpt, fd.post_excerpt
+            FROM   embeddings e
+            JOIN   file_diffs fd ON e.item_kind = 'file_diff' AND e.item_id = fd.id
+            JOIN   sessions s    ON s.id = fd.session_id
+            WHERE  e.model = $2
+            ORDER  BY e.embedding <=> $1::vector
+            LIMIT  $3
+            "#,
+        )
+        .bind(v)
+        .bind(model)
+        .bind(limit as i64)
+        .fetch_all(self.pool.pg()).await?;
+
+        Ok(rows.into_iter().map(|(diff_id, session_id, rel_path, ts, project_id, sem, pre, post)| {
+            RankedDiff {
+                diff_id, session_id, rel_path, ts, project_id,
+                trgm_score: 0.0, semantic_score: sem,
+                pre_excerpt: pre, post_excerpt: post,
             }
         }).collect())
     }
