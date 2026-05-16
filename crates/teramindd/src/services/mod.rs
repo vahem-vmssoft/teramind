@@ -7,6 +7,7 @@ pub mod ignore_filter;
 pub mod ingest;
 pub mod ipc_server;
 pub mod jsonl_writer;
+pub mod orphan_sweeper;
 pub mod search;
 pub mod session_manager;
 pub mod snapshot_cache;

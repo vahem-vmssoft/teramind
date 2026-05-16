@@ -126,6 +126,14 @@ impl App {
             },
         );
 
+        let orphan_interval = std::time::Duration::from_secs(
+            embed_cfg.orphan_sweep_interval_hr as u64 * 3600,
+        );
+        let _orphan_guard = crate::services::orphan_sweeper::OrphanSweeper::spawn(
+            embed_repo.clone(),
+            orphan_interval,
+        );
+
         // Pump raw -> debouncer.
         {
             let deb = debouncer.clone();
