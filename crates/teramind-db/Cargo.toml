@@ -7,6 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 teramind-core = { path = "../teramind-core" }
+anyhow      = { workspace = true }
 sqlx        = { workspace = true }
 pgvector    = { workspace = true }
 postgresql_embedded = { workspace = true }

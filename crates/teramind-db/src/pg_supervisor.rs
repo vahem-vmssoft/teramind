@@ -6,6 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
+use anyhow::Context as _;
 use postgresql_embedded::{PostgreSQL, Settings};
 use sqlx::postgres::PgConnectOptions;
 
@@ -27,6 +28,9 @@ impl PgSupervisor {
         let settings = Settings {
             data_dir: data_dir.clone(),
             password: "teramind".to_string(),
+            // Pin to PostgreSQL 16: portal-corp's pgvector_compiled prebuilts
+            // only exist for PG16. Update when PG17/18 builds appear.
+            version: postgresql_embedded::V16.clone(),
             // The instance owns its data dir; we manage the lifecycle here, so
             // disable the library's auto-cleanup-on-drop behaviour.
             temporary: false,
@@ -42,6 +46,13 @@ impl PgSupervisor {
             .start()
             .await
             .map_err(|e| DbError::Supervisor(format!("start: {e}")))?;
+
+        // Install pgvector into the embedded PG bundle before any migrations
+        // so that `CREATE EXTENSION vector` works inside migrations.
+        install_pgvector(instance.settings())
+            .await
+            .context("install pgvector into embedded PG")
+            .map_err(|e| DbError::Supervisor(e.to_string()))?;
 
         let exists = instance
             .database_exists(database_name)
@@ -85,4 +96,22 @@ impl PgSupervisor {
             .map_err(|e| DbError::Supervisor(format!("stop: {e}")))?;
         Ok(())
     }
+}
+
+/// Install pgvector into the embedded PostgreSQL bundle.
+///
+/// Uses the `portal-corp` repository which distributes precompiled pgvector
+/// binaries. The extension name in that registry is `pgvector_compiled`.
+/// We request any compatible version (`*`) so the latest build for the
+/// running PG major version is selected automatically.
+///
+/// The install is idempotent: if the files already exist the function
+/// uninstalls them first (registry bookkeeping) before reinstalling,
+/// so repeated `PgSupervisor::start` calls work correctly.
+async fn install_pgvector(settings: &Settings) -> anyhow::Result<()> {
+    let version = postgresql_extensions::VersionReq::STAR;
+    postgresql_extensions::install(settings, "portal-corp", "pgvector_compiled", &version)
+        .await
+        .context("postgresql_extensions::install portal-corp/pgvector_compiled")?;
+    Ok(())
 }

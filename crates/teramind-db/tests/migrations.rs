@@ -1,6 +1,27 @@
 use tempfile::tempdir;
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pgvector_extension_is_installable() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let sup = teramind_db::pg_supervisor::PgSupervisor::start(
+        dir.path().to_path_buf(),
+        "teramind",
+    )
+    .await?;
+    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
+    sqlx::query("CREATE EXTENSION IF NOT EXISTS vector")
+        .execute(pool.pg())
+        .await?;
+    let (version,): (String,) =
+        sqlx::query_as("SELECT extversion FROM pg_extension WHERE extname='vector'")
+            .fetch_one(pool.pg())
+            .await?;
+    assert!(version.starts_with("0."), "got {version}");
+    sup.shutdown().await?;
+    Ok(())
+}
+
 #[tokio::test]
 async fn migrations_apply_cleanly_on_empty_db() {
     let tmp = tempdir().unwrap();
