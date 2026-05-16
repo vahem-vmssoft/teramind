@@ -1,6 +1,7 @@
 use teramind_core::types::Hit;
 use teramind_core::ids::{FileDiffId, SessionId, SkillId, TurnId};
 use teramind_db::repos::search::{RankedDiff, RankedSkill, RankedTurn};
+use std::sync::Arc;
 use std::time::Instant;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -10,21 +11,30 @@ use uuid::Uuid;
 pub struct BlendWeights {
     pub fts: f32,
     pub trgm: f32,
+    pub semantic: f32,
     pub recency: f32,
     pub project: f32,
 }
 
 impl Default for BlendWeights {
     fn default() -> Self {
-        Self { fts: 0.6, trgm: 0.4, recency: 0.2, project: 0.3 }
+        Self { fts: 0.6, trgm: 0.4, semantic: 0.0, recency: 0.2, project: 0.3 }
     }
 }
 
-pub fn final_score(fts: f32, trgm: f32, ts: OffsetDateTime, weights: BlendWeights, same_project: bool) -> f32 {
+pub fn final_score(
+    fts: f32,
+    trgm: f32,
+    semantic: f32,
+    ts: OffsetDateTime,
+    weights: BlendWeights,
+    same_project: bool,
+) -> f32 {
     let recency_decay = recency_factor(ts);
     let project_boost = if same_project { 1.0 } else { 0.0 };
     weights.fts * fts
         + weights.trgm * trgm
+        + weights.semantic * semantic
         + weights.recency * recency_decay
         + weights.project * project_boost
 }
@@ -39,19 +49,40 @@ pub fn rank_and_hydrate(
     fts_turns: Vec<RankedTurn>,
     trgm_diffs: Vec<RankedDiff>,
     trgm_skills: Vec<RankedSkill>,
+    sem_turns: Vec<RankedTurn>,
+    sem_diffs: Vec<RankedDiff>,
     weights: BlendWeights,
     same_project_id: Option<Uuid>,
     limit: u32,
 ) -> Vec<Hit> {
     use std::collections::HashMap;
+
+    // Merge turns by turn_id; semantic_score from sem_turns overrides if present.
     let mut by_turn: HashMap<Uuid, RankedTurn> = HashMap::new();
-    for t in fts_turns.into_iter() {
+    for t in fts_turns {
         by_turn.insert(t.turn_id, t);
     }
+    for t in sem_turns {
+        by_turn.entry(t.turn_id)
+            .and_modify(|existing| existing.semantic_score = t.semantic_score)
+            .or_insert(t);
+    }
+
+    // Same for diffs.
+    let mut by_diff: HashMap<Uuid, RankedDiff> = HashMap::new();
+    for d in trgm_diffs {
+        by_diff.insert(d.diff_id, d);
+    }
+    for d in sem_diffs {
+        by_diff.entry(d.diff_id)
+            .and_modify(|existing| existing.semantic_score = d.semantic_score)
+            .or_insert(d);
+    }
+
     let mut hits: Vec<(f32, Hit)> = Vec::new();
     for t in by_turn.into_values() {
         let same_p = same_project_id.map(|p| Some(p) == t.project_id).unwrap_or(false);
-        let score = final_score(t.fts_score, t.trgm_score, t.ts, weights, same_p);
+        let score = final_score(t.fts_score, t.trgm_score, t.semantic_score, t.ts, weights, same_p);
         let snippet = build_snippet(&t.user_prompt, &t.assistant_text);
         hits.push((score, Hit::Turn {
             turn_id: TurnId(t.turn_id),
@@ -62,9 +93,9 @@ pub fn rank_and_hydrate(
             ts: t.ts,
         }));
     }
-    for d in trgm_diffs {
+    for d in by_diff.into_values() {
         let same_p = same_project_id.map(|p| Some(p) == d.project_id).unwrap_or(false);
-        let score = final_score(0.0, d.trgm_score, d.ts, weights, same_p);
+        let score = final_score(0.0, d.trgm_score, d.semantic_score, d.ts, weights, same_p);
         let snippet = if d.post_excerpt.is_empty() { d.pre_excerpt.clone() } else { d.post_excerpt.clone() };
         hits.push((score, Hit::FileDiff {
             diff_id: FileDiffId(d.diff_id),
@@ -75,7 +106,7 @@ pub fn rank_and_hydrate(
         }));
     }
     for s in trgm_skills {
-        let score = final_score(0.0, s.trgm_score, OffsetDateTime::now_utc(), weights, false);
+        let score = final_score(0.0, s.trgm_score, 0.0, OffsetDateTime::now_utc(), weights, false);
         hits.push((score, Hit::Skill {
             skill_id: SkillId(s.skill_id),
             name: s.name,
@@ -108,16 +139,52 @@ pub struct SearchOutcome {
 
 use teramind_db::repos::SearchRepo;
 use teramind_core::types::{SearchRequest, RecallRequest, AutoRecallRequest};
+use teramind_core::embed::EmbeddingProvider;
 
-pub async fn do_search(repo: &SearchRepo, req: &SearchRequest) -> Result<SearchOutcome, teramind_db::DbError> {
+pub async fn do_search(
+    repo: &SearchRepo,
+    provider: Option<Arc<dyn EmbeddingProvider>>,
+    model: &str,
+    weights: BlendWeights,
+    req: &SearchRequest,
+) -> Result<SearchOutcome, teramind_db::DbError> {
     let started = Instant::now();
-    let (fts_res, trgm_diffs, trgm_skills) = tokio::try_join!(
+
+    // Embed query if semantic weight is active and provider is available.
+    let query_emb: Option<Vec<f32>> = if weights.semantic > 0.0 {
+        match &provider {
+            Some(p) => p.embed(&[req.query.clone()]).await
+                .ok()
+                .and_then(|mut v| v.pop()),
+            None => None,
+        }
+    } else {
+        None
+    };
+
+    let (fts_res, trgm_diffs, trgm_skills, sem_turns, sem_diffs) = tokio::try_join!(
         repo.fts_turns(&req.query, req.limit),
         repo.trgm_diffs(&req.query, req.limit),
         repo.trgm_skills(&req.query, req.limit),
+        async {
+            if let Some(v) = query_emb.as_ref() {
+                repo.vector_search_turns(v, model, req.limit).await
+            } else {
+                Ok(vec![])
+            }
+        },
+        async {
+            if let Some(v) = query_emb.as_ref() {
+                repo.vector_search_diffs(v, model, req.limit).await
+            } else {
+                Ok(vec![])
+            }
+        },
     )?;
-    let hits = rank_and_hydrate(fts_res, trgm_diffs, trgm_skills, BlendWeights::default(), None, req.limit);
-    Ok(SearchOutcome { hits, degraded: false, took_ms: started.elapsed().as_millis() as u32 })
+
+    let degraded = weights.semantic > 0.0 && query_emb.is_none();
+    let hits = rank_and_hydrate(fts_res, trgm_diffs, trgm_skills, sem_turns, sem_diffs, weights, None, req.limit);
+    Ok(SearchOutcome { hits, degraded, took_ms: started.elapsed().as_millis() as u32 })
 }
 
 pub async fn do_recall(repo: &SearchRepo, req: &RecallRequest) -> Result<SearchOutcome, teramind_db::DbError> {
@@ -141,7 +208,7 @@ pub async fn do_recall(repo: &SearchRepo, req: &RecallRequest) -> Result<SearchO
         },
     )?;
     let merged: Vec<_> = fts_sym.into_iter().chain(fts_st).collect();
-    let hits = rank_and_hydrate(merged, trgm_paths, vec![], BlendWeights::default(), None, req.limit);
+    let hits = rank_and_hydrate(merged, trgm_paths, vec![], vec![], vec![], BlendWeights::default(), None, req.limit);
     Ok(SearchOutcome { hits, degraded: false, took_ms: started.elapsed().as_millis() as u32 })
 }
 
@@ -151,9 +218,12 @@ use crate::services::grep_fallback;
 pub async fn do_search_with_fallback(
     repo: &SearchRepo,
     jsonl_dir: &Path,
+    provider: Option<Arc<dyn EmbeddingProvider>>,
+    model: &str,
+    weights: BlendWeights,
     req: &SearchRequest,
 ) -> SearchOutcome {
-    match do_search(repo, req).await {
+    match do_search(repo, provider, model, weights, req).await {
         Ok(o) => o,
         Err(_) => {
             let started = Instant::now();
@@ -235,9 +305,17 @@ mod tests {
     fn final_score_blends_with_recency_and_project_boost() {
         let weights = BlendWeights::default();
         let ts = OffsetDateTime::now_utc();
-        let s1 = final_score(1.0, 1.0, ts, weights, true);
-        let s2 = final_score(1.0, 1.0, ts, weights, false);
+        let s1 = final_score(1.0, 1.0, 0.0, ts, weights, true);
+        let s2 = final_score(1.0, 1.0, 0.0, ts, weights, false);
         assert!((s1 - s2 - 0.3).abs() < 0.001);
+    }
+
+    #[test]
+    fn semantic_weight_contributes_to_score() {
+        let weights = BlendWeights { fts: 0.0, trgm: 0.0, semantic: 1.0, recency: 0.0, project: 0.0 };
+        let ts = OffsetDateTime::now_utc();
+        let s = final_score(0.0, 0.0, 0.5, ts, weights, false);
+        assert!((s - 0.5).abs() < 1e-6);
     }
 
     #[test]
@@ -255,7 +333,7 @@ mod tests {
             fts_score: 0.5, trgm_score: 0.0, semantic_score: 0.0,
             user_prompt: Some("B".into()), assistant_text: None,
         };
-        let hits = rank_and_hydrate(vec![rank_a.clone(), rank_b.clone()], vec![], vec![], BlendWeights::default(), None, 10);
+        let hits = rank_and_hydrate(vec![rank_a.clone(), rank_b.clone()], vec![], vec![], vec![], vec![], BlendWeights::default(), None, 10);
         assert_eq!(hits.len(), 2);
         match &hits[0] {
             Hit::Turn { turn_id, .. } => assert_eq!(turn_id.0, rank_a.turn_id),

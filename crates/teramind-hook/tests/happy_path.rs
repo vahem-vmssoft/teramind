@@ -63,6 +63,9 @@ async fn hook_session_start_persists_to_postgres() {
         last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
         search_repo: SearchRepo::new(pool.clone()),
         jsonl_dir: tmp.path().join("raw"),
+        embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
+        embed_model: "null:null".into(),
+        search_weights: teramindd::services::search::BlendWeights::default(),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -129,6 +132,9 @@ async fn hook_tool_call_lifecycle_persists() {
         last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
         search_repo: SearchRepo::new(pool.clone()),
         jsonl_dir: tmp.path().join("raw"),
+        embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
+        embed_model: "null:null".into(),
+        search_weights: teramindd::services::search::BlendWeights::default(),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -227,6 +233,9 @@ async fn hook_session_start_emits_auto_recall_digest() {
         last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
         search_repo: teramind_db::repos::SearchRepo::new(pool.clone()),
         jsonl_dir: tmp.path().join("raw"),
+        embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
+        embed_model: "null:null".into(),
+        search_weights: teramindd::services::search::BlendWeights::default(),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

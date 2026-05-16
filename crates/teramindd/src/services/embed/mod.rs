@@ -5,8 +5,10 @@ pub mod ollama;
 pub mod fastembed_local;
 pub mod cloud;
 pub mod factory;
+pub mod null;
 
 pub use factory::build_provider;
+pub use null::NullEmbeddingProvider;
 
 use teramind_core::embed::ProviderKind;
 

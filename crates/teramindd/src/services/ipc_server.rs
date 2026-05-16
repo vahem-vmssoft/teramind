@@ -1,8 +1,10 @@
 use crate::services::ingest::{IngestService, IngestStats};
+use crate::services::search::BlendWeights;
 use async_trait::async_trait;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
+use teramind_core::embed::EmbeddingProvider;
 use teramind_ipc::proto::{Notify, Request, Response, StatusReport};
 use teramind_ipc::server::{serve_connection, IpcServer};
 
@@ -14,6 +16,9 @@ pub struct DaemonIpcHandler {
     pub last_jsonl_bytes: std::sync::atomic::AtomicI64,
     pub search_repo: teramind_db::repos::SearchRepo,
     pub jsonl_dir: std::path::PathBuf,
+    pub embed_provider: Arc<dyn EmbeddingProvider>,
+    pub embed_model: String,
+    pub search_weights: BlendWeights,
 }
 
 #[async_trait]
@@ -32,7 +37,14 @@ impl IpcServer for DaemonIpcHandler {
             Request::Ping => Response::Pong,
             Request::Shutdown => Response::Ok,
             Request::Search(r) => {
-                let out = crate::services::search::do_search_with_fallback(&self.search_repo, &self.jsonl_dir, &r).await;
+                let out = crate::services::search::do_search_with_fallback(
+                    &self.search_repo,
+                    &self.jsonl_dir,
+                    Some(self.embed_provider.clone()),
+                    &self.embed_model,
+                    self.search_weights,
+                    &r,
+                ).await;
                 Response::SearchResults(teramind_core::types::SearchResults {
                     hits: out.hits, degraded: out.degraded, took_ms: out.took_ms,
                 })

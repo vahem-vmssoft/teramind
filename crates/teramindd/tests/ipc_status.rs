@@ -56,6 +56,9 @@ async fn status_request_returns_status_report() {
         last_jsonl_bytes: 0.into(),
         search_repo: SearchRepo::new(pool.clone()),
         jsonl_dir: tmp.path().join("raw"),
+        embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
+        embed_model: "null:null".into(),
+        search_weights: teramindd::services::search::BlendWeights::default(),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

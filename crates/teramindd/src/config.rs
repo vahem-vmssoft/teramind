@@ -196,6 +196,63 @@ mod embed_config_tests {
     }
 }
 
+// ── SearchWeights config ──────────────────────────────────────────────────────
+
+use crate::services::search::BlendWeights;
+
+#[derive(Debug, Clone, Deserialize)]
+struct SearchFile {
+    #[serde(default)]
+    blend: BlendOverride,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct BlendOverride {
+    fts: Option<f32>,
+    trgm: Option<f32>,
+    semantic: Option<f32>,
+    recency: Option<f32>,
+    project: Option<f32>,
+}
+
+pub fn load_search_weights(path: &std::path::Path) -> anyhow::Result<BlendWeights> {
+    if !path.exists() {
+        return Ok(BlendWeights::default());
+    }
+    let body = std::fs::read_to_string(path)?;
+    let f: SearchFile = toml::from_str(&body)?;
+    let d = BlendWeights::default();
+    Ok(BlendWeights {
+        fts:      f.blend.fts.unwrap_or(d.fts),
+        trgm:     f.blend.trgm.unwrap_or(d.trgm),
+        semantic: f.blend.semantic.unwrap_or(d.semantic),
+        recency:  f.blend.recency.unwrap_or(d.recency),
+        project:  f.blend.project.unwrap_or(d.project),
+    })
+}
+
+#[cfg(test)]
+mod search_weights_tests {
+    use super::*;
+
+    #[test]
+    fn missing_file_returns_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let w = load_search_weights(&dir.path().join("search.toml")).unwrap();
+        assert_eq!(w.semantic, 0.0);
+    }
+
+    #[test]
+    fn partial_override_keeps_other_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("search.toml");
+        std::fs::write(&path, "[blend]\nsemantic = 0.4\n").unwrap();
+        let w = load_search_weights(&path).unwrap();
+        assert!((w.semantic - 0.4).abs() < 1e-6);
+        assert!((w.fts - 0.6).abs() < 1e-6);
+    }
+}
+
 // ── Existing tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]

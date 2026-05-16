@@ -151,6 +151,9 @@ impl App {
             resolved_rx,
         );
 
+        let search_cfg_path = paths.config_dir.join("search.toml");
+        let search_weights = crate::config::load_search_weights(&search_cfg_path)?;
+
         let handler = Arc::new(DaemonIpcHandler {
             ingest: ingest.clone(),
             stats: stats.clone(),
@@ -159,6 +162,9 @@ impl App {
             last_jsonl_bytes: 0.into(),
             search_repo: teramind_db::repos::SearchRepo::new(pool.clone()),
             jsonl_dir: paths.raw_dir.clone(),
+            embed_provider: provider.clone(),
+            embed_model: embed_model_db_key.clone(),
+            search_weights,
         });
         let listener = listen(&paths.socket_path)?;
         let h2 = handler.clone();

@@ -27,7 +27,7 @@ async fn do_search_finds_seeded_turn_via_fts() {
 
     let repo = SearchRepo::new(pool.clone());
     let req = SearchRequest { query: "replication lag".into(), limit: 10 };
-    let out = search::do_search(&repo, &req).await.unwrap();
+    let out = search::do_search(&repo, None, "null:null", search::BlendWeights::default(), &req).await.unwrap();
     assert!(!out.hits.is_empty());
     assert!(!out.degraded);
 
@@ -62,7 +62,9 @@ async fn do_search_falls_back_to_grep_when_pg_dies() {
 
     let repo = SearchRepo::new(pool.clone());
     let out = teramindd::services::search::do_search_with_fallback(
-        &repo, &jsonl_dir, &SearchRequest { query: "fallback".into(), limit: 10 }
+        &repo, &jsonl_dir, None, "null:null",
+        teramindd::services::search::BlendWeights::default(),
+        &SearchRequest { query: "fallback".into(), limit: 10 }
     ).await;
     assert!(out.degraded, "expected degraded result");
     assert!(!out.hits.is_empty(), "expected grep hit to come through");
@@ -127,6 +129,9 @@ async fn ipc_search_request_returns_search_results() {
         last_pg_bytes: 0.into(), last_jsonl_bytes: 0.into(),
         search_repo: SearchRepo::new(pool.clone()),
         jsonl_dir: tmp.path().join("raw"),
+        embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
+        embed_model: "null:null".into(),
+        search_weights: teramindd::services::search::BlendWeights::default(),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
