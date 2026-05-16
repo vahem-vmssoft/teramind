@@ -30,7 +30,7 @@ The summarizer preserves the local-first promise from Core spec §2: default pro
 - New CLI subcommand `teramind sessions show [<id>] [--json]`.
 - Auto-recall (`do_auto_recall`) includes the latest wiki for the cwd's project.
 - `teramind doctor` surfaces summarizer provider health + backlog.
-- Cost gating via config: `min_turns`, `min_duration_secs`, `input_char_budget`, `output_token_budget`, `max_summary_per_day` (cloud only).
+- Cost gating via config: `min_turns`, `min_duration_secs`, `input_char_budget`, `output_token_budget`.
 
 ### 2.2 Explicit non-goals (deferred to follow-on revisions)
 
@@ -303,8 +303,7 @@ loop {
 - **Single writer** to `wiki_pages`. `ON CONFLICT (session_id, model) DO NOTHING` for idempotency.
 - **Capture-safe.** Hooks, ingest, and search never block on the worker.
 - **Outage-resilient.** Provider failures just retry next tick.
-- **Daily cap** (cloud only): tracks `max_summary_per_day` from config; the count is persisted in a `summarizer_budget` table (date PK + count) so daemon restarts don't reset.
-- **Counters** on `IngestStats`: `summaries_written`, `summaries_errors`, `summaries_skipped`, `summaries_backlog`.
+- **Counters** on `IngestStats`: `summaries_written`, `summaries_errors`, `summaries_skipped`, `summaries_backlog`. Token usage (`summaries_input_tokens_total`, `summaries_output_tokens_total`) is also tracked and surfaced via `teramind doctor` so users running cloud providers can see spend at a glance.
 
 ### 4.5 Digest construction (`digest::build`)
 
@@ -423,7 +422,6 @@ min_turns                = 3     # skip sessions shorter than this
 min_duration_secs        = 60    # skip sessions shorter than this
 input_char_budget        = 16000
 output_token_budget      = 1500
-max_summary_per_day      = 100   # only enforced for cloud providers
 
 # Required to use a cloud provider. Refused otherwise.
 network_egress = false
@@ -441,7 +439,7 @@ request_timeout_ms = 60000
 - `provider in {anthropic, openai}` + `network_egress = false` → daemon refuses to start with actionable error.
 - `secrets.toml` permissions must be `0600`. Daemon refuses to read it if wider; `teramind init` enforces.
 - Switching `provider` or `model` does NOT migrate old rows. The view's worker filter (`WHERE NOT EXISTS … WHERE model = $active_model`) naturally re-queues all sessions for the new key. Old rows stay for rollback.
-- `max_summary_per_day` ignored for local providers (Ollama, Fastembed-style local).
+- Cloud-provider spend control is the user's responsibility via the vendor dashboard's billing caps. The daemon does not enforce a per-day call limit; if cost becomes a concern, switch `provider` back to `ollama`.
 
 ## 6. MCP / CLI / auto-recall surfaces
 
@@ -624,7 +622,6 @@ Tests at this layer:
 - For any `MockSummaryProvider` output, `wiki_pages.content` stored matches what the provider returned (no extra processing in the worker).
 - Kill Ollama mid-summarize → worker logs error, retries next tick, no data lost.
 - Provider returns `model not found` → worker pauses; `teramind doctor` shows actionable error.
-- Daily cap (cloud) reached → worker emits warning, defers remaining sessions to next UTC day.
 - Wiki page exceeds 100 KB (pathological output) → DB write succeeds; FTS handles it.
 
 ### 7.8 Performance budgets
@@ -653,7 +650,6 @@ Tests at this layer:
 
 ### 8.3 Open questions resolved during plan execution
 
-- **Daily-cap accounting.** Persist counter in a `summarizer_budget` table keyed on UTC date so daemon restarts don't reset.
 - **`gen_random_uuid()` availability.** `pgcrypto` was enabled in Plan A; verify the migration still applies cleanly on the embedded PG bundle.
 - **Anthropic API version pin.** Use `anthropic-version: 2023-06-01` for v1.0; revisit on v1.1 if API surfaces shift.
 - **Backfill on first install.** Existing sessions in the DB at install time are eligible immediately — the view doesn't care. The worker drains them at `1/poll_interval` rate (default ~120/hour).
@@ -668,7 +664,7 @@ Tests at this layer:
 | Local model unavailable on first run | High | Daemon stays up; worker logs that the model isn't pulled; `teramind doctor` surfaces actionable error: "Run `ollama pull qwen3.6` to enable." |
 | Wiki content pollutes `traces_fts` enough to skew lexical search | Low | Wiki joins to every turn in the session, so matching wiki text ranks every turn similarly. Tune via `setweight()` in the materialized view if it becomes a problem. |
 | Privacy: summaries land in DB even for sensitive sessions | Medium | Same `Redactor` runs on the digest before LLM call. Cloud-provider users get redacted input sent to the vendor. Documented prominently. |
-| Daily-cap drift across daemon restarts | Low | Counter persisted in `summarizer_budget` table (date PK + count). |
+| Runaway cloud-provider spend | Medium | No daemon-side cap by design. Users opt in via `network_egress=true` and set vendor-side billing caps. Token-usage counters surface in `teramind doctor` for visibility. If spend becomes a problem: switch `provider = "ollama"`. |
 
 ### 8.5 Out of scope (deferred to later revisions / follow-on specs)
 
