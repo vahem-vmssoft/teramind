@@ -2,15 +2,16 @@
 
 use crate::handlers;
 use crate::state::AppState;
-use axum::{routing::get, Router};
+use axum::{routing::{get, post}, Router};
 use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
 pub fn build_router(state: AppState) -> Router {
     Router::new()
-        .route("/v1/health",  get(handlers::health::health))
-        .route("/v1/version", get(handlers::health::version))
+        .route("/v1/health",        get(handlers::health::health))
+        .route("/v1/version",       get(handlers::health::version))
+        .route("/v1/auth/redeem",   post(handlers::redeem::redeem))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }

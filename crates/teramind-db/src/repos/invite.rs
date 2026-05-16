@@ -51,6 +51,19 @@ impl InviteRepo {
         Ok(InviteId(row.0))
     }
 
+    /// Look up an invite by hash regardless of redemption/expiry status.
+    pub async fn find_by_hash(&self, code_hash: &[u8]) -> Result<Option<Invite>> {
+        let row: Option<InviteRow> = sqlx::query_as(
+            r#"
+            SELECT id, invited_email, display_name, created_by,
+                   created_at, expires_at, redeemed_at
+            FROM   invites
+            WHERE  code_hash = $1
+            "#)
+            .bind(code_hash).fetch_optional(self.pool.pg()).await?;
+        Ok(row.map(row_to_invite))
+    }
+
     pub async fn find_redeemable(&self, code_hash: &[u8]) -> Result<Option<Invite>> {
         let row: Option<InviteRow> = sqlx::query_as(
             r#"
