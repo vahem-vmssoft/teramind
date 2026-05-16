@@ -273,3 +273,138 @@ mod tests {
         assert_eq!(c.fs_snapshot_ttl_secs, 1_800);
     }
 }
+
+// ============================ summarize config ============================
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SummarizeConfig {
+    #[serde(default = "default_summarize_provider")]
+    pub provider: teramind_core::embed::ProviderKind,
+    #[serde(default = "default_summarize_model")]
+    pub model: String,
+    #[serde(default = "default_summarize_poll")]
+    pub poll_interval_secs: u64,
+    #[serde(default = "default_summarize_min_turns")]
+    pub min_turns: u32,
+    #[serde(default = "default_summarize_min_duration")]
+    pub min_duration_secs: u64,
+    #[serde(default = "default_summarize_input_chars")]
+    pub input_char_budget: u32,
+    #[serde(default = "default_summarize_output_tokens")]
+    pub output_token_budget: u32,
+    #[serde(default)]
+    pub network_egress: bool,
+    #[serde(default)]
+    pub ollama: SummarizeOllama,
+    #[serde(default)]
+    pub anthropic: SummarizeAnthropic,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SummarizeOllama {
+    #[serde(default = "default_summarize_ollama_url")]
+    pub url: String,
+    #[serde(default = "default_summarize_ollama_timeout")]
+    pub request_timeout_ms: u64,
+}
+
+impl Default for SummarizeOllama {
+    fn default() -> Self {
+        Self {
+            url: default_summarize_ollama_url(),
+            request_timeout_ms: default_summarize_ollama_timeout(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct SummarizeAnthropic {
+    #[serde(default = "default_anthropic_key_field")]
+    pub api_key_field: String,
+    #[serde(default = "default_anthropic_timeout")]
+    pub request_timeout_ms: u64,
+}
+
+fn default_summarize_provider() -> teramind_core::embed::ProviderKind {
+    teramind_core::embed::ProviderKind::Ollama
+}
+fn default_summarize_model() -> String { "qwen3.6:latest".into() }
+fn default_summarize_poll() -> u64 { 30 }
+fn default_summarize_min_turns() -> u32 { 3 }
+fn default_summarize_min_duration() -> u64 { 60 }
+fn default_summarize_input_chars() -> u32 { 16000 }
+fn default_summarize_output_tokens() -> u32 { 1500 }
+fn default_summarize_ollama_url() -> String { "http://localhost:11434".into() }
+fn default_summarize_ollama_timeout() -> u64 { 60_000 }
+fn default_anthropic_key_field() -> String { "anthropic_api_key".into() }
+fn default_anthropic_timeout() -> u64 { 30_000 }
+
+impl Default for SummarizeConfig {
+    fn default() -> Self {
+        Self {
+            provider: default_summarize_provider(),
+            model: default_summarize_model(),
+            poll_interval_secs: default_summarize_poll(),
+            min_turns: default_summarize_min_turns(),
+            min_duration_secs: default_summarize_min_duration(),
+            input_char_budget: default_summarize_input_chars(),
+            output_token_budget: default_summarize_output_tokens(),
+            network_egress: false,
+            ollama: SummarizeOllama::default(),
+            anthropic: SummarizeAnthropic::default(),
+        }
+    }
+}
+
+impl SummarizeConfig {
+    pub fn load_or_default(path: &std::path::Path) -> anyhow::Result<Self> {
+        if !path.exists() { return Ok(Self::default()); }
+        let body = std::fs::read_to_string(path)?;
+        let c: Self = toml::from_str(&body)?;
+        c.validate()?;
+        Ok(c)
+    }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.provider.is_cloud() && !self.network_egress {
+            anyhow::bail!(
+                "summarize.toml: provider={:?} requires network_egress=true. \
+                 Flip the flag or switch to ollama.",
+                self.provider,
+            );
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod summarize_config_tests {
+    use super::*;
+    use teramind_core::embed::ProviderKind;
+
+    #[test]
+    fn default_is_ollama_with_qwen36() {
+        let c = SummarizeConfig::default();
+        assert!(matches!(c.provider, ProviderKind::Ollama));
+        assert_eq!(c.model, "qwen3.6:latest");
+        assert_eq!(c.min_turns, 3);
+        assert_eq!(c.min_duration_secs, 60);
+    }
+
+    #[test]
+    fn cloud_provider_requires_network_egress() {
+        let mut c = SummarizeConfig::default();
+        c.provider = ProviderKind::Anthropic;
+        assert!(c.validate().is_err());
+        c.network_egress = true;
+        c.validate().expect("ok with egress=true");
+    }
+
+    #[test]
+    fn local_providers_dont_require_egress() {
+        let mut c = SummarizeConfig::default();
+        c.provider = ProviderKind::Ollama;
+        c.network_egress = false;
+        c.validate().expect("ollama ok");
+    }
+}
