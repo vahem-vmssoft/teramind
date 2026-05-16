@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod device;
+pub mod invite;
 pub mod diff;
 pub mod embedding;
 pub mod project;
@@ -14,6 +15,7 @@ pub use search::SearchRepo;
 
 pub use agent::AgentRepo;
 pub use device::{Device, DeviceRepo};
+pub use invite::{Invite, InviteRepo};
 pub use diff::DiffRepo;
 pub use embedding::{EmbeddingRepo, ToEmbedRow};
 pub use project::ProjectRepo;

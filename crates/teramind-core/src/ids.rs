@@ -42,6 +42,7 @@ id_newtype!(ToolCallId);
 id_newtype!(TurnId);
 id_newtype!(UserId);
 id_newtype!(WikiPageId);
+id_newtype!(InviteId);
 
 #[cfg(test)]
 mod tests {
