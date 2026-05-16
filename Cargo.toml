@@ -18,8 +18,9 @@ license = "Apache-2.0"
 rust-version = "1.93.0"
 
 [workspace.dependencies]
-anyhow      = "1"
-async-trait = "0.1"
+anyhow           = "1"
+async-recursion  = "1"
+async-trait      = "0.1"
 clap        = { version = "4", features = ["derive", "env"] }
 fastembed              = "4"
 flate2      = "1"

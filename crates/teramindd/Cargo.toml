@@ -31,6 +31,7 @@ tracing-appender   = { workspace = true }
 clap        = { workspace = true }
 time        = { workspace = true }
 uuid        = { workspace = true }
+async-recursion = { workspace = true }
 async-trait = { workspace = true }
 hex         = { workspace = true }
 ignore      = { workspace = true }
