@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod diff;
+pub mod embedding;
 pub mod project;
 pub mod session;
 pub mod skill;
@@ -10,6 +11,7 @@ pub use search::SearchRepo;
 
 pub use agent::AgentRepo;
 pub use diff::DiffRepo;
+pub use embedding::{EmbeddingRepo, ToEmbedRow};
 pub use project::ProjectRepo;
 pub use session::SessionRepo;
 pub use skill::SkillRepo;
