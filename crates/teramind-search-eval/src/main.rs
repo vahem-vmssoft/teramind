@@ -29,6 +29,12 @@ enum Cmd {
         /// Output directory for `eval-results.json` and the scorecard.
         #[arg(long, default_value = "benches/search-eval")]
         out: std::path::PathBuf,
+        /// Enable the semantic blend; writes outputs to *-semantic.{json,md}.
+        #[arg(long)]
+        semantic: bool,
+        /// Weight to apply to the semantic score when --semantic is set.
+        #[arg(long, default_value = "0.4")]
+        semantic_weight: f32,
     },
     /// Compare `eval-results.json` against `baseline.json` and exit
     /// non-zero if any regression gate trips.
@@ -52,8 +58,8 @@ async fn main() -> anyhow::Result<()> {
             let dest = out.unwrap_or_else(|| "benches/search-eval".into());
             teramind_search_eval::generator::generate_to(&dest, scale)
         }
-        Cmd::Run { corpus, out } => {
-            teramind_search_eval::harness::run(&corpus, &out).await
+        Cmd::Run { corpus, out, semantic, semantic_weight } => {
+            teramind_search_eval::harness::run(&corpus, &out, semantic, semantic_weight).await
         }
         Cmd::CompareBaseline { results, baseline, update_baseline } => {
             teramind_search_eval::gates::compare(&results, &baseline, update_baseline)
