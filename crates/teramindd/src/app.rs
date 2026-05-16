@@ -109,6 +109,23 @@ impl App {
             Duration::from_secs(config.storage_sample_interval_secs),
         );
 
+        // Embedding worker.
+        let embed_cfg_path = paths.config_dir.join("embed.toml");
+        let embed_cfg = crate::config::EmbedConfig::load_or_default(&embed_cfg_path)?;
+        let provider = crate::services::embed::build_provider(&embed_cfg)?;
+        let embed_model_db_key = format!("{}:{}", provider_prefix(provider.kind()), embed_cfg.model);
+        let embed_repo = teramind_db::repos::EmbeddingRepo::new(pool.clone());
+        let _embed_worker = crate::services::embedding_worker::EmbeddingWorker::spawn(
+            crate::services::embedding_worker::EmbeddingWorkerDeps {
+                repo: embed_repo.clone(),
+                provider: provider.clone(),
+                redactor: std::sync::Arc::new(teramind_core::redact::Redactor::with_default_rules()),
+                model: embed_model_db_key.clone(),
+                poll_interval: std::time::Duration::from_secs(embed_cfg.poll_interval_secs),
+                batch_size: embed_cfg.batch_size,
+            },
+        );
+
         // Pump raw -> debouncer.
         {
             let deb = debouncer.clone();
@@ -155,5 +172,16 @@ impl App {
         let _ = std::fs::remove_file(&paths.socket_path);
         supervisor.shutdown().await?;
         Ok(())
+    }
+}
+
+fn provider_prefix(kind: teramind_core::embed::ProviderKind) -> &'static str {
+    use teramind_core::embed::ProviderKind::*;
+    match kind {
+        Ollama    => "ollama",
+        Fastembed => "fastembed",
+        Anthropic => "anthropic",
+        Openai    => "openai",
+        Voyage    => "voyage",
     }
 }
