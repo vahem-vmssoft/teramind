@@ -12,6 +12,10 @@ pub enum Request {
     Recall(teramind_core::types::RecallRequest),
     AutoRecall(teramind_core::types::AutoRecallRequest),
     SaveSkill(teramind_core::types::SaveSkillRequest),
+    WikiLookup {
+        session_id: Option<String>,
+        cwd: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,6 +28,15 @@ pub enum Response {
     SearchResults(teramind_core::types::SearchResults),
     SkillRef(teramind_core::types::SkillRef),
     AutoRecallDigest { markdown: String, degraded: bool },
+    WikiPage {
+        session_id: String,
+        cwd: String,
+        model: String,
+        content: String,
+        #[serde(with = "time::serde::rfc3339")]
+        generated_at: time::OffsetDateTime,
+    },
+    WikiNotFound,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -44,6 +57,18 @@ pub struct StatusReport {
     pub embedding_backlog: Option<i64>,
     #[serde(default)]
     pub embedding_last_filled_unix: Option<u64>,
+    #[serde(default)]
+    pub summary_provider: Option<String>,
+    #[serde(default)]
+    pub summary_healthy: Option<bool>,
+    #[serde(default)]
+    pub summary_backlog: Option<i64>,
+    #[serde(default)]
+    pub summary_written_total: Option<u64>,
+    #[serde(default)]
+    pub summary_input_tokens_total: Option<u64>,
+    #[serde(default)]
+    pub summary_output_tokens_total: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
