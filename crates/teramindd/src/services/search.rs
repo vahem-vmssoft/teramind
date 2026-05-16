@@ -1,6 +1,6 @@
 use teramind_core::types::Hit;
 use teramind_core::ids::{FileDiffId, SessionId, SkillId, TurnId};
-use teramind_db::repos::search::{RankedDiff, RankedSkill, RankedTurn};
+use teramind_db::repos::search::{RankedDiff, RankedSkill, RankedTurn, RankedWiki};
 use std::sync::Arc;
 use std::time::Instant;
 use time::OffsetDateTime;
@@ -52,6 +52,7 @@ pub fn rank_and_hydrate(
     trgm_skills: Vec<RankedSkill>,
     sem_turns: Vec<RankedTurn>,
     sem_diffs: Vec<RankedDiff>,
+    fts_wikis: Vec<RankedWiki>,
     weights: BlendWeights,
     same_project_id: Option<Uuid>,
     limit: u32,
@@ -115,6 +116,18 @@ pub fn rank_and_hydrate(
             score,
         }));
     }
+    for w in fts_wikis {
+        let score = weights.fts * w.fts_score
+                  + weights.recency * recency_factor(w.ts);
+        hits.push((score, Hit::WikiPage {
+            page_id: teramind_core::ids::WikiPageId(w.page_id),
+            session_id: SessionId(w.session_id),
+            title: w.title,
+            snippet: w.snippet,
+            score,
+            ts: w.ts,
+        }));
+    }
     hits.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     hits.truncate(limit as usize);
     hits.into_iter().map(|(_, h)| h).collect()
@@ -163,7 +176,7 @@ pub async fn do_search(
         None
     };
 
-    let (fts_res, trgm_diffs, trgm_skills, sem_turns, sem_diffs) = tokio::try_join!(
+    let (fts_res, trgm_diffs, trgm_skills, sem_turns, sem_diffs, fts_wikis) = tokio::try_join!(
         repo.fts_turns(&req.query, req.limit),
         repo.trgm_diffs(&req.query, req.limit),
         repo.trgm_skills(&req.query, req.limit),
@@ -181,10 +194,11 @@ pub async fn do_search(
                 Ok(vec![])
             }
         },
+        repo.fts_wiki_pages(&req.query, req.limit),
     )?;
 
     let degraded = weights.semantic > 0.0 && query_emb.is_none();
-    let hits = rank_and_hydrate(fts_res, trgm_diffs, trgm_skills, sem_turns, sem_diffs, weights, None, req.limit);
+    let hits = rank_and_hydrate(fts_res, trgm_diffs, trgm_skills, sem_turns, sem_diffs, fts_wikis, weights, None, req.limit);
     Ok(SearchOutcome { hits, degraded, took_ms: started.elapsed().as_millis() as u32 })
 }
 
@@ -209,7 +223,7 @@ pub async fn do_recall(repo: &SearchRepo, req: &RecallRequest) -> Result<SearchO
         },
     )?;
     let merged: Vec<_> = fts_sym.into_iter().chain(fts_st).collect();
-    let hits = rank_and_hydrate(merged, trgm_paths, vec![], vec![], vec![], BlendWeights::default(), None, req.limit);
+    let hits = rank_and_hydrate(merged, trgm_paths, vec![], vec![], vec![], vec![], BlendWeights::default(), None, req.limit);
     Ok(SearchOutcome { hits, degraded: false, took_ms: started.elapsed().as_millis() as u32 })
 }
 
@@ -238,11 +252,34 @@ pub async fn do_search_with_fallback(
     }
 }
 
+fn shorten_uuid(s: &str) -> String {
+    s.chars().take(8).collect::<String>() + "..."
+}
+
 pub fn render_auto_recall_md(
     recent: &[teramind_db::repos::search::RankedTurn],
     diffs: &[teramind_db::repos::search::RankedDiff],
+    latest_wiki: Option<&teramind_db::repos::WikiPage>,
 ) -> String {
     let mut out = String::new();
+    if let Some(w) = latest_wiki {
+        out.push_str("## Most recent session summary\n\n");
+        out.push_str(&format!("> *Generated {} from session {}*\n\n",
+            w.generated_at.date(),
+            shorten_uuid(&w.session_id.0.to_string()),
+        ));
+        let body = if w.content.len() > 1500 {
+            let mut end = 1500;
+            while end > 0 && !w.content.is_char_boundary(end) { end -= 1; }
+            let mut t = w.content[..end].to_string();
+            t.push_str("\n\n*(truncated; see `mcp__teramind__wiki` for full page)*");
+            t
+        } else {
+            w.content.clone()
+        };
+        out.push_str(&body);
+        out.push_str("\n\n");
+    }
     if !recent.is_empty() {
         out.push_str("## Recent Teramind context\n\n");
         for t in recent {
@@ -273,16 +310,18 @@ pub fn render_auto_recall_md(
 
 pub async fn do_auto_recall(
     repo: &SearchRepo,
+    wiki_repo: &teramind_db::repos::WikiRepo,
     req: &AutoRecallRequest,
 ) -> Result<String, teramind_db::DbError> {
     let (recent, diffs) = tokio::try_join!(
         repo.recent_turns_in_project(None, &req.cwd, req.limit),
         repo.diff_excerpts_for_cwd_files(&req.cwd_files, req.limit),
     )?;
-    if recent.is_empty() && diffs.is_empty() {
+    let latest_wiki = wiki_repo.latest_for_cwd(&req.cwd).await.ok().flatten();
+    if recent.is_empty() && diffs.is_empty() && latest_wiki.is_none() {
         return Ok(String::new());
     }
-    Ok(render_auto_recall_md(&recent, &diffs))
+    Ok(render_auto_recall_md(&recent, &diffs, latest_wiki.as_ref()))
 }
 
 #[cfg(test)]
@@ -334,7 +373,7 @@ mod tests {
             fts_score: 0.5, trgm_score: 0.0, semantic_score: 0.0,
             user_prompt: Some("B".into()), assistant_text: None,
         };
-        let hits = rank_and_hydrate(vec![rank_a.clone(), rank_b.clone()], vec![], vec![], vec![], vec![], BlendWeights::default(), None, 10);
+        let hits = rank_and_hydrate(vec![rank_a.clone(), rank_b.clone()], vec![], vec![], vec![], vec![], vec![], BlendWeights::default(), None, 10);
         assert_eq!(hits.len(), 2);
         match &hits[0] {
             Hit::Turn { turn_id, .. } => assert_eq!(turn_id.0, rank_a.turn_id),
@@ -363,10 +402,67 @@ mod tests {
                 pre_excerpt: "old foo".into(),
                 post_excerpt: "new foo".into(),
             }];
-        let md = render_auto_recall_md(&recent_turns, &diff_hits);
+        let md = render_auto_recall_md(&recent_turns, &diff_hits, None);
         assert!(md.contains("Recent Teramind context"));
         assert!(md.contains("fix bug"));
         assert!(md.contains("Recent diffs"));
         assert!(md.contains("src/foo.rs"));
+    }
+
+    #[test]
+    fn render_auto_recall_md_includes_wiki_section_when_present() {
+        use teramind_db::repos::WikiPage;
+        use teramind_core::ids::{SessionId, WikiPageId};
+        let wiki = WikiPage {
+            id: WikiPageId(uuid::Uuid::new_v4()),
+            session_id: SessionId(uuid::Uuid::new_v4()),
+            model: "ollama:qwen3.6:latest".into(),
+            content: "# Summary\nThe agent refactored JWT...".into(),
+            input_tokens: 100, output_tokens: 50,
+            generated_at: OffsetDateTime::now_utc(),
+        };
+        let md = render_auto_recall_md(&[], &[], Some(&wiki));
+        assert!(md.contains("Most recent session summary"));
+        assert!(md.contains("refactored JWT"));
+    }
+
+    #[test]
+    fn render_auto_recall_md_truncates_long_wiki() {
+        use teramind_db::repos::WikiPage;
+        use teramind_core::ids::{SessionId, WikiPageId};
+        let wiki = WikiPage {
+            id: WikiPageId(uuid::Uuid::new_v4()),
+            session_id: SessionId(uuid::Uuid::new_v4()),
+            model: "test".into(),
+            content: "A".repeat(5000),
+            input_tokens: 0, output_tokens: 0,
+            generated_at: OffsetDateTime::now_utc(),
+        };
+        let md = render_auto_recall_md(&[], &[], Some(&wiki));
+        assert!(md.contains("(truncated"));
+    }
+
+    #[test]
+    fn rank_and_hydrate_emits_wiki_page_hits() {
+        let now = OffsetDateTime::now_utc();
+        let w = teramind_db::repos::search::RankedWiki {
+            page_id: uuid::Uuid::new_v4(),
+            session_id: uuid::Uuid::new_v4(),
+            title: "Refactor".into(),
+            snippet: "The agent refactored JWT".into(),
+            fts_score: 0.7,
+            ts: now,
+        };
+        let hits = rank_and_hydrate(
+            vec![], vec![], vec![],
+            vec![], vec![],
+            vec![w],
+            BlendWeights::default(), None, 10,
+        );
+        assert_eq!(hits.len(), 1);
+        match &hits[0] {
+            Hit::WikiPage { title, .. } => assert_eq!(title, "Refactor"),
+            other => panic!("expected WikiPage hit, got {:?}", other),
+        }
     }
 }

@@ -87,7 +87,7 @@ impl IpcServer for DaemonIpcHandler {
                 }
             }
             Request::AutoRecall(r) => {
-                match crate::services::search::do_auto_recall(&self.search_repo, &r).await {
+                match crate::services::search::do_auto_recall(&self.search_repo, &self.wiki_repo, &r).await {
                     Ok(md) => Response::AutoRecallDigest { markdown: md, degraded: false },
                     Err(_) => Response::AutoRecallDigest { markdown: String::new(), degraded: true },
                 }
