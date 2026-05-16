@@ -1,66 +1,12 @@
 //! Pure digest builder. Takes a SessionSnapshot, returns a Markdown
 //! string capped at `char_budget`. No I/O, no async.
 
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use teramind_core::ids::{SessionId, ToolCallId, TurnId};
-use teramind_core::types::file_diff::Attribution;
-use time::OffsetDateTime;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TurnRow {
-    pub id: TurnId,
-    pub ordinal: i32,
-    pub user_prompt: Option<String>,
-    pub assistant_text: Option<String>,
-    pub thinking: Option<String>,
-    pub started_at: OffsetDateTime,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ToolCallRow {
-    pub id: ToolCallId,
-    pub turn_id: TurnId,
-    pub name: String,
-    pub input: Value,
-    pub output: String,
-    pub is_error: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileDiffRow {
-    pub turn_id: Option<TurnId>,
-    pub rel_path: String,
-    pub language: Option<String>,
-    pub attribution: Attribution,
-    pub unified_diff: String,
-    pub pre_excerpt: String,
-    pub post_excerpt: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionSnapshot {
-    pub session_id: SessionId,
-    pub cwd: String,
-    pub started_at: OffsetDateTime,
-    pub ended_at: OffsetDateTime,
-    pub end_reason: String,
-    pub git_branch: Option<String>,
-    pub git_head: Option<String>,
-    pub turns: Vec<TurnRow>,
-    pub tool_calls: Vec<ToolCallRow>,
-    pub file_diffs: Vec<FileDiffRow>,
-}
-
-impl SessionSnapshot {
-    pub fn turn_count(&self) -> usize {
-        self.turns.len()
-    }
-
-    pub fn duration_secs(&self) -> i64 {
-        (self.ended_at - self.started_at).whole_seconds()
-    }
-}
+pub use teramind_core::summarize::{
+    FileDiffRow, SessionSnapshot, ToolCallRow, TurnRow,
+};
+pub use teramind_core::types::file_diff::Attribution;
+pub use teramind_core::ids::{SessionId, TurnId};
+pub use time::OffsetDateTime;
 
 /// Build a Markdown digest from the snapshot. Output length <= `char_budget`.
 /// Sections are dropped in priority order when over budget.
