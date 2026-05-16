@@ -9,3 +9,5 @@ Cargo.lock.bak
 /.local-data/
 benches/search-eval/eval-results.json
 benches/search-eval/eval-scorecard.md
+benches/search-eval/eval-results-semantic.json
+benches/search-eval/eval-scorecard-semantic.md
