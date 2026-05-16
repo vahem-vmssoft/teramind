@@ -9,6 +9,7 @@ members = [
     "crates/teramind",
     "crates/teramind-hook",
     "crates/teramind-mcp",
+    "crates/teramind-sync-server",
 ]
 
 [workspace.package]
@@ -21,7 +22,16 @@ rust-version = "1.93.0"
 anyhow           = "1"
 async-recursion  = "1"
 async-trait      = "0.1"
+axum            = { version = "0.7", default-features = false, features = ["http1", "http2", "json", "tokio", "matched-path"] }
+axum-server     = { version = "0.7", default-features = false, features = ["tls-rustls"] }
+base32          = "0.5"
 clap        = { version = "4", features = ["derive", "env"] }
+ed25519-dalek   = { version = "2", default-features = false, features = ["std", "rand_core"] }
+parking_lot     = "0.12"
+rustls-pemfile  = "2"
+tokio-rustls    = "0.26"
+tower           = { version = "0.5", default-features = false, features = ["util"] }
+tower-http      = { version = "0.6", default-features = false, features = ["limit", "trace"] }
 fastembed              = "4"
 flate2      = "1"
 futures     = "0.3"

@@ -1,0 +1,52 @@
+[package]
+name = "teramind-sync-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "teramind_sync_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "teramind-sync-server"
+path = "src/main.rs"
+
+[dependencies]
+teramind-core = { path = "../teramind-core" }
+teramind-db   = { path = "../teramind-db" }
+teramind-ipc  = { path = "../teramind-ipc" }
+teramindd     = { path = "../teramindd" }
+
+anyhow         = { workspace = true }
+async-trait    = { workspace = true }
+axum           = { workspace = true }
+axum-server    = { workspace = true }
+base32         = { workspace = true }
+clap           = { workspace = true }
+ed25519-dalek  = { workspace = true }
+hex            = { workspace = true }
+parking_lot    = { workspace = true }
+rand           = { workspace = true }
+rustls-pemfile = { workspace = true }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+sha2           = { workspace = true }
+sqlx           = { workspace = true }
+thiserror      = { workspace = true }
+time           = { workspace = true }
+tokio          = { workspace = true }
+tokio-rustls   = { workspace = true }
+toml           = { workspace = true }
+tower          = { workspace = true }
+tower-http     = { workspace = true }
+tracing        = { workspace = true }
+tracing-appender   = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid           = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
+reqwest  = { workspace = true }
