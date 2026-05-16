@@ -116,7 +116,7 @@ fn render_tool_usage(s: &SessionSnapshot) -> String {
         if tc.is_error { e.1 += 1; }
     }
     let mut ranked: Vec<_> = counts.into_iter().collect();
-    ranked.sort_by(|a, b| b.1.0.cmp(&a.1.0));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1.0));
     ranked.truncate(5);
     let mut out = String::new();
     writeln!(out, "## Tool usage (top 5 by count)\n").unwrap();
@@ -204,7 +204,7 @@ fn render_diff_samples(s: &SessionSnapshot) -> String {
             .or_insert((churn, d));
     }
     let mut ranked: Vec<_> = by_path.into_iter().collect();
-    ranked.sort_by(|a, b| b.1.0.cmp(&a.1.0));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1.0));
     ranked.truncate(2);
     let mut out = String::new();
     writeln!(out, "## Diff samples (one per file, top 2 by churn)\n").unwrap();

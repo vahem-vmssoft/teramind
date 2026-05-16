@@ -158,6 +158,7 @@ impl WikiRepo {
 
     pub async fn load_snapshot(&self, session_id: SessionId) -> Result<Option<teramind_core::summarize::SessionSnapshot>> {
         // Session metadata.
+        #[allow(clippy::type_complexity)]
         let row: Option<(Uuid, String, OffsetDateTime, Option<OffsetDateTime>, Option<String>, Option<String>, Option<String>)> = sqlx::query_as(
             r#"
             SELECT id, cwd, started_at, ended_at, end_reason, git_branch, git_head
@@ -172,6 +173,7 @@ impl WikiRepo {
         let Some(ended_at) = ended_at else { return Ok(None) }; // un-ended
 
         // Turns.
+        #[allow(clippy::type_complexity)]
         let turn_rows: Vec<(Uuid, i32, Option<String>, Option<String>, Option<String>, OffsetDateTime)> = sqlx::query_as(
             r#"
             SELECT id, ordinal, user_prompt, assistant_text, thinking, started_at
@@ -208,6 +210,7 @@ impl WikiRepo {
         }).collect::<Vec<_>>();
 
         // File diffs.
+        #[allow(clippy::type_complexity)]
         let fd_rows: Vec<(Option<Uuid>, String, Option<String>, String, String, String, String)> = sqlx::query_as(
             r#"
             SELECT turn_id, rel_path, language, attribution, unified_diff, pre_excerpt, post_excerpt
