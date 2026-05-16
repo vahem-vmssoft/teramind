@@ -38,6 +38,15 @@ pub enum Hit {
         body_snippet: String,
         score: f32,
     },
+    WikiPage {
+        page_id:    crate::ids::WikiPageId,
+        session_id: crate::ids::SessionId,
+        title:      String,
+        snippet:    String,
+        score:      f32,
+        #[serde(with = "time::serde::rfc3339")]
+        ts:         time::OffsetDateTime,
+    },
 }
 
 #[cfg(test)]
