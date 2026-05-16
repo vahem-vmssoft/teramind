@@ -33,10 +33,17 @@ mod tests {
 
     #[test]
     fn writes_envelope_to_inbox() {
+        let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
+        // Save and restore env vars to avoid racing with tests that read them.
+        let saved_home = std::env::var_os("HOME");
+        let saved_xdg  = std::env::var_os("XDG_DATA_HOME");
+        #[cfg(windows)] let saved_la = std::env::var_os("LOCALAPPDATA");
+
         std::env::set_var("HOME", tmp.path());
         std::env::set_var("XDG_DATA_HOME", tmp.path().join("xdg-data"));
         #[cfg(windows)] std::env::set_var("LOCALAPPDATA", tmp.path());
+
         let env = EventEnvelope {
             client_event_id: ClientEventId::new(),
             ts: OffsetDateTime::now_utc(),
@@ -45,8 +52,26 @@ mod tests {
             },
         };
         let path = write_envelope(&env).unwrap();
-        assert!(path.exists());
+        let exists = path.exists();
         let parsed: EventEnvelope = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_eq!(parsed.client_event_id, env.client_event_id);
+        let id_matches = parsed.client_event_id == env.client_event_id;
+
+        // Restore env vars before releasing the lock.
+        match saved_home {
+            Some(v) => std::env::set_var("HOME", v),
+            None    => { let _ = std::env::remove_var("HOME"); }
+        }
+        match saved_xdg {
+            Some(v) => std::env::set_var("XDG_DATA_HOME", v),
+            None    => { let _ = std::env::remove_var("XDG_DATA_HOME"); }
+        }
+        #[cfg(windows)]
+        match saved_la {
+            Some(v) => std::env::set_var("LOCALAPPDATA", v),
+            None    => { let _ = std::env::remove_var("LOCALAPPDATA"); }
+        }
+
+        assert!(exists);
+        assert!(id_matches);
     }
 }

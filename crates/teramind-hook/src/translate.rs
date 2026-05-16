@@ -292,6 +292,9 @@ mod tests {
 
     #[test]
     fn translates_user_prompt_with_ordinal() {
+        // Hold the shared env lock so `writes_envelope_to_inbox` can't mutate
+        // HOME / XDG_DATA_HOME while we are mid-test writing ordinal count files.
+        let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
         let sid = format!("test-up-{}", uuid::Uuid::new_v4());
         let input = HookInput::UserPromptSubmit {
             session_id: sid.clone(),

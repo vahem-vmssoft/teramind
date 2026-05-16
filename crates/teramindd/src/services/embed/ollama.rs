@@ -28,6 +28,7 @@ struct EmbedResponse {
 
 #[derive(Deserialize)]
 struct VersionResponse {
+    #[allow(dead_code)]
     version: String,
 }
 

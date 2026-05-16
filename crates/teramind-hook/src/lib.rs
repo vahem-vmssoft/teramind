@@ -6,3 +6,8 @@ pub mod inbox;
 pub mod selftest;
 pub mod spawn;
 pub mod translate;
+
+/// Shared test lock for tests that mutate process-wide env vars (HOME, XDG_DATA_HOME).
+/// Both `inbox` and `translate` tests acquire this before touching env vars.
+#[cfg(test)]
+pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

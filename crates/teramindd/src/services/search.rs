@@ -45,6 +45,7 @@ fn recency_factor(ts: OffsetDateTime) -> f32 {
     (-days / 90.0).exp()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn rank_and_hydrate(
     fts_turns: Vec<RankedTurn>,
     trgm_diffs: Vec<RankedDiff>,
@@ -153,7 +154,7 @@ pub async fn do_search(
     // Embed query if semantic weight is active and provider is available.
     let query_emb: Option<Vec<f32>> = if weights.semantic > 0.0 {
         match &provider {
-            Some(p) => p.embed(&[req.query.clone()]).await
+            Some(p) => p.embed(std::slice::from_ref(&req.query)).await
                 .ok()
                 .and_then(|mut v| v.pop()),
             None => None,
