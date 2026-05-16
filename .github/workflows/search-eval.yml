@@ -47,3 +47,36 @@ jobs:
             benches/search-eval/eval-results.json
             benches/search-eval/eval-scorecard.md
           if-no-files-found: error
+
+  eval-semantic:
+    name: run L5 benchmark (semantic)
+    needs: eval
+    runs-on: ubuntu-22.04
+    continue-on-error: true   # fail-soft until v1.0.1 corpus expansion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: install ollama
+        run: curl -fsSL https://ollama.ai/install.sh | sh
+      - name: start ollama and pull model
+        run: |
+          ollama serve &
+          sleep 5
+          ollama pull nomic-embed-text-v2-moe
+      - name: run semantic benchmark
+        env:
+          TERAMIND_LOG: warn
+        run: cargo run --release -p teramind-search-eval -- run --semantic
+      - name: compare against semantic baseline
+        run: |
+          cargo run --release -p teramind-search-eval -- compare-baseline \
+            --results  benches/search-eval/eval-results-semantic.json \
+            --baseline benches/search-eval/baseline-semantic.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-scorecard-semantic
+          path: |
+            benches/search-eval/eval-results-semantic.json
+            benches/search-eval/eval-scorecard-semantic.md
+          if-no-files-found: error
