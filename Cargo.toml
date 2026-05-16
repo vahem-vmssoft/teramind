@@ -25,6 +25,7 @@ async-trait      = "0.1"
 axum            = { version = "0.7", default-features = false, features = ["http1", "http2", "json", "tokio", "matched-path"] }
 axum-server     = { version = "0.7", default-features = false, features = ["tls-rustls"] }
 base32          = "0.5"
+base64          = "0.22"
 clap        = { version = "4", features = ["derive", "env"] }
 ed25519-dalek   = { version = "2", default-features = false, features = ["std", "rand_core"] }
 parking_lot     = "0.12"
