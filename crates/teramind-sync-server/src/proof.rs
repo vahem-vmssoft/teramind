@@ -226,3 +226,82 @@ mod tests {
         assert_eq!(err, ProofError::BadSignature);
     }
 }
+
+pub mod replay {
+    use parking_lot::Mutex;
+    use std::collections::{HashMap, VecDeque};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use teramind_core::ids::DeviceId;
+
+    pub struct ReplayCache {
+        max_per_device: usize,
+        ttl: Duration,
+        // (jti, inserted_at)
+        inner: Mutex<HashMap<DeviceId, VecDeque<(String, Instant)>>>,
+    }
+
+    impl ReplayCache {
+        pub fn new(max_per_device: usize, ttl_secs: u64) -> Arc<Self> {
+            Arc::new(Self {
+                max_per_device,
+                ttl: Duration::from_secs(ttl_secs),
+                inner: Mutex::new(HashMap::new()),
+            })
+        }
+
+        /// Returns true if `jti` was newly inserted; false if it's a replay.
+        pub fn check_and_insert(&self, device: DeviceId, jti: &str) -> bool {
+            let now = Instant::now();
+            let mut map = self.inner.lock();
+            let q = map.entry(device).or_default();
+
+            // Drop expired entries from the front.
+            while let Some((_, ts)) = q.front() {
+                if now.duration_since(*ts) > self.ttl { q.pop_front(); } else { break; }
+            }
+
+            if q.iter().any(|(j, _)| j == jti) { return false; }
+
+            q.push_back((jti.to_string(), now));
+            while q.len() > self.max_per_device { q.pop_front(); }
+            true
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use teramind_core::ids::DeviceId;
+        use uuid::Uuid;
+
+        #[test]
+        fn first_insert_returns_true_replay_returns_false() {
+            let c = ReplayCache::new(8, 60);
+            let d = DeviceId(Uuid::new_v4());
+            assert!(c.check_and_insert(d, "j1"));
+            assert!(!c.check_and_insert(d, "j1"));
+            assert!(c.check_and_insert(d, "j2"));
+        }
+
+        #[test]
+        fn distinct_devices_are_isolated() {
+            let c = ReplayCache::new(8, 60);
+            let a = DeviceId(Uuid::new_v4());
+            let b = DeviceId(Uuid::new_v4());
+            assert!(c.check_and_insert(a, "j1"));
+            assert!(c.check_and_insert(b, "j1"));
+        }
+
+        #[test]
+        fn cap_evicts_oldest() {
+            let c = ReplayCache::new(2, 60);
+            let d = DeviceId(Uuid::new_v4());
+            assert!(c.check_and_insert(d, "j1"));
+            assert!(c.check_and_insert(d, "j2"));
+            assert!(c.check_and_insert(d, "j3"));
+            // j1 should have been evicted by capacity; a re-insert succeeds.
+            assert!(c.check_and_insert(d, "j1"));
+        }
+    }
+}
