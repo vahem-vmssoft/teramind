@@ -8,3 +8,4 @@ pub mod queries_bank;
 pub mod harness;
 pub mod reporter;
 pub mod gates;
+pub mod semantic;

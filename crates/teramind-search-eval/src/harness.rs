@@ -10,7 +10,20 @@ use std::time::Instant;
 use teramind_db::repos::SearchRepo;
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 
-pub async fn run(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
+pub async fn run(
+    corpus_root: &Path,
+    out_dir: &Path,
+    semantic: bool,
+    semantic_weight: f32,
+) -> anyhow::Result<()> {
+    if semantic {
+        crate::semantic::run_with_semantic(corpus_root, out_dir, semantic_weight).await
+    } else {
+        run_lexical(corpus_root, out_dir).await
+    }
+}
+
+async fn run_lexical(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
     let tmp = tempfile::tempdir()?;
     let sup = PgSupervisor::start(tmp.path().join("pgdata"), "teramind").await?;
     let pool = DbPool::connect(sup.connect_options()).await?;
@@ -71,14 +84,14 @@ pub async fn run(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn load_qrels(root: &Path) -> anyhow::Result<crate::types::QrelsFile> {
+pub(crate) fn load_qrels(root: &Path) -> anyhow::Result<crate::types::QrelsFile> {
     let path = root.join("qrels.toml");
     if !path.exists() { return Ok(Default::default()); }
     let body = std::fs::read_to_string(&path)?;
     Ok(toml::from_str(&body)?)
 }
 
-fn relevance_for(qrels: &crate::types::QrelsFile, qid: &str, hit_ids: &[String]) -> Vec<u32> {
+pub(crate) fn relevance_for(qrels: &crate::types::QrelsFile, qid: &str, hit_ids: &[String]) -> Vec<u32> {
     let judgments = match qrels.judgments.get(qid) {
         Some(v) => v,
         None => return hit_ids.iter().map(|_| 0).collect(),
@@ -89,7 +102,7 @@ fn relevance_for(qrels: &crate::types::QrelsFile, qid: &str, hit_ids: &[String])
     hit_ids.iter().map(|h| *map.get(h.as_str()).unwrap_or(&0)).collect()
 }
 
-fn percentile_u32(sorted_ms: &[u128], pct: u32) -> u32 {
+pub(crate) fn percentile_u32(sorted_ms: &[u128], pct: u32) -> u32 {
     if sorted_ms.is_empty() { return 0; }
     let idx = ((sorted_ms.len() as f64) * (pct as f64) / 100.0).ceil() as usize;
     let idx = idx.min(sorted_ms.len() - 1);
