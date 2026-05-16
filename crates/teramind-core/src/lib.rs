@@ -1,5 +1,6 @@
 //! Shared types, identifiers, error enum, and redaction rules.
 
+pub mod embed;
 pub mod error;
 pub mod ids;
 pub mod redact;
