@@ -4468,6 +4468,7 @@ dependencies = [
  "hex",
  "ignore",
  "notify",
+ "parking_lot",
  "pgvector",
  "postgresql_extensions",
  "proptest",

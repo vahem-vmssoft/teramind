@@ -225,6 +225,8 @@ impl App {
             summary_provider,
             summary_model: summarize_model_db_key,
             summarizer_stats,
+            decision_cache: None,
+            team_share_writer: None,
         });
         let listener = listen(&paths.socket_path)?;
         let h2 = handler.clone();

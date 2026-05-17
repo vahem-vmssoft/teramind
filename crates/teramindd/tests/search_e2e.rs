@@ -239,6 +239,8 @@ async fn ipc_search_request_returns_search_results() {
         summarizer_stats: std::sync::Arc::new(
             teramindd::services::summarizer_worker::SummarizerStats::default(),
         ),
+        decision_cache: None,
+        team_share_writer: None,
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

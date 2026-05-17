@@ -1,3 +1,4 @@
+pub mod decision_cache;
 pub mod diff_engine;
 pub mod embed;
 pub mod embedding_worker;
