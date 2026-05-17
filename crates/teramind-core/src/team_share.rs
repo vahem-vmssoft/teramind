@@ -26,9 +26,15 @@ pub fn find_marker(cwd: &Path, home: &Path) -> Option<(PathBuf, ShareMarker)> {
                 }
             }
         }
-        if dir == home { break; }
-        let Some(parent) = dir.parent() else { break; };
-        if parent == dir { break; }
+        if dir == home {
+            break;
+        }
+        let Some(parent) = dir.parent() else {
+            break;
+        };
+        if parent == dir {
+            break;
+        }
         dir = parent.to_path_buf();
     }
     None
@@ -52,7 +58,8 @@ mod tests {
     fn find_marker_in_self() {
         let dir = tempfile::tempdir().unwrap();
         let marker = ShareMarker {
-            share: true, set_by: "alice".into(),
+            share: true,
+            set_by: "alice".into(),
             set_at: time::OffsetDateTime::now_utc(),
         };
         write_marker_at_cwd(dir.path(), &marker).unwrap();
@@ -68,7 +75,8 @@ mod tests {
         let child = root.path().join("a/b/c");
         std::fs::create_dir_all(&child).unwrap();
         let marker = ShareMarker {
-            share: false, set_by: "alice".into(),
+            share: false,
+            set_by: "alice".into(),
             set_at: time::OffsetDateTime::now_utc(),
         };
         write_marker_at_cwd(root.path(), &marker).unwrap();
@@ -92,7 +100,8 @@ mod tests {
         std::fs::create_dir_all(&proj).unwrap();
         // Marker is *above* HOME — must not be found.
         let marker = ShareMarker {
-            share: true, set_by: "x".into(),
+            share: true,
+            set_by: "x".into(),
             set_at: time::OffsetDateTime::now_utc(),
         };
         write_marker_at_cwd(root.path(), &marker).unwrap();

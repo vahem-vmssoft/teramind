@@ -144,11 +144,17 @@ impl IpcServer for DaemonIpcHandler {
                 Ok(s) => Response::SkillRef(s),
                 Err(e) => Response::Error(format!("save_skill failed: {e}")),
             },
-            Request::TeamShareSet { session_id, cwd, scope: _, share } => {
+            Request::TeamShareSet {
+                session_id,
+                cwd,
+                scope: _,
+                share,
+            } => {
                 let Some(writer) = self.team_share_writer.as_ref() else {
                     return Response::Error("team mode not configured".into());
                 };
-                let sid = session_id.as_deref()
+                let sid = session_id
+                    .as_deref()
                     .and_then(|s| uuid::Uuid::parse_str(s).ok())
                     .map(teramind_core::ids::SessionId);
                 let cwd_path = std::path::PathBuf::from(&cwd);

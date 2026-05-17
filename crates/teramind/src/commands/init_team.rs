@@ -55,8 +55,8 @@ pub async fn run(server: String, invite: String, device_name: Option<String>) ->
     if !status.is_success() {
         return Err(anyhow!("redeem failed: HTTP {} — {}", status, text));
     }
-    let r: RedeemResponse = serde_json::from_str(&text)
-        .with_context(|| format!("parse redeem response: {text}"))?;
+    let r: RedeemResponse =
+        serde_json::from_str(&text).with_context(|| format!("parse redeem response: {text}"))?;
 
     let cfg = TeamConfig {
         server_url: server.clone(),

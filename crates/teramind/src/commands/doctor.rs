@@ -82,13 +82,16 @@ pub async fn run() -> anyhow::Result<()> {
     }
     // team mode
     let team_toml = paths.config_dir.join("team.toml");
-    let team_key  = paths.config_dir.join("team-key");
+    let team_key = paths.config_dir.join("team-key");
     match teramind_core::team::TeamConfig::load(&team_toml) {
         Ok(cfg) => {
             println!("team mode:   enabled ({})", cfg.server_url);
             println!("user/device: {} / {}", cfg.user_email, cfg.device_name);
             match teramind_core::team::load_signing_key(&team_key) {
-                Ok(_) => println!("auth proof:  ed25519 (key at {}, mode 0600 ✓)", team_key.display()),
+                Ok(_) => println!(
+                    "auth proof:  ed25519 (key at {}, mode 0600 ✓)",
+                    team_key.display()
+                ),
                 Err(e) => println!("auth proof:  ✗ {}", e),
             }
             // Forwarder throughput surfaces are deferred to v1.1 (see Plan J §13.5).

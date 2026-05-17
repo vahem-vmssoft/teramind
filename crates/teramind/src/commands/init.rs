@@ -8,10 +8,8 @@ pub async fn run(
     device_name: Option<String>,
 ) -> anyhow::Result<()> {
     if team {
-        let server =
-            server.ok_or_else(|| anyhow::anyhow!("--server required with --team"))?;
-        let invite =
-            invite.ok_or_else(|| anyhow::anyhow!("--invite required with --team"))?;
+        let server = server.ok_or_else(|| anyhow::anyhow!("--server required with --team"))?;
+        let invite = invite.ok_or_else(|| anyhow::anyhow!("--invite required with --team"))?;
         return crate::commands::init_team::run(server, invite, device_name).await;
     }
     let paths = teramindd::paths::Paths::resolve()?;

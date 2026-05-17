@@ -22,7 +22,9 @@ impl SyncOffset {
 
     pub fn load(raw_dir: &Path) -> Result<Self> {
         let p = Self::path(raw_dir);
-        if !p.exists() { return Ok(SyncOffset::default()); }
+        if !p.exists() {
+            return Ok(SyncOffset::default());
+        }
         let s = std::fs::read_to_string(&p)?;
         Ok(serde_json::from_str(&s)?)
     }
@@ -50,7 +52,10 @@ mod tests {
     #[test]
     fn save_then_load_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
-        let off = SyncOffset { file: Some("2026-05-17.jsonl".into()), byte_offset: 4096 };
+        let off = SyncOffset {
+            file: Some("2026-05-17.jsonl".into()),
+            byte_offset: 4096,
+        };
         off.save(dir.path()).unwrap();
         let loaded = SyncOffset::load(dir.path()).unwrap();
         assert_eq!(loaded.file.as_deref(), Some("2026-05-17.jsonl"));
@@ -60,7 +65,10 @@ mod tests {
     #[test]
     fn save_is_atomic_no_partial_file() {
         let dir = tempfile::tempdir().unwrap();
-        let off = SyncOffset { file: Some("x".into()), byte_offset: 100 };
+        let off = SyncOffset {
+            file: Some("x".into()),
+            byte_offset: 100,
+        };
         off.save(dir.path()).unwrap();
         // The tmp file must not linger.
         assert!(!dir.path().join(".sync-offset.json.tmp").exists());

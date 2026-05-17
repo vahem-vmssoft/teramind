@@ -118,16 +118,12 @@ async fn team_share_set_dispatches_ipc_request() {
     // Drive the subprocess on a blocking thread so the tokio executor
     // can continue polling the mock server accept task.
     let sock_path_clone = sock_path.clone();
-    let response_line =
-        tokio::task::spawn_blocking(move || drive_mcp_subprocess(sock_path_clone))
-            .await
-            .unwrap();
+    let response_line = tokio::task::spawn_blocking(move || drive_mcp_subprocess(sock_path_clone))
+        .await
+        .unwrap();
 
     // Verify the MCP response contains the tool result.
-    assert!(
-        !response_line.is_empty(),
-        "no response for tools/call id=2"
-    );
+    assert!(!response_line.is_empty(), "no response for tools/call id=2");
     assert!(
         response_line.contains("\"result\""),
         "expected result in response: {response_line}"
@@ -135,10 +131,7 @@ async fn team_share_set_dispatches_ipc_request() {
 
     // Verify the mock server received a TeamShareSet request.
     let requests = recorded.lock().unwrap();
-    assert!(
-        !requests.is_empty(),
-        "mock IPC server received no requests"
-    );
+    assert!(!requests.is_empty(), "mock IPC server received no requests");
     let found = requests.iter().any(|r| {
         matches!(
             r,

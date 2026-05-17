@@ -40,9 +40,13 @@ pub fn load_signing_key(path: &Path) -> Result<SigningKey> {
     ensure_secure_perms(path).context("team-key perms")?;
     let bytes = std::fs::read(path).context("read team-key")?;
     if bytes.len() != 32 {
-        return Err(anyhow!("team-key must be exactly 32 bytes (got {})", bytes.len()));
+        return Err(anyhow!(
+            "team-key must be exactly 32 bytes (got {})",
+            bytes.len()
+        ));
     }
-    let mut arr = [0u8; 32]; arr.copy_from_slice(&bytes);
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&bytes);
     Ok(SigningKey::from_bytes(&arr))
 }
 
@@ -71,15 +75,22 @@ fn write_secure(path: &Path, bytes: &[u8]) -> Result<()> {
     {
         use std::os::unix::fs::OpenOptionsExt;
         let mut f = std::fs::OpenOptions::new()
-            .write(true).create(true).truncate(true).mode(0o600)
-            .open(path).with_context(|| format!("open {}", path.display()))?;
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .with_context(|| format!("open {}", path.display()))?;
         f.write_all(bytes)?;
     }
     #[cfg(not(unix))]
     {
         let mut f = std::fs::OpenOptions::new()
-            .write(true).create(true).truncate(true)
-            .open(path).with_context(|| format!("open {}", path.display()))?;
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .with_context(|| format!("open {}", path.display()))?;
         f.write_all(bytes)?;
     }
     Ok(())
@@ -91,13 +102,19 @@ fn ensure_secure_perms(path: &Path) -> Result<()> {
     let md = std::fs::metadata(path).with_context(|| format!("stat {}", path.display()))?;
     let mode = md.permissions().mode() & 0o777;
     if mode & 0o077 != 0 {
-        return Err(anyhow!("{} has insecure perms {:#o}; chmod 0600 to fix", path.display(), mode));
+        return Err(anyhow!(
+            "{} has insecure perms {:#o}; chmod 0600 to fix",
+            path.display(),
+            mode
+        ));
     }
     Ok(())
 }
 
 #[cfg(not(unix))]
-fn ensure_secure_perms(_path: &Path) -> Result<()> { Ok(()) }
+fn ensure_secure_perms(_path: &Path) -> Result<()> {
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
@@ -106,7 +123,8 @@ mod tests {
     use rand::{rngs::OsRng, RngCore};
 
     fn random_key() -> SigningKey {
-        let mut seed = [0u8; 32]; OsRng.fill_bytes(&mut seed);
+        let mut seed = [0u8; 32];
+        OsRng.fill_bytes(&mut seed);
         SigningKey::from_bytes(&seed)
     }
 

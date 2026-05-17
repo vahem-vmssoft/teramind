@@ -1,4 +1,4 @@
-use teramind::cli::{Cli, ClaudeAction, Command, SessionsAction};
+use teramind::cli::{ClaudeAction, Cli, Command, SessionsAction};
 use teramind::commands;
 
 use clap::Parser;

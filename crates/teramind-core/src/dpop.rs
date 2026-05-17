@@ -19,11 +19,15 @@ pub struct ProofClaims {
 }
 
 pub fn body_hash_hex(body: &[u8]) -> String {
-    let mut h = Sha256::new(); h.update(body); hex::encode(h.finalize())
+    let mut h = Sha256::new();
+    h.update(body);
+    hex::encode(h.finalize())
 }
 
 pub fn token_hash_hex(token: &str) -> String {
-    let mut h = Sha256::new(); h.update(token.as_bytes()); hex::encode(h.finalize())
+    let mut h = Sha256::new();
+    h.update(token.as_bytes());
+    hex::encode(h.finalize())
 }
 
 fn b64url(bytes: &[u8]) -> String {
@@ -46,12 +50,16 @@ mod tests {
 
     #[test]
     fn sign_produces_three_segments() {
-        let mut seed = [0u8; 32]; OsRng.fill_bytes(&mut seed);
+        let mut seed = [0u8; 32];
+        OsRng.fill_bytes(&mut seed);
         let sk = SigningKey::from_bytes(&seed);
         let claims = ProofClaims {
-            htm: "POST".into(), htu: "https://srv/v1/ingest".into(),
-            iat: 1_700_000_000, jti: "test".into(),
-            ath: token_hash_hex("tmd_v1_X"), bsh: body_hash_hex(b""),
+            htm: "POST".into(),
+            htu: "https://srv/v1/ingest".into(),
+            iat: 1_700_000_000,
+            jti: "test".into(),
+            ath: token_hash_hex("tmd_v1_X"),
+            bsh: body_hash_hex(b""),
         };
         let header = sign(&claims, &sk);
         assert_eq!(header.split('.').count(), 3);

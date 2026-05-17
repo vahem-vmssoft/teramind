@@ -5,7 +5,7 @@ use base64::Engine;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use thiserror::Error;
 
-pub use teramind_core::dpop::{ProofClaims, body_hash_hex, token_hash_hex, sign};
+pub use teramind_core::dpop::{body_hash_hex, sign, token_hash_hex, ProofClaims};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum ProofError {

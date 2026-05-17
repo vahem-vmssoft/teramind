@@ -27,11 +27,10 @@ impl App {
             std::sync::Arc<teramind_core::team::TeamConfig>,
             std::sync::Arc<ed25519_dalek::SigningKey>,
         )> = if team_cfg_path.exists() {
-            let cfg = teramind_core::team::TeamConfig::load(&team_cfg_path)
-                .context("load team.toml")?;
-            let key =
-                teramind_core::team::load_signing_key(&paths.config_dir.join("team-key"))
-                    .context("load team-key")?;
+            let cfg =
+                teramind_core::team::TeamConfig::load(&team_cfg_path).context("load team.toml")?;
+            let key = teramind_core::team::load_signing_key(&paths.config_dir.join("team-key"))
+                .context("load team-key")?;
             Some((std::sync::Arc::new(cfg), std::sync::Arc::new(key)))
         } else {
             None
@@ -227,27 +226,26 @@ impl App {
 
         // Spawn team_sync forwarder when team-mode is configured.
         let _team_forwarder = team_mode.as_ref().map(|(cfg, sk)| {
-            crate::services::team_sync::TeamSync::spawn(
-                crate::services::team_sync::TeamSyncDeps {
-                    team_cfg: cfg.clone(),
-                    signing_key: sk.clone(),
-                    raw_dir: paths.raw_dir.clone(),
-                    cache: decision_cache.clone(),
-                    poll_interval: std::time::Duration::from_secs(1),
-                    batch_size: 32,
-                    max_attempts: 5,
-                },
-            )
+            crate::services::team_sync::TeamSync::spawn(crate::services::team_sync::TeamSyncDeps {
+                team_cfg: cfg.clone(),
+                signing_key: sk.clone(),
+                raw_dir: paths.raw_dir.clone(),
+                cache: decision_cache.clone(),
+                poll_interval: std::time::Duration::from_secs(1),
+                batch_size: 32,
+                max_attempts: 5,
+            })
         });
 
         // Build the team-share writer used by the IPC handler.
-        let team_share_writer: Option<std::sync::Arc<dyn crate::services::ipc_server::TeamShareSetter>> =
-            team_mode.as_ref().map(|(cfg, _)| {
-                std::sync::Arc::new(crate::services::team_share::DaemonTeamShareSetter {
-                    cache: decision_cache.clone(),
-                    user_email: cfg.user_email.clone(),
-                }) as std::sync::Arc<dyn crate::services::ipc_server::TeamShareSetter>
-            });
+        let team_share_writer: Option<
+            std::sync::Arc<dyn crate::services::ipc_server::TeamShareSetter>,
+        > = team_mode.as_ref().map(|(cfg, _)| {
+            std::sync::Arc::new(crate::services::team_share::DaemonTeamShareSetter {
+                cache: decision_cache.clone(),
+                user_email: cfg.user_email.clone(),
+            }) as std::sync::Arc<dyn crate::services::ipc_server::TeamShareSetter>
+        });
 
         let search_cfg_path = paths.config_dir.join("search.toml");
         let search_weights = crate::config::load_search_weights(&search_cfg_path)?;

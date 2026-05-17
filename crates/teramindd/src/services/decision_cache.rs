@@ -18,7 +18,9 @@ pub struct DecisionCache {
 
 impl DecisionCache {
     pub fn new() -> Arc<Self> {
-        Arc::new(Self { inner: Mutex::new(HashMap::new()) })
+        Arc::new(Self {
+            inner: Mutex::new(HashMap::new()),
+        })
     }
 
     pub fn get(&self, sid: SessionId) -> Option<ShareDecision> {
@@ -42,8 +44,11 @@ impl DecisionCache {
     }
 
     pub fn pending_count(&self) -> usize {
-        self.inner.lock().values()
-            .filter(|d| **d == ShareDecision::Pending).count()
+        self.inner
+            .lock()
+            .values()
+            .filter(|d| **d == ShareDecision::Pending)
+            .count()
     }
 }
 
@@ -52,7 +57,9 @@ mod tests {
     use super::*;
     use uuid::Uuid;
 
-    fn sid() -> SessionId { SessionId(Uuid::new_v4()) }
+    fn sid() -> SessionId {
+        SessionId(Uuid::new_v4())
+    }
 
     #[test]
     fn initial_set_does_not_overwrite() {
