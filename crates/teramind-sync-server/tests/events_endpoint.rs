@@ -29,6 +29,8 @@ async fn session_ended_event_streams_to_ws_subscriber() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let bus = state.bus.clone();
@@ -143,6 +145,8 @@ async fn missing_proof_is_rejected() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);

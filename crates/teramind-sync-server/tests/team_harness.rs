@@ -92,6 +92,8 @@ async fn full_redeem_then_ingest_flow() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);
@@ -153,6 +155,8 @@ async fn stolen_token_without_key_fails_403() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);

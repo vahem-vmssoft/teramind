@@ -17,6 +17,8 @@ async fn create_then_list_then_revoke() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let ctx = AdminCtx {
         pool: pool.clone(),

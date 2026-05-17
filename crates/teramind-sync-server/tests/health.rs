@@ -19,6 +19,8 @@ async fn health_returns_ok_when_db_up() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool, cfg);
     let app = build_router(state);
