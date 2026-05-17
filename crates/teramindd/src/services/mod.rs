@@ -18,6 +18,7 @@ pub mod storage_stats;
 pub mod summarize;
 pub mod summarizer_worker;
 pub mod sync_offset;
+pub mod team_events;
 pub mod team_share;
 pub mod team_sync;
 pub mod write_tool_ring;

@@ -2,6 +2,7 @@ pub mod claude;
 pub mod claude_install;
 pub mod claude_uninstall;
 pub mod doctor;
+pub mod feed;
 pub mod init;
 pub mod init_team;
 pub mod reset;

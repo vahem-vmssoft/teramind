@@ -94,6 +94,7 @@ pub async fn run() -> anyhow::Result<()> {
                 ),
                 Err(e) => println!("auth proof:  ✗ {}", e),
             }
+            println!("team events: wired (run `teramind feed` to subscribe)");
             // Forwarder throughput surfaces are deferred to v1.1 (see Plan J §13.5).
         }
         Err(e) if team_toml.exists() => {

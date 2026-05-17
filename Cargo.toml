@@ -36,6 +36,7 @@ tower-http      = { version = "0.6", default-features = false, features = ["limi
 fastembed              = "4"
 flate2      = "1"
 futures     = "0.3"
+futures-util = "0.3"
 hex         = "0.4"
 ignore      = "0.4"
 interprocess = { version = "2", features = ["tokio"] }
@@ -58,6 +59,7 @@ tempfile    = "3"
 thiserror   = "2"
 time        = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
 tokio       = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["rustls-tls-webpki-roots"] }
 tracing     = "0.1"
 tracing-appender   = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

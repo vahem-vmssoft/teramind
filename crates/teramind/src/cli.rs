@@ -88,6 +88,15 @@ pub enum Command {
         #[arg(long)]
         force: bool,
     },
+    /// Stream live team activity (WebSocket; requires team mode).
+    Feed {
+        /// Keep streaming until interrupted.
+        #[arg(long)]
+        follow: bool,
+        /// Print recent buffered events before tailing (v1.0: best-effort, may print nothing).
+        #[arg(long, default_value = "0")]
+        backlog: u32,
+    },
 }
 
 #[derive(Debug, clap::Subcommand)]

@@ -21,6 +21,7 @@ pub struct RpcDeps {
     pub summary_provider: Arc<dyn SummaryProvider>,
     pub summary_model: String,
     pub jsonl_dir: PathBuf,
+    pub event_bus: Option<tokio::sync::broadcast::Sender<teramind_core::team_event::TeamEvent>>,
 }
 
 /// Identity of the caller — `Some` on the server-side `/v1/rpc` after auth,
@@ -35,7 +36,7 @@ pub struct AuthContext {
 ///
 /// `Status`/`Ping`/`Shutdown` (daemon control) and `TeamShareSet` (local file
 /// IO) are NOT handled here — they remain in `DaemonIpcHandler::handle_request`.
-pub async fn dispatch(deps: &RpcDeps, req: Request, _auth: Option<AuthContext>) -> Response {
+pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -> Response {
     match req {
         Request::Search(r) => {
             let out = crate::services::search::do_search_with_fallback(
@@ -78,7 +79,18 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, _auth: Option<AuthContext>) 
             }
         }
         Request::SaveSkill(r) => match deps.search_repo.upsert_skill(&r).await {
-            Ok(s) => Response::SkillRef(s),
+            Ok(s) => {
+                if let Some(bus) = deps.event_bus.as_ref() {
+                    let user_id = auth.map(|a| a.user_id).unwrap_or_default();
+                    let _ = bus.send(teramind_core::team_event::TeamEvent::SkillSaved {
+                        skill_id: s.id.0,
+                        user_id,
+                        name: s.name.clone(),
+                        ts: time::OffsetDateTime::now_utc(),
+                    });
+                }
+                Response::SkillRef(s)
+            }
             Err(e) => Response::Error(format!("save_skill failed: {e}")),
         },
         Request::WikiLookup { session_id, cwd } => {

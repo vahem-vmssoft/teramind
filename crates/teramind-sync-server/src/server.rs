@@ -14,7 +14,8 @@ pub fn build_router(state: AppState) -> Router {
     let public = Router::new()
         .route("/v1/health", get(handlers::health::health))
         .route("/v1/version", get(handlers::health::version))
-        .route("/v1/auth/redeem", post(handlers::redeem::redeem));
+        .route("/v1/auth/redeem", post(handlers::redeem::redeem))
+        .route("/v1/events", get(handlers::events::events));
     let authed = Router::new()
         .route("/v1/ingest", post(handlers::ingest::ingest))
         .route("/v1/rpc", post(handlers::rpc::rpc))
