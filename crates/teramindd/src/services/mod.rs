@@ -1,3 +1,4 @@
+pub mod decision_cache;
 pub mod diff_engine;
 pub mod embed;
 pub mod embedding_worker;
@@ -15,4 +16,7 @@ pub mod snapshot_cache;
 pub mod storage_stats;
 pub mod summarize;
 pub mod summarizer_worker;
+pub mod sync_offset;
+pub mod team_share;
+pub mod team_sync;
 pub mod write_tool_ring;

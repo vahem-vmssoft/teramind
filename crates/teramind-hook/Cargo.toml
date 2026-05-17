@@ -28,7 +28,11 @@ tracing     = { workspace = true }
 ignore      = { workspace = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
+tempfile      = { workspace = true }
 teramind-db   = { path = "../teramind-db" }
 teramindd     = { path = "../teramindd" }
 sqlx          = { workspace = true }
+ed25519-dalek = { workspace = true }
+rand          = { workspace = true }
+uuid          = { workspace = true }
+time          = { workspace = true }

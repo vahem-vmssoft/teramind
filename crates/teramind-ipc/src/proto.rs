@@ -16,6 +16,12 @@ pub enum Request {
         session_id: Option<String>,
         cwd: Option<String>,
     },
+    TeamShareSet {
+        session_id: Option<String>,
+        cwd: String,
+        scope: String,
+        share: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -90,6 +90,8 @@ async fn hook_session_start_persists_to_postgres() {
         summarizer_stats: std::sync::Arc::new(
             teramindd::services::summarizer_worker::SummarizerStats::default(),
         ),
+        decision_cache: None,
+        team_share_writer: None,
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -194,6 +196,8 @@ async fn hook_tool_call_lifecycle_persists() {
         summarizer_stats: std::sync::Arc::new(
             teramindd::services::summarizer_worker::SummarizerStats::default(),
         ),
+        decision_cache: None,
+        team_share_writer: None,
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -372,6 +376,8 @@ async fn hook_session_start_emits_auto_recall_digest() {
         summarizer_stats: std::sync::Arc::new(
             teramindd::services::summarizer_worker::SummarizerStats::default(),
         ),
+        decision_cache: None,
+        team_share_writer: None,
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

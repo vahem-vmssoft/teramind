@@ -8,6 +8,17 @@ use teramind_core::embed::EmbeddingProvider;
 use teramind_ipc::proto::{Notify, Request, Response, StatusReport};
 use teramind_ipc::server::{serve_connection, IpcServer};
 
+#[async_trait::async_trait]
+pub trait TeamShareSetter: Send + Sync {
+    async fn write_and_signal(
+        &self,
+        cwd: &std::path::Path,
+        session_id: Option<teramind_core::ids::SessionId>,
+        share: bool,
+        set_by: &str,
+    ) -> anyhow::Result<()>;
+}
+
 pub struct DaemonIpcHandler {
     pub ingest: Arc<IngestService>,
     pub stats: Arc<IngestStats>,
@@ -25,6 +36,8 @@ pub struct DaemonIpcHandler {
     pub summary_provider: std::sync::Arc<dyn teramind_core::summarize::SummaryProvider>,
     pub summary_model: String,
     pub summarizer_stats: std::sync::Arc<crate::services::summarizer_worker::SummarizerStats>,
+    pub decision_cache: Option<std::sync::Arc<crate::services::decision_cache::DecisionCache>>,
+    pub team_share_writer: Option<std::sync::Arc<dyn TeamShareSetter>>,
 }
 
 #[async_trait]
@@ -131,6 +144,25 @@ impl IpcServer for DaemonIpcHandler {
                 Ok(s) => Response::SkillRef(s),
                 Err(e) => Response::Error(format!("save_skill failed: {e}")),
             },
+            Request::TeamShareSet {
+                session_id,
+                cwd,
+                scope: _,
+                share,
+            } => {
+                let Some(writer) = self.team_share_writer.as_ref() else {
+                    return Response::Error("team mode not configured".into());
+                };
+                let sid = session_id
+                    .as_deref()
+                    .and_then(|s| uuid::Uuid::parse_str(s).ok())
+                    .map(teramind_core::ids::SessionId);
+                let cwd_path = std::path::PathBuf::from(&cwd);
+                match writer.write_and_signal(&cwd_path, sid, share, "user").await {
+                    Ok(()) => Response::Ok,
+                    Err(e) => Response::Error(e.to_string()),
+                }
+            }
             Request::WikiLookup { session_id, cwd } => {
                 let result: anyhow::Result<Option<teramind_db::repos::WikiPage>> = async {
                     if let Some(sid_str) = session_id {

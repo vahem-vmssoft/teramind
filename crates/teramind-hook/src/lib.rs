@@ -5,6 +5,7 @@ pub mod hook_input;
 pub mod inbox;
 pub mod selftest;
 pub mod spawn;
+pub mod team_share_prompt;
 pub mod translate;
 
 /// Shared test lock for tests that mutate process-wide env vars (HOME, XDG_DATA_HOME).

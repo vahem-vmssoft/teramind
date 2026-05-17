@@ -10,7 +10,20 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Initialize Teramind data + config directories and run migrations.
-    Init,
+    Init {
+        /// Opt into team mode: redeem an invite + generate a device key.
+        #[arg(long)]
+        team: bool,
+        /// Sync server URL (required with --team).
+        #[arg(long, requires = "team")]
+        server: Option<String>,
+        /// Invite code from the team admin (required with --team).
+        #[arg(long, requires = "team")]
+        invite: Option<String>,
+        /// Optional device name (defaults to hostname).
+        #[arg(long, requires = "team")]
+        device_name: Option<String>,
+    },
     /// Start the daemon in the background (lazy-spawn).
     Start,
     /// Stop the running daemon.

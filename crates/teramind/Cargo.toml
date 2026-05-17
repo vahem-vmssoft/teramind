@@ -9,15 +9,23 @@ rust-version.workspace = true
 name = "teramind"
 path = "src/main.rs"
 
+[lib]
+name = "teramind"
+path = "src/lib.rs"
+
 [dependencies]
 teramind-core = { path = "../teramind-core" }
 teramind-ipc  = { path = "../teramind-ipc" }
 teramindd     = { path = "../teramindd" }
 teramind-search-eval = { path = "../teramind-search-eval" }
 anyhow      = { workspace = true }
+base64      = { workspace = true }
 clap        = { workspace = true }
+ed25519-dalek = { workspace = true }
 flate2      = { workspace = true }
 hex         = { workspace = true }
+hostname    = { workspace = true }
+rand        = { workspace = true }
 reqwest     = { workspace = true }
 serde       = { workspace = true }
 serde_json  = { workspace = true }
@@ -30,4 +38,8 @@ tracing     = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
-libc     = "0.2"
+axum             = { workspace = true }
+libc             = "0.2"
+teramind-db      = { path = "../teramind-db" }
+teramind-sync-server = { path = "../teramind-sync-server" }
+tokio            = { workspace = true }
