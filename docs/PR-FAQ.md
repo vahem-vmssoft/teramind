@@ -62,7 +62,7 @@ Free and open source under Apache-2.0. The only running costs are local: ~20 GB 
 
 ### Can my team share knowledge across machines?
 
-Not yet in v1. Teramind's first release is single-user, single-machine — by design, so the local-first promise is concrete. Multi-machine team sync is the next planned spec (follow-on #4 in the roadmap); until it ships, teams who want cross-machine knowledge sharing can point multiple installs at a single shared Postgres (architectural deviation, breaks local-first) or wait for the sync server.
+Yes. Team mode is **shipped in v1.0** alongside the local-first install. A self-hosted `teramind-sync-server` (single Rust binary against an operator-provided Postgres) is the central store; developers redeem an invite code to bind their device, and the local daemon forwards every captured event over HTTPS. Search, recall, and the MCP surface all flip to the team's corpus. Privacy is per-project, gated by an agent-prompted consent flow that writes a `.teramind/team-share.toml` marker. Live event streaming over WebSocket (`teramind feed`) shows team activity in real time. Local-first is unchanged for solo developers — team mode is strictly opt-in via `teramind init --team --server=… --invite=…`.
 
 ### Which coding agents does Teramind support?
 
@@ -92,9 +92,9 @@ Yes. The corpus + queries + qrels live in the repo at `benches/search-eval/`. Th
 
 ## Internal FAQs
 
-### Why is this single-user in v1?
+### Why was this single-user originally — and what changed?
 
-We made the explicit tradeoff that getting capture, search, and the MCP integration *right* for one developer was a precondition for getting them right across a team. Multi-tenancy, auth, replication, conflict resolution, and privacy boundaries are each a non-trivial subsystem; trying to ship all of them in v1 would have either delayed the substrate by quarters or shipped a thin and buggy team product. The schema, IPC contract, and search service are designed to be team-sync ready (Plan #4 in the follow-on roadmap) without architectural rework.
+The first six subsystems (A–F) deliberately shipped single-user-first: we needed capture, search, and MCP integration to be *right* for one developer before adding the cross-machine complexity. With Plans A–H stable, team mode (Plans I–L) landed as a clean four-step rollout: server + auth + ingest (I), local forwarder + privacy gate (J), MCP proxy + read fallback (K), live propagation (L). Authentication is invite-code redemption with DPoP-style Ed25519 request signing — stolen bearer tokens alone fail 403 at the server. Schema additions (`users`, `devices`, `invites` tables, additive `user_id`/`device_id` columns) are forward-compatible; local-first installs apply the same migrations harmlessly.
 
 ### Why Rust, why Postgres, why embedded?
 
@@ -120,15 +120,16 @@ Plan E (installers + release CI) includes a `cargo clippy --workspace -- -D warn
 
 Roadmap, in dependency order:
 
-1. **Team sync server** (the missing piece for multi-continent teams).
-2. **Skill codifier** (mines repeated patterns into reusable skill files Claude auto-loads).
-3. **Codex / Cursor / Hermes / Pi connectors** (the agent-agnostic schema is already in place).
-4. **Web UI / dashboard** (read-only views over the existing schema).
-5. **Hosted SaaS offering** (optional managed sync for teams that don't want to self-host).
+1. **Skill codifier** (mines repeated patterns into reusable skill files Claude auto-loads).
+2. **Codex / Cursor / Hermes / Pi connectors** (the agent-agnostic schema is already in place).
+3. **Web UI / dashboard** (read-only views over the existing schema, primarily for the team-mode server).
+4. **v1.1 team-mode polish**: OAuth (GitHub / Google / SSO) as a second redemption path; hardware-backed signing keys (macOS Keychain, Linux Secret Service, Secure Enclave / TPM); server-side hard deletion (`teramind forget`); auto-recall freshness markers; full WebSocket-uptime in doctor.
+5. **v1.2 multi-tenancy**: one sync server hosts many isolated teams; per-team configuration overrides.
+6. **Hosted SaaS offering** (optional managed sync for teams that don't want to self-host).
 
 ### How big is the codebase?
 
-8 crates in a Rust workspace, ~25,000 lines of Rust at v1.0. ~150 commits across plans A–H. Test layers L1 through L5 cover ~600 unit tests, ~80 integration tests, and ~10 nightly E2E tests against real Claude Code.
+9 crates in a Rust workspace at v1.0 — Plans A–H added 8 crates; Plan I added the 9th (`teramind-sync-server`). Roughly ~35,000 lines of Rust across the workspace. Plans I–L added the team-mode layer end-to-end. Test layers L1 through L5 cover ~330 tests across the workspace. The L5 search-effectiveness benchmark gates PRs against regressions; the two-developer team-mode E2E in `crates/teramindd/tests/two_dev_team_mode.rs` validates the full alice-writes → bob-reads round trip.
 
 ### What does adoption look like?
 
@@ -152,6 +153,10 @@ A working title that stuck. Tera = trillions of bits of trace data; mind = the s
 | Plan F — L5 search benchmark | 500-session corpus, 100 queries, nDCG@10/MRR/P@K/R@K gates, fail-soft semantic eval mode | Merged |
 | Plan G — pgvector semantic search | EmbeddingProvider trait, OllamaProvider + FastEmbedProvider, async embedding_worker, HNSW index, semantic blend term | Merged |
 | Plan H — Session summarizer | SummaryProvider trait, OllamaChatProvider + AnthropicProvider, summarizer_worker, wiki_pages table, `mcp__teramind__wiki` tool, `teramind sessions show` CLI, traces_fts UNION includes wiki | Merged |
+| Plan I — Team-mode sync server | `teramind-sync-server` bin crate, invite-code redemption + DPoP request signing, `/v1/auth/redeem` + `/v1/ingest`, admin CLI (invite/member), TLS via rustls, Docker compose | Merged |
+| Plan J — Local team forwarder | `teramind init --team` redemption, `team_sync` tail-JSONL forwarder, DecisionCache + agent-prompted privacy flow with hold-and-backfill, `mcp__teramind__team_share_set` MCP tool, full doctor team-mode rendering | Merged |
+| Plan K — MCP proxy + read fallback | `dispatch(deps, req, auth)` extracted, `POST /v1/rpc` reuses it with AuthContext, `RpcTransport` trait, `LocalIpcTransport` + `HttpsTransport`, `GrepFallback` wrapper, two-developer E2E | Merged |
+| Plan L — Live propagation | `TeamEvent` enum (SessionEnded / WikiPageReady / SkillSaved), `tokio::broadcast` bus on the server, `GET /v1/events` WebSocket, local `team_events` subscriber with reconnect, `teramind feed` CLI, periodic `traces_fts` refresh | Merged |
 
 ---
 
