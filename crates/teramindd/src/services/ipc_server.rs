@@ -131,6 +131,10 @@ impl IpcServer for DaemonIpcHandler {
                 Ok(s) => Response::SkillRef(s),
                 Err(e) => Response::Error(format!("save_skill failed: {e}")),
             },
+            Request::TeamShareSet { .. } => {
+                // Full implementation in §6.
+                Response::Ok
+            }
             Request::WikiLookup { session_id, cwd } => {
                 let result: anyhow::Result<Option<teramind_db::repos::WikiPage>> = async {
                     if let Some(sid_str) = session_id {
