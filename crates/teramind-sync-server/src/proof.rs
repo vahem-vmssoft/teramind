@@ -2,20 +2,10 @@
 //! (`ath`, `bsh`).
 
 use base64::Engine;
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use thiserror::Error;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProofClaims {
-    pub htm: String,
-    pub htu: String,
-    pub iat: i64,
-    pub jti: String,
-    pub ath: String, // hex(sha256(bearer_token))
-    pub bsh: String, // hex(sha256(request_body))
-}
+pub use teramind_core::dpop::{ProofClaims, body_hash_hex, token_hash_hex, sign};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum ProofError {
@@ -39,38 +29,10 @@ pub enum ProofError {
     BshMismatch,
 }
 
-pub fn body_hash_hex(body: &[u8]) -> String {
-    let mut h = Sha256::new();
-    h.update(body);
-    hex::encode(h.finalize())
-}
-
-pub fn token_hash_hex(token: &str) -> String {
-    let mut h = Sha256::new();
-    h.update(token.as_bytes());
-    hex::encode(h.finalize())
-}
-
-fn b64url_encode(bytes: &[u8]) -> String {
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
-}
-
 fn b64url_decode(s: &str) -> Result<Vec<u8>, ProofError> {
     base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(s)
         .map_err(|_| ProofError::BadBase64)
-}
-
-pub fn sign(claims: &ProofClaims, signing_key: &SigningKey) -> String {
-    // Compact JWS: base64url(header).base64url(claims).base64url(signature)
-    let header = br#"{"alg":"EdDSA","typ":"dpop+jwt"}"#;
-    let claims_json = serde_json::to_vec(claims).expect("claims serialize");
-    let h_b64 = b64url_encode(header);
-    let c_b64 = b64url_encode(&claims_json);
-    let signing_input = format!("{h_b64}.{c_b64}");
-    let sig: Signature = signing_key.sign(signing_input.as_bytes());
-    let s_b64 = b64url_encode(&sig.to_bytes());
-    format!("{signing_input}.{s_b64}")
 }
 
 #[allow(clippy::too_many_arguments)]
