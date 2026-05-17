@@ -34,6 +34,8 @@ enum Cmd {
         #[command(subcommand)]
         action: MemberAction,
     },
+    /// Hash a new admin password (prints config snippet to stdout).
+    AdminPassword,
 }
 
 #[derive(Subcommand)]
@@ -155,6 +157,33 @@ async fn main() -> anyhow::Result<()> {
                     teramind_sync_server::admin::member_revoke_user(&ctx, &id).await
                 }
             }
+        }
+        Cmd::AdminPassword => {
+            use argon2::{Argon2, PasswordHasher};
+            use argon2::password_hash::{rand_core::OsRng, SaltString};
+            let p1 = rpassword::prompt_password("Enter new admin password: ")?;
+            let p2 = rpassword::prompt_password("Confirm: ")?;
+            if p1 != p2 {
+                anyhow::bail!("passwords do not match");
+            }
+            if p1.len() < 12 {
+                anyhow::bail!("password must be at least 12 characters");
+            }
+            let salt = SaltString::generate(&mut OsRng);
+            let argon = Argon2::default();
+            let hash = argon.hash_password(p1.as_bytes(), &salt)
+                .map_err(|e| anyhow::anyhow!("hash: {e}"))?
+                .to_string();
+            let mut secret_bytes = [0u8; 32];
+            rand::Rng::fill(&mut rand::thread_rng(), &mut secret_bytes);
+            let secret = hex::encode(secret_bytes);
+            println!();
+            println!("[admin]");
+            println!("admin_password_hash      = \"{hash}\"");
+            println!("admin_session_secret     = \"{secret}\"");
+            println!("admin_session_ttl_hours  = 12");
+            println!("event_log_retention_days = 90");
+            Ok(())
         }
     }
 }

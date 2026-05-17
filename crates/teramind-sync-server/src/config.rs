@@ -13,6 +13,10 @@ pub struct ServerConfig {
     pub auth: AuthConfig,
     #[serde(default)]
     pub ingest: IngestConfig,
+    #[serde(default)]
+    pub admin: Option<AdminConfig>,
+    #[serde(default)]
+    pub quality: Option<QualityConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -77,6 +81,36 @@ impl Default for IngestConfig {
             max_request_body_bytes: Self::default_body(),
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AdminConfig {
+    pub admin_password_hash: String,
+    pub admin_session_secret: String,
+    #[serde(default = "AdminConfig::default_ttl")]
+    pub admin_session_ttl_hours: u64,
+    #[serde(default = "AdminConfig::default_retention")]
+    pub event_log_retention_days: i64,
+}
+
+impl AdminConfig {
+    fn default_ttl() -> u64 { 12 }
+    fn default_retention() -> i64 { 90 }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct QualityConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    pub cron: Option<String>,
+    #[serde(default)]
+    pub baselines: Vec<String>,
+    #[serde(default = "QualityConfig::default_binary")]
+    pub eval_binary: String,
+}
+
+impl QualityConfig {
+    fn default_binary() -> String { "teramind-search-eval".into() }
 }
 
 impl ServerConfig {
