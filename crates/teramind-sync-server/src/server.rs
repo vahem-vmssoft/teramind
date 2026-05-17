@@ -30,6 +30,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/admin/version", get(crate::admin_api::handlers::session::version));
     let admin_authed = Router::new()
         .route("/admin/me", get(crate::admin_api::handlers::session::me))
+        .route("/admin/activity", axum::routing::get(crate::admin_api::handlers::activity::activity))
+        .route("/admin/events",   axum::routing::get(crate::admin_api::handlers::activity::events_ws))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::admin_api::auth::admin_middleware,
