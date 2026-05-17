@@ -9,15 +9,25 @@ pub struct OpenaiProvider {
 }
 
 impl OpenaiProvider {
-    pub fn new(model: String) -> Self { Self { model } }
+    pub fn new(model: String) -> Self {
+        Self { model }
+    }
 }
 
 #[async_trait]
 impl SummaryProvider for OpenaiProvider {
-    fn kind(&self) -> ProviderKind { ProviderKind::Openai }
-    fn model_id(&self) -> &str { &self.model }
-    fn max_input_tokens(&self) -> usize { 16384 }
-    fn max_output_tokens(&self) -> usize { 1500 }
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::Openai
+    }
+    fn model_id(&self) -> &str {
+        &self.model
+    }
+    fn max_input_tokens(&self) -> usize {
+        16384
+    }
+    fn max_output_tokens(&self) -> usize {
+        1500
+    }
 
     async fn health_check(&self) -> Result<(), SummaryError> {
         Err(SummaryError::Unhealthy(
@@ -25,9 +35,7 @@ impl SummaryProvider for OpenaiProvider {
         ))
     }
 
-    async fn summarize(
-        &self, _: &str, _: &str, _: usize,
-    ) -> Result<SummaryResult, SummaryError> {
+    async fn summarize(&self, _: &str, _: &str, _: usize) -> Result<SummaryResult, SummaryError> {
         Err(SummaryError::Other(
             "openai provider is stubbed in v1.0; wiring lands in v1.1".into(),
         ))

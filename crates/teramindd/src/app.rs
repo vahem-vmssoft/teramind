@@ -56,17 +56,16 @@ impl App {
             tokio::sync::mpsc::unbounded_channel::<crate::services::fs_watcher::RawEvent>();
         let (resolved_tx, resolved_rx) =
             tokio::sync::mpsc::unbounded_channel::<crate::services::fs_watcher::RawEvent>();
-        let debouncer = std::sync::Arc::new(
-            crate::services::fs_watcher::Debouncer::start(
-                std::time::Duration::from_millis(config.fs_debounce_ms),
-                resolved_tx,
-            ),
-        );
+        let debouncer = std::sync::Arc::new(crate::services::fs_watcher::Debouncer::start(
+            std::time::Duration::from_millis(config.fs_debounce_ms),
+            resolved_tx,
+        ));
         let gaps_counter: std::sync::Arc<std::sync::atomic::AtomicU64> =
             std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
-        let registry = std::sync::Arc::new(
-            crate::services::fs_watcher::WatchRegistry::new(raw_tx, gaps_counter.clone()),
-        );
+        let registry = std::sync::Arc::new(crate::services::fs_watcher::WatchRegistry::new(
+            raw_tx,
+            gaps_counter.clone(),
+        ));
 
         {
             let s = stats.clone();
@@ -74,7 +73,8 @@ impl App {
             tokio::spawn(async move {
                 loop {
                     let v = g.load(std::sync::atomic::Ordering::Relaxed);
-                    s.fs_watcher_gaps.store(v, std::sync::atomic::Ordering::Relaxed);
+                    s.fs_watcher_gaps
+                        .store(v, std::sync::atomic::Ordering::Relaxed);
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                 }
             });
@@ -109,11 +109,28 @@ impl App {
             Duration::from_secs(config.storage_sample_interval_secs),
         );
 
+        // Periodic FTS materialized-view refresh (every 30 s).
+        {
+            let fts_pool = pool.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+                    if let Err(e) = sqlx::query("REFRESH MATERIALIZED VIEW CONCURRENTLY traces_fts")
+                        .execute(fts_pool.pg())
+                        .await
+                    {
+                        tracing::warn!(error = %e, "traces_fts refresh failed");
+                    }
+                }
+            });
+        }
+
         // Embedding worker.
         let embed_cfg_path = paths.config_dir.join("embed.toml");
         let embed_cfg = crate::config::EmbedConfig::load_or_default(&embed_cfg_path)?;
         let provider = crate::services::embed::build_provider(&embed_cfg)?;
-        let embed_model_db_key = format!("{}:{}", provider_prefix(provider.kind()), embed_cfg.model);
+        let embed_model_db_key =
+            format!("{}:{}", provider_prefix(provider.kind()), embed_cfg.model);
         let embed_repo = teramind_db::repos::EmbeddingRepo::new(pool.clone());
         let embed_worker = crate::services::embedding_worker::EmbeddingWorker::spawn(
             crate::services::embedding_worker::EmbeddingWorkerDeps {
@@ -132,9 +149,8 @@ impl App {
         let summarize_cfg_path = paths.config_dir.join("summarize.toml");
         let summarize_cfg = crate::config::SummarizeConfig::load_or_default(&summarize_cfg_path)?;
         let secrets_path = paths.config_dir.join("secrets.toml");
-        let summary_provider = crate::services::summarize::build_provider(
-            &summarize_cfg, &secrets_path,
-        )?;
+        let summary_provider =
+            crate::services::summarize::build_provider(&summarize_cfg, &secrets_path)?;
         let summarize_model_db_key = format!(
             "{}:{}",
             provider_prefix(summary_provider.kind()),
@@ -155,11 +171,10 @@ impl App {
             },
         );
         let summarizer_stats = summarizer.stats.clone();
-        let _summarizer_guard = summarizer;  // hold for App::run lifetime
+        let _summarizer_guard = summarizer; // hold for App::run lifetime
 
-        let orphan_interval = std::time::Duration::from_secs(
-            embed_cfg.orphan_sweep_interval_hr as u64 * 3600,
-        );
+        let orphan_interval =
+            std::time::Duration::from_secs(embed_cfg.orphan_sweep_interval_hr as u64 * 3600);
         let _orphan_guard = crate::services::orphan_sweeper::OrphanSweeper::spawn(
             embed_repo.clone(),
             orphan_interval,
@@ -229,10 +244,10 @@ impl App {
 fn provider_prefix(kind: teramind_core::embed::ProviderKind) -> &'static str {
     use teramind_core::embed::ProviderKind::*;
     match kind {
-        Ollama    => "ollama",
+        Ollama => "ollama",
         Fastembed => "fastembed",
         Anthropic => "anthropic",
-        Openai    => "openai",
-        Voyage    => "voyage",
+        Openai => "openai",
+        Voyage => "voyage",
     }
 }

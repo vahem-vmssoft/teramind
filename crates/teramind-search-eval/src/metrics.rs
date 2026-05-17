@@ -28,7 +28,9 @@ pub fn idcg_at_k(relevance: &[u32], k: usize) -> f64 {
 /// Returns 0.0 when there are no relevant items (IDCG = 0).
 pub fn ndcg_at_k(relevance: &[u32], k: usize) -> f64 {
     let i = idcg_at_k(relevance, k);
-    if i == 0.0 { return 0.0; }
+    if i == 0.0 {
+        return 0.0;
+    }
     (dcg_at_k(relevance, k) / i).clamp(0.0, 1.0)
 }
 
@@ -46,7 +48,9 @@ pub fn mrr(relevance: &[u32]) -> f64 {
 /// Precision@K: fraction of the top-K hits that are relevant.
 /// Denominator is `k` (not `min(k, len)`) — matches standard IR convention.
 pub fn precision_at_k(relevance: &[u32], k: usize) -> f64 {
-    if k == 0 { return 0.0; }
+    if k == 0 {
+        return 0.0;
+    }
     let hit = relevance.iter().take(k).filter(|&&r| r > 0).count();
     hit as f64 / k as f64
 }
@@ -54,7 +58,9 @@ pub fn precision_at_k(relevance: &[u32], k: usize) -> f64 {
 /// Recall@K: fraction of all relevant items in the corpus that appear
 /// in the top-K hits. Returns 0.0 when `total_relevant == 0`.
 pub fn recall_at_k(relevance: &[u32], k: usize, total_relevant: u32) -> f64 {
-    if total_relevant == 0 { return 0.0; }
+    if total_relevant == 0 {
+        return 0.0;
+    }
     let hit = relevance.iter().take(k).filter(|&&r| r > 0).count();
     hit as f64 / total_relevant as f64
 }
@@ -143,7 +149,7 @@ mod tests {
             k    in 1usize..50usize,
         ) {
             let n = ndcg_at_k(&rels, k);
-            prop_assert!(n >= 0.0 && n <= 1.0, "nDCG out of [0,1]: {n}");
+            prop_assert!((0.0..=1.0).contains(&n), "nDCG out of [0,1]: {n}");
         }
     }
 }

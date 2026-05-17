@@ -1,7 +1,7 @@
 //! `teramind-mcp` binary: stdio MCP server bridging Claude Code to the
 //! Teramind daemon.
 
-use rmcp::{ServiceExt, transport::stdio};
+use rmcp::{transport::stdio, ServiceExt};
 use teramind_mcp::server::TeramindMcpServer;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]

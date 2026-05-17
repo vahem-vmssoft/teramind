@@ -94,6 +94,8 @@ async fn session_repo_inserts_and_ends() {
             hostname: "h",
             user_login: "u",
             started_at: now,
+            user_id: None,
+            device_id: None,
         })
         .await
         .unwrap();
@@ -134,6 +136,8 @@ async fn trace_repo_full_turn_lifecycle() {
             hostname: "h",
             user_login: "u",
             started_at: now,
+            user_id: None,
+            device_id: None,
         })
         .await
         .unwrap();
@@ -197,6 +201,8 @@ async fn diff_repo_inserts_a_file_diff() {
             hostname: "h",
             user_login: "u",
             started_at: now,
+            user_id: None,
+            device_id: None,
         })
         .await
         .unwrap();
@@ -268,20 +274,40 @@ async fn trace_repo_accepts_caller_provided_tool_call_id() {
     let agent = agents.upsert("claude_code", None).await.unwrap();
     let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
     let now = time::OffsetDateTime::now_utc();
-    let session_id = sessions.insert(teramind_db::repos::session::NewSession {
-        agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
-        parent_session_id: None, git_head: None, git_branch: None,
-        os: "linux", hostname: "h", user_login: "u", started_at: now,
-    }).await.unwrap();
+    let session_id = sessions
+        .insert(teramind_db::repos::session::NewSession {
+            agent_id: agent.id,
+            agent_session_id: None,
+            cwd: "/w",
+            project_id: None,
+            parent_session_id: None,
+            git_head: None,
+            git_branch: None,
+            os: "linux",
+            hostname: "h",
+            user_login: "u",
+            started_at: now,
+            user_id: None,
+            device_id: None,
+        })
+        .await
+        .unwrap();
     let trace = teramind_db::repos::TraceRepo::new(f.pool.clone());
     let turn = trace.upsert_turn(session_id, 0, now, None).await.unwrap();
 
     let chosen_id = teramind_core::ids::ToolCallId::new();
-    let returned = trace.insert_tool_call_start_with_id(chosen_id, turn, 0, "Edit", &serde_json::json!({}), now).await.unwrap();
+    let returned = trace
+        .insert_tool_call_start_with_id(chosen_id, turn, 0, "Edit", &serde_json::json!({}), now)
+        .await
+        .unwrap();
     assert_eq!(returned, chosen_id);
 
-    let (db_id,): (uuid::Uuid,) = sqlx::query_as("SELECT id FROM tool_calls WHERE turn_id=$1 AND ordinal=0")
-        .bind(turn.0).fetch_one(f.pool.pg()).await.unwrap();
+    let (db_id,): (uuid::Uuid,) =
+        sqlx::query_as("SELECT id FROM tool_calls WHERE turn_id=$1 AND ordinal=0")
+            .bind(turn.0)
+            .fetch_one(f.pool.pg())
+            .await
+            .unwrap();
     assert_eq!(db_id, chosen_id.0);
 
     f.shutdown().await;
@@ -294,15 +320,45 @@ async fn search_repo_fts_finds_matching_turn() {
     let agent = agents.upsert("claude_code", None).await.unwrap();
     let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
     let now = time::OffsetDateTime::now_utc();
-    let sid = sessions.insert(teramind_db::repos::session::NewSession {
-        agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
-        parent_session_id: None, git_head: None, git_branch: None,
-        os: "linux", hostname: "h", user_login: "u", started_at: now,
-    }).await.unwrap();
+    let sid = sessions
+        .insert(teramind_db::repos::session::NewSession {
+            agent_id: agent.id,
+            agent_session_id: None,
+            cwd: "/w",
+            project_id: None,
+            parent_session_id: None,
+            git_head: None,
+            git_branch: None,
+            os: "linux",
+            hostname: "h",
+            user_login: "u",
+            started_at: now,
+            user_id: None,
+            device_id: None,
+        })
+        .await
+        .unwrap();
     let trace = teramind_db::repos::TraceRepo::new(f.pool.clone());
-    let turn = trace.upsert_turn(sid, 0, now, Some("how to debug redis cluster failover")).await.unwrap();
-    trace.finalize_turn(turn, now, Some("the redis cluster needs sentinel quorum"), None, None, None, None).await.unwrap();
-    sqlx::query("REFRESH MATERIALIZED VIEW traces_fts").execute(f.pool.pg()).await.unwrap();
+    let turn = trace
+        .upsert_turn(sid, 0, now, Some("how to debug redis cluster failover"))
+        .await
+        .unwrap();
+    trace
+        .finalize_turn(
+            turn,
+            now,
+            Some("the redis cluster needs sentinel quorum"),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    sqlx::query("REFRESH MATERIALIZED VIEW traces_fts")
+        .execute(f.pool.pg())
+        .await
+        .unwrap();
 
     let repo = teramind_db::repos::SearchRepo::new(f.pool.clone());
     let hits = repo.fts_turns("redis cluster", 10).await.unwrap();
@@ -320,22 +376,43 @@ async fn search_repo_trgm_finds_matching_diff() {
     let agent = agents.upsert("claude_code", None).await.unwrap();
     let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
     let now = time::OffsetDateTime::now_utc();
-    let sid = sessions.insert(teramind_db::repos::session::NewSession {
-        agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
-        parent_session_id: None, git_head: None, git_branch: None,
-        os: "linux", hostname: "h", user_login: "u", started_at: now,
-    }).await.unwrap();
+    let sid = sessions
+        .insert(teramind_db::repos::session::NewSession {
+            agent_id: agent.id,
+            agent_session_id: None,
+            cwd: "/w",
+            project_id: None,
+            parent_session_id: None,
+            git_head: None,
+            git_branch: None,
+            os: "linux",
+            hostname: "h",
+            user_login: "u",
+            started_at: now,
+            user_id: None,
+            device_id: None,
+        })
+        .await
+        .unwrap();
     let diffs = teramind_db::repos::DiffRepo::new(f.pool.clone());
-    diffs.insert(teramind_db::repos::diff::NewFileDiff {
-        turn_id: None, session_id: sid,
-        file_path: "/w/parser.rs", rel_path: "parser.rs",
-        attribution: teramind_core::types::file_diff::Attribution::Agent,
-        language: Some("rust"),
-        pre_excerpt: "fn parse_jwt_payload(token: &str) -> Result<Claims>",
-        post_excerpt: "fn parse_jwt_payload(token: &str, leeway: u64) -> Result<Claims>",
-        unified_diff: "--- a\n+++ b\n", pre_hash: [0u8; 32], post_hash: [1u8; 32],
-        byte_size: 50, captured_at: now,
-    }).await.unwrap();
+    diffs
+        .insert(teramind_db::repos::diff::NewFileDiff {
+            turn_id: None,
+            session_id: sid,
+            file_path: "/w/parser.rs",
+            rel_path: "parser.rs",
+            attribution: teramind_core::types::file_diff::Attribution::Agent,
+            language: Some("rust"),
+            pre_excerpt: "fn parse_jwt_payload(token: &str) -> Result<Claims>",
+            post_excerpt: "fn parse_jwt_payload(token: &str, leeway: u64) -> Result<Claims>",
+            unified_diff: "--- a\n+++ b\n",
+            pre_hash: [0u8; 32],
+            post_hash: [1u8; 32],
+            byte_size: 50,
+            captured_at: now,
+        })
+        .await
+        .unwrap();
 
     let repo = teramind_db::repos::SearchRepo::new(f.pool.clone());
     let hits = repo.trgm_diffs("parse_jwt_payload", 10).await.unwrap();

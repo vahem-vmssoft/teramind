@@ -23,7 +23,10 @@ pub enum ProviderKind {
 
 impl ProviderKind {
     pub fn is_cloud(self) -> bool {
-        matches!(self, ProviderKind::Anthropic | ProviderKind::Openai | ProviderKind::Voyage)
+        matches!(
+            self,
+            ProviderKind::Anthropic | ProviderKind::Openai | ProviderKind::Voyage
+        )
     }
 }
 

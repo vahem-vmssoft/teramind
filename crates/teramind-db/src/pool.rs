@@ -19,4 +19,9 @@ impl DbPool {
     pub fn pg(&self) -> &PgPool {
         &self.inner
     }
+
+    pub async fn connect_url(url: &str) -> anyhow::Result<Self> {
+        let opts: PgConnectOptions = url.parse()?;
+        Self::connect(opts).await.map_err(Into::into)
+    }
 }

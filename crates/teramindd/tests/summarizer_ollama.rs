@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::ids::TurnId;
 use teramind_core::redact::Redactor;
-use teramind_db::repos::{AgentRepo, SessionRepo, TraceRepo, WikiRepo};
 use teramind_db::repos::session::NewSession;
+use teramind_db::repos::{AgentRepo, SessionRepo, TraceRepo, WikiRepo};
 use teramindd::config::SummarizeConfig;
 use teramindd::services::summarize::build_provider;
 use teramindd::services::summarizer_worker::{SummarizerDeps, SummarizerWorker};
@@ -15,7 +15,8 @@ async fn probe_ollama() -> bool {
     reqwest::Client::new()
         .get("http://localhost:11434/api/version")
         .timeout(Duration::from_millis(500))
-        .send().await
+        .send()
+        .await
         .map(|r| r.status().is_success())
         .unwrap_or(false)
 }
@@ -28,9 +29,8 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
     }
 
     let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(
-        dir.path().to_path_buf(), "teramind",
-    ).await?;
+    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
+        .await?;
     let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
     teramind_db::migrate::run(&pool).await?;
 
@@ -41,23 +41,49 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
 
     let agent = agents.upsert("claude_code", None).await?;
     let started = OffsetDateTime::from_unix_timestamp(1_700_000_000).unwrap();
-    let ended   = OffsetDateTime::from_unix_timestamp(1_700_002_500).unwrap();
-    let sid = sessions.insert(NewSession {
-        agent_id: agent.id, agent_session_id: None, cwd: "/openvms-port",
-        project_id: None, parent_session_id: None,
-        git_head: None, git_branch: None,
-        os: "linux", hostname: "h", user_login: "u",
-        started_at: started,
-    }).await?;
+    let ended = OffsetDateTime::from_unix_timestamp(1_700_002_500).unwrap();
+    let sid = sessions
+        .insert(NewSession {
+            agent_id: agent.id,
+            agent_session_id: None,
+            cwd: "/openvms-port",
+            project_id: None,
+            parent_session_id: None,
+            git_head: None,
+            git_branch: None,
+            os: "linux",
+            hostname: "h",
+            user_login: "u",
+            started_at: started,
+            user_id: None,
+            device_id: None,
+        })
+        .await?;
     for i in 0..5 {
-        let tid = trace.upsert_turn_with_id(
-            TurnId(uuid::Uuid::new_v4()), sid, i as i32, started,
-            Some(&format!("Port the configure.ac autoconf check #{i} for OpenVMS x86")),
-        ).await?;
-        trace.finalize_turn(tid, started,
-            Some(&format!("Replaced AC_CHECK_FUNC([fork]) with vfork-aware probe #{i}")),
-            None, Some("test"), None, None,
-        ).await?;
+        let tid = trace
+            .upsert_turn_with_id(
+                TurnId(uuid::Uuid::new_v4()),
+                sid,
+                i,
+                started,
+                Some(&format!(
+                    "Port the configure.ac autoconf check #{i} for OpenVMS x86"
+                )),
+            )
+            .await?;
+        trace
+            .finalize_turn(
+                tid,
+                started,
+                Some(&format!(
+                    "Replaced AC_CHECK_FUNC([fork]) with vfork-aware probe #{i}"
+                )),
+                None,
+                Some("test"),
+                None,
+                None,
+            )
+            .await?;
     }
     sessions.end(sid, ended, "stop_hook").await?;
 
@@ -70,9 +96,11 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
     // tokens before visible content; the production default of 1500 isn't
     // enough room for both reasoning and a 4-section structured summary.
     // Bump to 4000 just for this test.
-    let mut cfg = SummarizeConfig::default();
-    cfg.model = "gemma4:26b".into();
-    cfg.output_token_budget = 4000;
+    let cfg = SummarizeConfig {
+        model: "gemma4:26b".into(),
+        output_token_budget: 4000,
+        ..SummarizeConfig::default()
+    };
     let secrets = dir.path().join("secrets.toml");
     let provider = build_provider(&cfg, &secrets)?;
 
@@ -91,20 +119,34 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
     // Allow up to 180s wall clock for Ollama+gemma4:26b to summarize.
     for _ in 0..180 {
         tokio::time::sleep(Duration::from_secs(1)).await;
-        if wiki.backlog(&format!("ollama:{}", cfg.model)).await? == 0 { break; }
+        if wiki.backlog(&format!("ollama:{}", cfg.model)).await? == 0 {
+            break;
+        }
     }
-    let page = wiki.get_for_session(sid, &format!("ollama:{}", cfg.model)).await?
+    let page = wiki
+        .get_for_session(sid, &format!("ollama:{}", cfg.model))
+        .await?
         .expect("wiki must exist after worker drains");
     assert!(!page.content.is_empty(), "non-empty summary expected");
 
-    let required_headers = ["# Summary", "# Files changed", "# Decisions & gotchas", "# Follow-ups"];
-    let missing: Vec<_> = required_headers.iter()
-        .filter(|h| !page.content.contains(*h)).collect();
+    let required_headers = [
+        "# Summary",
+        "# Files changed",
+        "# Decisions & gotchas",
+        "# Follow-ups",
+    ];
+    let missing: Vec<_> = required_headers
+        .iter()
+        .filter(|h| !page.content.contains(*h))
+        .collect();
     // Allow a single missing header (chat models occasionally rename them);
     // assert at least 3 of 4 are present.
-    assert!(missing.len() <= 1,
+    assert!(
+        missing.len() <= 1,
         "expected at least 3/4 spec section headers; missing: {:?}\ncontent:\n{}",
-        missing, page.content);
+        missing,
+        page.content
+    );
 
     sup.shutdown().await?;
     Ok(())

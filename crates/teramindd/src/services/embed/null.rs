@@ -10,11 +10,21 @@ pub struct NullEmbeddingProvider;
 
 #[async_trait]
 impl EmbeddingProvider for NullEmbeddingProvider {
-    fn kind(&self) -> ProviderKind { ProviderKind::Ollama }
-    fn model_id(&self) -> &str { "null" }
-    fn dimension(&self) -> usize { 768 }
-    fn max_tokens(&self) -> usize { 8192 }
-    fn distance_metric(&self) -> DistanceMetric { DistanceMetric::Cosine }
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::Ollama
+    }
+    fn model_id(&self) -> &str {
+        "null"
+    }
+    fn dimension(&self) -> usize {
+        768
+    }
+    fn max_tokens(&self) -> usize {
+        8192
+    }
+    fn distance_metric(&self) -> DistanceMetric {
+        DistanceMetric::Cosine
+    }
     async fn health_check(&self) -> Result<(), EmbedError> {
         Err(EmbedError::Unhealthy("null provider".into()))
     }

@@ -23,6 +23,52 @@ pub struct IngestService {
     stats: Arc<IngestStats>,
 }
 
+/// Subset of IngestDeps that the dispatch fn actually needs. Used by both
+/// the daemon (which wraps it in IngestDeps) and the sync server (which
+/// constructs it directly).
+#[derive(Clone)]
+pub struct RouteDeps {
+    pub sessions: crate::services::session_manager::SessionManager,
+    pub agents: teramind_db::repos::AgentRepo,
+    pub session_repo: teramind_db::repos::SessionRepo,
+    pub trace: teramind_db::repos::TraceRepo,
+    pub diffs: teramind_db::repos::DiffRepo,
+    pub fs_registry: std::sync::Arc<crate::services::fs_watcher::WatchRegistry>,
+    pub write_tool_ring: crate::services::write_tool_ring::WriteToolRing,
+}
+
+impl From<&IngestDeps> for RouteDeps {
+    fn from(d: &IngestDeps) -> Self {
+        Self {
+            sessions: d.sessions.clone(),
+            agents: d.agents.clone(),
+            session_repo: d.session_repo.clone(),
+            trace: d.trace.clone(),
+            diffs: d.diffs.clone(),
+            fs_registry: d.fs_registry.clone(),
+            write_tool_ring: d.write_tool_ring.clone(),
+        }
+    }
+}
+
+/// `(user_id, device_id)` annotation for server-side ingest. The daemon
+/// passes `None`; the server passes `Some(...)`.
+#[derive(Debug, Clone, Copy)]
+pub struct IngestAuth {
+    pub user_id: uuid::Uuid,
+    pub device_id: uuid::Uuid,
+}
+
+/// Public dispatch entry point. Same body as the old `route()` but uses
+/// `RouteDeps` + `IngestAuth`. The daemon path passes `auth = None`.
+pub async fn route_with_deps(
+    d: &RouteDeps,
+    env: teramind_core::types::ingest_event::EventEnvelope,
+    auth: Option<IngestAuth>,
+) -> anyhow::Result<()> {
+    route_inner(d, env, auth).await
+}
+
 #[derive(Clone)]
 pub struct IngestDeps {
     pub redactor: Arc<Redactor>,
@@ -198,6 +244,15 @@ fn redact_envelope(r: &Redactor, mut env: EventEnvelope) -> EventEnvelope {
 }
 
 async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
+    let rd: RouteDeps = d.into();
+    route_inner(&rd, env, None).await
+}
+
+async fn route_inner(
+    d: &RouteDeps,
+    env: EventEnvelope,
+    auth: Option<IngestAuth>,
+) -> anyhow::Result<()> {
     use IngestEvent::*;
     let ts = env.ts;
     match env.event {
@@ -225,6 +280,8 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
                 hostname: &hostname,
                 user_login: &user_login,
                 started_at: ts,
+                user_id: auth.map(|a| teramind_core::ids::UserId(a.user_id)),
+                device_id: auth.map(|a| teramind_core::ids::DeviceId(a.device_id)),
             };
             let sid = if session_id.0 != uuid::Uuid::nil() {
                 d.session_repo.insert_with_id(session_id, n).await?
@@ -243,7 +300,8 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
                 .await;
             // Start watching this cwd; per-cwd refcount in the registry
             // handles duplicate sessions in the same directory.
-            if let Err(e) = d.fs_registry
+            if let Err(e) = d
+                .fs_registry
                 .register(std::path::PathBuf::from(&cwd), sid)
                 .await
             {
@@ -257,23 +315,38 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
             turn_id,
         } => {
             let _ = match turn_id {
-                Some(tid) => d
-                    .trace
-                    .upsert_turn_with_id(tid, session_id, turn_ordinal, ts, Some(&prompt))
-                    .await?,
-                None => d
-                    .trace
-                    .upsert_turn(session_id, turn_ordinal, ts, Some(&prompt))
-                    .await?,
+                Some(tid) => {
+                    d.trace
+                        .upsert_turn_with_id(tid, session_id, turn_ordinal, ts, Some(&prompt))
+                        .await?
+                }
+                None => {
+                    d.trace
+                        .upsert_turn(session_id, turn_ordinal, ts, Some(&prompt))
+                        .await?
+                }
             };
             d.sessions.touch(session_id, ts, None).await;
         }
-        ToolCallStart { turn_id, tool_call_id, ordinal, name, input } => {
-            match tool_call_id {
-                Some(id) => { d.trace.insert_tool_call_start_with_id(id, turn_id, ordinal, &name, &input, ts).await?; }
-                None     => { let _ = d.trace.insert_tool_call_start(turn_id, ordinal, &name, &input, ts).await?; }
+        ToolCallStart {
+            turn_id,
+            tool_call_id,
+            ordinal,
+            name,
+            input,
+        } => match tool_call_id {
+            Some(id) => {
+                d.trace
+                    .insert_tool_call_start_with_id(id, turn_id, ordinal, &name, &input, ts)
+                    .await?;
             }
-        }
+            None => {
+                let _ = d
+                    .trace
+                    .insert_tool_call_start(turn_id, ordinal, &name, &input, ts)
+                    .await?;
+            }
+        },
         ToolCallEnd {
             tool_call_id,
             output,
@@ -286,7 +359,8 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
             d.trace
                 .finalize_tool_call(tool_call_id, &output, is_error, duration_ms)
                 .await?;
-            if let (Some(sid), Some(tid), Some(name)) = (session_id, turn_id, tool_name.as_deref()) {
+            if let (Some(sid), Some(tid), Some(name)) = (session_id, turn_id, tool_name.as_deref())
+            {
                 if crate::services::write_tool_ring::is_write_tool(name) {
                     d.write_tool_ring
                         .push(crate::services::write_tool_ring::WriteCompletion {

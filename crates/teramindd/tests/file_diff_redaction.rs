@@ -27,8 +27,10 @@ fn redactor_strips_aws_keys_from_file_diff_excerpts() {
     };
     // We exercise the redactor on the strings directly to lock in
     // the expectation; the daemon's ingest layer wires it in.
-    assert!(!r.apply(match &env.event {
-        IngestEvent::FileDiff { pre_excerpt, .. } => pre_excerpt,
-        _ => unreachable!(),
-    }).contains("AKIAIOSFODNN7EXAMPLE"));
+    assert!(!r
+        .apply(match &env.event {
+            IngestEvent::FileDiff { pre_excerpt, .. } => pre_excerpt,
+            _ => unreachable!(),
+        })
+        .contains("AKIAIOSFODNN7EXAMPLE"));
 }

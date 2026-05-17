@@ -33,13 +33,16 @@ macro_rules! id_newtype {
 
 id_newtype!(AgentId);
 id_newtype!(ClientEventId);
+id_newtype!(DeviceId);
 id_newtype!(FileDiffId);
 id_newtype!(ProjectId);
 id_newtype!(SessionId);
 id_newtype!(SkillId);
 id_newtype!(ToolCallId);
 id_newtype!(TurnId);
+id_newtype!(UserId);
 id_newtype!(WikiPageId);
+id_newtype!(InviteId);
 
 #[cfg(test)]
 mod tests {

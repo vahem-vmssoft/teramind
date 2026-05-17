@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::pool::DbPool;
-use teramind_core::ids::{AgentId, ProjectId, SessionId};
+use teramind_core::ids::{AgentId, DeviceId, ProjectId, SessionId, UserId};
 use time::OffsetDateTime;
 
 #[derive(Clone)]
@@ -20,6 +20,8 @@ pub struct NewSession<'a> {
     pub hostname: &'a str,
     pub user_login: &'a str,
     pub started_at: OffsetDateTime,
+    pub user_id: Option<UserId>,
+    pub device_id: Option<DeviceId>,
 }
 
 impl SessionRepo {
@@ -31,8 +33,9 @@ impl SessionRepo {
         let r: (uuid::Uuid,) = sqlx::query_as(
             r#"
             INSERT INTO sessions (agent_id, agent_session_id, cwd, project_id, parent_session_id,
-                                  git_head, git_branch, os, hostname, user_login, started_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                                  git_head, git_branch, os, hostname, user_login, started_at,
+                                  user_id, device_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
             RETURNING id
             "#,
         )
@@ -47,6 +50,8 @@ impl SessionRepo {
         .bind(n.hostname)
         .bind(n.user_login)
         .bind(n.started_at)
+        .bind(n.user_id.map(|u| u.0))
+        .bind(n.device_id.map(|d| d.0))
         .fetch_one(self.pool.pg())
         .await?;
         Ok(SessionId(r.0))
@@ -59,8 +64,9 @@ impl SessionRepo {
         sqlx::query(
             r#"
             INSERT INTO sessions (id, agent_id, agent_session_id, cwd, project_id, parent_session_id,
-                                  git_head, git_branch, os, hostname, user_login, started_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                                  git_head, git_branch, os, hostname, user_login, started_at,
+                                  user_id, device_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
             ON CONFLICT (id) DO NOTHING
             "#)
             .bind(id.0)
@@ -72,6 +78,8 @@ impl SessionRepo {
             .bind(n.git_head).bind(n.git_branch)
             .bind(n.os).bind(n.hostname).bind(n.user_login)
             .bind(n.started_at)
+            .bind(n.user_id.map(|u| u.0))
+            .bind(n.device_id.map(|d| d.0))
             .execute(self.pool.pg()).await?;
         Ok(id)
     }

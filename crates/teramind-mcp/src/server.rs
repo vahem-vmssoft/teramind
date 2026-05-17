@@ -2,11 +2,9 @@
 //! MCP tool calls into Teramind IPC requests.
 
 use rmcp::{
-    ErrorData as McpError, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{CallToolResult, Content},
-    schemars,
-    tool, tool_handler, tool_router,
+    schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler,
 };
 use serde::Deserialize;
 use teramind_ipc::{
@@ -43,9 +41,9 @@ impl TeramindMcpServer {
     /// performs one connect/request/close cycle, mirroring how the CLI works.
     async fn ipc_request(&self, req: Request) -> Result<Response, McpError> {
         let path = default_socket_path();
-        let stream = connect(&path).await.map_err(|e| {
-            McpError::internal_error(format!("connect teramind daemon: {e}"), None)
-        })?;
+        let stream = connect(&path)
+            .await
+            .map_err(|e| McpError::internal_error(format!("connect teramind daemon: {e}"), None))?;
         let mut client = StreamClient::new(stream);
         client
             .request(req)
@@ -141,8 +139,10 @@ impl TeramindMcpServer {
     }
 
     /// Structured recall, filtering prior context by cwd, files, symbols, traces.
-    #[tool(description = "Structured recall: filter prior Teramind context by cwd, \
-        file paths, symbols, or stack-trace frames. Returns ranked hits.")]
+    #[tool(
+        description = "Structured recall: filter prior Teramind context by cwd, \
+        file paths, symbols, or stack-trace frames. Returns ranked hits."
+    )]
     async fn recall(
         &self,
         Parameters(args): Parameters<RecallArgs>,
@@ -171,8 +171,10 @@ impl TeramindMcpServer {
     }
 
     /// Read a session's wiki page (session summary).
-    #[tool(description = "Read a session's wiki page. Without session_id, returns \
-        the most recent summary for the cwd's project.")]
+    #[tool(
+        description = "Read a session's wiki page. Without session_id, returns \
+        the most recent summary for the cwd's project."
+    )]
     async fn wiki(
         &self,
         Parameters(args): Parameters<WikiArgs>,
@@ -183,7 +185,13 @@ impl TeramindMcpServer {
         };
         let resp = self.ipc_request(req).await?;
         match resp {
-            Response::WikiPage { session_id, cwd, model, content, generated_at } => {
+            Response::WikiPage {
+                session_id,
+                cwd,
+                model,
+                content,
+                generated_at,
+            } => {
                 let body = serde_json::json!({
                     "session_id": session_id,
                     "cwd": cwd,
@@ -196,11 +204,9 @@ impl TeramindMcpServer {
                 })?;
                 Ok(CallToolResult::success(vec![Content::text(text)]))
             }
-            Response::WikiNotFound => {
-                Ok(CallToolResult::success(vec![
-                    Content::text("{\"status\":\"not_found\"}".to_string()),
-                ]))
-            }
+            Response::WikiNotFound => Ok(CallToolResult::success(vec![Content::text(
+                "{\"status\":\"not_found\"}".to_string(),
+            )])),
             Response::Error(e) => Err(McpError::internal_error(e, None)),
             other => Err(McpError::internal_error(
                 format!("unexpected daemon response: {other:?}"),
@@ -224,9 +230,8 @@ impl TeramindMcpServer {
         });
         let resp = self.ipc_request(req).await?;
         let body = match resp {
-            Response::SkillRef(s) => serde_json::to_string_pretty(&s).map_err(|e| {
-                McpError::internal_error(format!("serialize skill ref: {e}"), None)
-            })?,
+            Response::SkillRef(s) => serde_json::to_string_pretty(&s)
+                .map_err(|e| McpError::internal_error(format!("serialize skill ref: {e}"), None))?,
             Response::Error(e) => return Err(McpError::internal_error(e, None)),
             other => {
                 return Err(McpError::internal_error(

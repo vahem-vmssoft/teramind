@@ -31,8 +31,8 @@ async fn run_lexical(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
 
     let cor = corpus::load(corpus_root)?;
     let size = CorpusSize {
-        sessions:   cor.sessions.len()   as u32,
-        turns:      cor.turns.len()      as u32,
+        sessions: cor.sessions.len() as u32,
+        turns: cor.turns.len() as u32,
         tool_calls: cor.tool_calls.len() as u32,
         file_diffs: cor.file_diffs.len() as u32,
     };
@@ -51,11 +51,16 @@ async fn run_lexical(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
         latencies.push(elapsed);
 
         let mut hit_ids: Vec<String> = Vec::with_capacity(20);
-        for f in &fts   { hit_ids.push(format!("turn:{}", f.turn_id)); }
-        for d in &diffs { hit_ids.push(format!("diff:{}", d.diff_id)); }
+        for f in &fts {
+            hit_ids.push(format!("turn:{}", f.turn_id));
+        }
+        for d in &diffs {
+            hit_ids.push(format!("diff:{}", d.diff_id));
+        }
 
         let relevance = relevance_for(&qrels, q.id, &hit_ids);
-        let total_rel = qrels.judgments
+        let total_rel = qrels
+            .judgments
             .get(q.id)
             .map(|v| v.iter().filter(|j| j.grade > 0).count() as u32)
             .unwrap_or(0);
@@ -86,24 +91,36 @@ async fn run_lexical(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
 
 pub(crate) fn load_qrels(root: &Path) -> anyhow::Result<crate::types::QrelsFile> {
     let path = root.join("qrels.toml");
-    if !path.exists() { return Ok(Default::default()); }
+    if !path.exists() {
+        return Ok(Default::default());
+    }
     let body = std::fs::read_to_string(&path)?;
     Ok(toml::from_str(&body)?)
 }
 
-pub(crate) fn relevance_for(qrels: &crate::types::QrelsFile, qid: &str, hit_ids: &[String]) -> Vec<u32> {
+pub(crate) fn relevance_for(
+    qrels: &crate::types::QrelsFile,
+    qid: &str,
+    hit_ids: &[String],
+) -> Vec<u32> {
     let judgments = match qrels.judgments.get(qid) {
         Some(v) => v,
         None => return hit_ids.iter().map(|_| 0).collect(),
     };
-    let map: std::collections::HashMap<&str, u32> = judgments.iter()
+    let map: std::collections::HashMap<&str, u32> = judgments
+        .iter()
         .map(|j| (j.item.as_str(), j.grade))
         .collect();
-    hit_ids.iter().map(|h| *map.get(h.as_str()).unwrap_or(&0)).collect()
+    hit_ids
+        .iter()
+        .map(|h| *map.get(h.as_str()).unwrap_or(&0))
+        .collect()
 }
 
 pub(crate) fn percentile_u32(sorted_ms: &[u128], pct: u32) -> u32 {
-    if sorted_ms.is_empty() { return 0; }
+    if sorted_ms.is_empty() {
+        return 0;
+    }
     let idx = ((sorted_ms.len() as f64) * (pct as f64) / 100.0).ceil() as usize;
     let idx = idx.min(sorted_ms.len() - 1);
     sorted_ms[idx] as u32

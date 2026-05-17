@@ -95,7 +95,8 @@ mod hex_array_32 {
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<[u8; 32], D::Error> {
         let s = String::deserialize(d)?;
         let v = hex::decode(&s).map_err(serde::de::Error::custom)?;
-        v.try_into().map_err(|_| serde::de::Error::custom("expected 32 bytes"))
+        v.try_into()
+            .map_err(|_| serde::de::Error::custom("expected 32 bytes"))
     }
 }
 
@@ -145,7 +146,12 @@ mod tests {
         let j = r#"{"client_event_id":"00000000-0000-0000-0000-000000000001","ts":"2026-05-14T00:00:00Z","event":{"type":"tool_call_end","tool_call_id":"00000000-0000-0000-0000-000000000002","output":"x","is_error":false,"duration_ms":1}}"#;
         let env: EventEnvelope = serde_json::from_str(j).unwrap();
         match env.event {
-            IngestEvent::ToolCallEnd { session_id, turn_id, tool_name, .. } => {
+            IngestEvent::ToolCallEnd {
+                session_id,
+                turn_id,
+                tool_name,
+                ..
+            } => {
                 assert!(session_id.is_none());
                 assert!(turn_id.is_none());
                 assert!(tool_name.is_none());

@@ -17,13 +17,17 @@ async fn ring_only_records_write_tool_completions() {
             turn_id: tid,
             tool_name: "Edit".into(),
             at: OffsetDateTime::now_utc(),
-        }).await;
+        })
+        .await;
     }
     // Non-write tool: do NOT push.
     if teramindd::services::write_tool_ring::is_write_tool("Read") {
         unreachable!("Read should not be a write tool");
     }
-    assert!(ring.most_recent_for(sid, OffsetDateTime::now_utc()).await.is_some());
+    assert!(ring
+        .most_recent_for(sid, OffsetDateTime::now_utc())
+        .await
+        .is_some());
 
     // Construct an envelope just to make sure the type compiles end-to-end:
     let _env = EventEnvelope {

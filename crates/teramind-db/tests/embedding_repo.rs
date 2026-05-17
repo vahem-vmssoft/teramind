@@ -1,14 +1,13 @@
-use teramind_db::repos::{AgentRepo, EmbeddingRepo, SessionRepo, TraceRepo};
-use teramind_db::repos::session::NewSession;
 use teramind_core::ids::TurnId;
+use teramind_db::repos::session::NewSession;
+use teramind_db::repos::{AgentRepo, EmbeddingRepo, SessionRepo, TraceRepo};
 use time::OffsetDateTime;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn embedding_repo_bulk_insert_and_backlog() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(
-        dir.path().to_path_buf(), "teramind",
-    ).await?;
+    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
+        .await?;
     let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
     teramind_db::migrate::run(&pool).await?;
 
@@ -17,17 +16,32 @@ async fn embedding_repo_bulk_insert_and_backlog() -> anyhow::Result<()> {
     let sessions = SessionRepo::new(pool.clone());
     let trace = TraceRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await?;
-    let sid = sessions.insert(NewSession {
-        agent_id: agent.id, agent_session_id: None, cwd: "/p",
-        project_id: None, parent_session_id: None,
-        git_head: None, git_branch: None,
-        os: "linux", hostname: "h", user_login: "u",
-        started_at: OffsetDateTime::now_utc(),
-    }).await?;
-    let tid = trace.upsert_turn_with_id(
-        TurnId(uuid::Uuid::new_v4()), sid, 0,
-        OffsetDateTime::now_utc(), Some("hello world"),
-    ).await?;
+    let sid = sessions
+        .insert(NewSession {
+            agent_id: agent.id,
+            agent_session_id: None,
+            cwd: "/p",
+            project_id: None,
+            parent_session_id: None,
+            git_head: None,
+            git_branch: None,
+            os: "linux",
+            hostname: "h",
+            user_login: "u",
+            started_at: OffsetDateTime::now_utc(),
+            user_id: None,
+            device_id: None,
+        })
+        .await?;
+    let tid = trace
+        .upsert_turn_with_id(
+            TurnId(uuid::Uuid::new_v4()),
+            sid,
+            0,
+            OffsetDateTime::now_utc(),
+            Some("hello world"),
+        )
+        .await?;
 
     let repo = EmbeddingRepo::new(pool.clone());
     assert_eq!(repo.backlog("test-model").await?, 1);

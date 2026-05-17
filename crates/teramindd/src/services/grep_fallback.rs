@@ -1,8 +1,8 @@
 use std::path::Path;
-use tokio::process::Command;
-use teramind_core::types::Hit;
 use teramind_core::ids::{ClientEventId, SessionId, TurnId};
 use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
+use teramind_core::types::Hit;
+use tokio::process::Command;
 use uuid::Uuid;
 
 pub async fn run(jsonl_dir: &Path, query: &str, limit: u32) -> std::io::Result<Vec<Hit>> {
@@ -14,28 +14,51 @@ pub async fn run(jsonl_dir: &Path, query: &str, limit: u32) -> std::io::Result<V
         .arg("--include=*.jsonl")
         .arg(query)
         .arg(jsonl_dir)
-        .output().await?;
+        .output()
+        .await?;
 
     if !output.status.success() && output.status.code() != Some(1) {
-        return Err(std::io::Error::other(format!("grep failed: status={:?}", output.status)));
+        return Err(std::io::Error::other(format!(
+            "grep failed: status={:?}",
+            output.status
+        )));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut hits: Vec<Hit> = Vec::new();
     for line in stdout.lines().take(limit as usize * 4) {
-        let (_path, rest) = match line.split_once(':') { Some(p) => p, None => continue };
-        let (_lineno, body) = match rest.split_once(':') { Some(p) => p, None => continue };
-        let env: EventEnvelope = match serde_json::from_str(body) { Ok(e) => e, Err(_) => continue };
+        let (_path, rest) = match line.split_once(':') {
+            Some(p) => p,
+            None => continue,
+        };
+        let (_lineno, body) = match rest.split_once(':') {
+            Some(p) => p,
+            None => continue,
+        };
+        let env: EventEnvelope = match serde_json::from_str(body) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
         match env.event {
-            IngestEvent::UserPrompt { session_id, turn_ordinal, prompt, .. } => {
+            IngestEvent::UserPrompt {
+                session_id,
+                turn_ordinal,
+                prompt,
+                ..
+            } => {
                 hits.push(Hit::Turn {
                     turn_id: TurnId(Uuid::nil()),
-                    session_id, ordinal: turn_ordinal,
+                    session_id,
+                    ordinal: turn_ordinal,
                     snippet: truncate_grep(&prompt, 200),
                     score: 0.5,
                     ts: env.ts,
                 });
             }
-            IngestEvent::AssistantTurn { turn_id, assistant_text, .. } => {
+            IngestEvent::AssistantTurn {
+                turn_id,
+                assistant_text,
+                ..
+            } => {
                 hits.push(Hit::Turn {
                     turn_id,
                     session_id: SessionId(Uuid::nil()),
@@ -47,14 +70,18 @@ pub async fn run(jsonl_dir: &Path, query: &str, limit: u32) -> std::io::Result<V
             }
             _ => {}
         }
-        if hits.len() >= limit as usize { break; }
+        if hits.len() >= limit as usize {
+            break;
+        }
     }
     let _ = ClientEventId::new();
     Ok(hits)
 }
 
 fn truncate_grep(s: &str, n: usize) -> String {
-    if s.chars().count() <= n { s.to_string() } else {
+    if s.chars().count() <= n {
+        s.to_string()
+    } else {
         let mut out: String = s.chars().take(n).collect();
         out.push('…');
         out
@@ -64,8 +91,8 @@ fn truncate_grep(s: &str, n: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::io::Write;
+    use tempfile::tempdir;
     use time::OffsetDateTime;
 
     #[tokio::test]
@@ -97,7 +124,13 @@ mod tests {
 
     #[tokio::test]
     async fn grep_returns_empty_for_missing_dir() {
-        let hits = run(std::path::Path::new("/nonexistent/teramind/raw"), "anything", 10).await.unwrap();
+        let hits = run(
+            std::path::Path::new("/nonexistent/teramind/raw"),
+            "anything",
+            10,
+        )
+        .await
+        .unwrap();
         assert!(hits.is_empty());
     }
 }

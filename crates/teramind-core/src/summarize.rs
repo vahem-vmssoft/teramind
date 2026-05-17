@@ -46,9 +46,9 @@ pub trait SummaryProvider: Send + Sync {
 // Defined here so both teramind-db (WikiRepo::load_snapshot) and the daemon
 // (digest builder) can share the same types without a circular dependency.
 
-use serde_json::Value;
 use crate::ids::{SessionId, ToolCallId, TurnId};
 use crate::types::file_diff::Attribution;
+use serde_json::Value;
 use time::OffsetDateTime;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,8 +97,12 @@ pub struct SessionSnapshot {
 }
 
 impl SessionSnapshot {
-    pub fn turn_count(&self) -> usize { self.turns.len() }
-    pub fn duration_secs(&self) -> i64 { (self.ended_at - self.started_at).whole_seconds() }
+    pub fn turn_count(&self) -> usize {
+        self.turns.len()
+    }
+    pub fn duration_secs(&self) -> i64 {
+        (self.ended_at - self.started_at).whole_seconds()
+    }
 }
 
 #[cfg(test)]
@@ -107,13 +111,23 @@ mod tests {
 
     #[test]
     fn summary_error_classifies() {
-        assert!(matches!(SummaryError::Unhealthy("x".into()), SummaryError::Unhealthy(_)));
-        assert!(matches!(SummaryError::Network("x".into()), SummaryError::Network(_)));
+        assert!(matches!(
+            SummaryError::Unhealthy("x".into()),
+            SummaryError::Unhealthy(_)
+        ));
+        assert!(matches!(
+            SummaryError::Network("x".into()),
+            SummaryError::Network(_)
+        ));
     }
 
     #[test]
     fn summary_result_roundtrips_through_json() {
-        let r = SummaryResult { content: "ok".into(), input_tokens: 10, output_tokens: 20 };
+        let r = SummaryResult {
+            content: "ok".into(),
+            input_tokens: 10,
+            output_tokens: 20,
+        };
         let j = serde_json::to_string(&r).unwrap();
         let back: SummaryResult = serde_json::from_str(&j).unwrap();
         assert_eq!(r.input_tokens, back.input_tokens);

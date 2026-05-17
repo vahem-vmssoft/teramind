@@ -32,17 +32,35 @@ impl IpcServer for DaemonIpcHandler {
     async fn handle_request(&self, req: Request) -> Response {
         match req {
             Request::Status => {
-                let healthy = self.embed_stats.provider_unhealthy_since_unix.load(Ordering::Relaxed) == 0;
+                let healthy = self
+                    .embed_stats
+                    .provider_unhealthy_since_unix
+                    .load(Ordering::Relaxed)
+                    == 0;
                 let backlog = self.embed_stats.backlog.load(Ordering::Relaxed) as i64;
                 let last_filled = {
                     let v = self.embed_stats.last_filled_at_unix.load(Ordering::Relaxed);
-                    if v == 0 { None } else { Some(v) }
+                    if v == 0 {
+                        None
+                    } else {
+                        Some(v)
+                    }
                 };
-                let summary_healthy = self.summarizer_stats.provider_unhealthy_since_unix.load(Ordering::Relaxed) == 0;
+                let summary_healthy = self
+                    .summarizer_stats
+                    .provider_unhealthy_since_unix
+                    .load(Ordering::Relaxed)
+                    == 0;
                 let summary_backlog = self.summarizer_stats.backlog.load(Ordering::Relaxed) as i64;
                 let summary_written = self.summarizer_stats.written.load(Ordering::Relaxed);
-                let summary_in = self.summarizer_stats.input_tokens_total.load(Ordering::Relaxed);
-                let summary_out = self.summarizer_stats.output_tokens_total.load(Ordering::Relaxed);
+                let summary_in = self
+                    .summarizer_stats
+                    .input_tokens_total
+                    .load(Ordering::Relaxed);
+                let summary_out = self
+                    .summarizer_stats
+                    .output_tokens_total
+                    .load(Ordering::Relaxed);
                 Response::Status(StatusReport {
                     uptime_seconds: self.started.elapsed().as_secs(),
                     pg_connected: true,
@@ -73,36 +91,54 @@ impl IpcServer for DaemonIpcHandler {
                     &self.embed_model,
                     self.search_weights,
                     &r,
-                ).await;
+                )
+                .await;
                 Response::SearchResults(teramind_core::types::SearchResults {
-                    hits: out.hits, degraded: out.degraded, took_ms: out.took_ms,
+                    hits: out.hits,
+                    degraded: out.degraded,
+                    took_ms: out.took_ms,
                 })
             }
             Request::Recall(r) => {
                 match crate::services::search::do_recall(&self.search_repo, &r).await {
                     Ok(out) => Response::SearchResults(teramind_core::types::SearchResults {
-                        hits: out.hits, degraded: out.degraded, took_ms: out.took_ms,
+                        hits: out.hits,
+                        degraded: out.degraded,
+                        took_ms: out.took_ms,
                     }),
                     Err(e) => Response::Error(format!("recall failed: {e}")),
                 }
             }
             Request::AutoRecall(r) => {
-                match crate::services::search::do_auto_recall(&self.search_repo, &self.wiki_repo, &r).await {
-                    Ok(md) => Response::AutoRecallDigest { markdown: md, degraded: false },
-                    Err(_) => Response::AutoRecallDigest { markdown: String::new(), degraded: true },
+                match crate::services::search::do_auto_recall(
+                    &self.search_repo,
+                    &self.wiki_repo,
+                    &r,
+                )
+                .await
+                {
+                    Ok(md) => Response::AutoRecallDigest {
+                        markdown: md,
+                        degraded: false,
+                    },
+                    Err(_) => Response::AutoRecallDigest {
+                        markdown: String::new(),
+                        degraded: true,
+                    },
                 }
             }
-            Request::SaveSkill(r) => {
-                match self.search_repo.upsert_skill(&r).await {
-                    Ok(s) => Response::SkillRef(s),
-                    Err(e) => Response::Error(format!("save_skill failed: {e}")),
-                }
-            }
+            Request::SaveSkill(r) => match self.search_repo.upsert_skill(&r).await {
+                Ok(s) => Response::SkillRef(s),
+                Err(e) => Response::Error(format!("save_skill failed: {e}")),
+            },
             Request::WikiLookup { session_id, cwd } => {
                 let result: anyhow::Result<Option<teramind_db::repos::WikiPage>> = async {
                     if let Some(sid_str) = session_id {
                         let sid = teramind_core::ids::SessionId(uuid::Uuid::parse_str(&sid_str)?);
-                        let p = self.wiki_repo.get_for_session(sid, &self.summary_model).await?;
+                        let p = self
+                            .wiki_repo
+                            .get_for_session(sid, &self.summary_model)
+                            .await?;
                         Ok(p)
                     } else if let Some(cwd) = cwd {
                         let p = self.wiki_repo.latest_for_cwd(&cwd).await?;
@@ -110,14 +146,16 @@ impl IpcServer for DaemonIpcHandler {
                     } else {
                         Ok(None)
                     }
-                }.await;
+                }
+                .await;
                 match result {
                     Ok(Some(p)) => {
-                        let session_cwd: String = sqlx::query_scalar("SELECT cwd FROM sessions WHERE id = $1")
-                            .bind(p.session_id.0)
-                            .fetch_one(self.pool.pg())
-                            .await
-                            .unwrap_or_default();
+                        let session_cwd: String =
+                            sqlx::query_scalar("SELECT cwd FROM sessions WHERE id = $1")
+                                .bind(p.session_id.0)
+                                .fetch_one(self.pool.pg())
+                                .await
+                                .unwrap_or_default();
                         Response::WikiPage {
                             session_id: p.session_id.0.to_string(),
                             cwd: session_cwd,

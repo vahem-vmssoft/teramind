@@ -22,7 +22,10 @@ pub async fn show_index(cwd: &Path, rel_path: &str) -> Option<String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
     let child = cmd.spawn().ok()?;
-    let out = timeout(GIT_TIMEOUT, child.wait_with_output()).await.ok()?.ok()?;
+    let out = timeout(GIT_TIMEOUT, child.wait_with_output())
+        .await
+        .ok()?
+        .ok()?;
     if !out.status.success() {
         return None;
     }
@@ -38,12 +41,33 @@ mod tests {
     fn init_repo_with_committed_file(content: &str) -> TempDir {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path();
-        SyncCommand::new("git").arg("init").arg("-q").current_dir(p).status().unwrap();
-        SyncCommand::new("git").args(["config","user.email","t@t"]).current_dir(p).status().unwrap();
-        SyncCommand::new("git").args(["config","user.name","t"]).current_dir(p).status().unwrap();
+        SyncCommand::new("git")
+            .arg("init")
+            .arg("-q")
+            .current_dir(p)
+            .status()
+            .unwrap();
+        SyncCommand::new("git")
+            .args(["config", "user.email", "t@t"])
+            .current_dir(p)
+            .status()
+            .unwrap();
+        SyncCommand::new("git")
+            .args(["config", "user.name", "t"])
+            .current_dir(p)
+            .status()
+            .unwrap();
         std::fs::write(p.join("a.txt"), content).unwrap();
-        SyncCommand::new("git").args(["add","a.txt"]).current_dir(p).status().unwrap();
-        SyncCommand::new("git").args(["commit","-q","-m","init"]).current_dir(p).status().unwrap();
+        SyncCommand::new("git")
+            .args(["add", "a.txt"])
+            .current_dir(p)
+            .status()
+            .unwrap();
+        SyncCommand::new("git")
+            .args(["commit", "-q", "-m", "init"])
+            .current_dir(p)
+            .status()
+            .unwrap();
         dir
     }
 

@@ -1,8 +1,8 @@
 //! Pure diff math: language detection, unified diff, hunk-bounded excerpts.
 
-use std::path::Path;
 use sha2::{Digest, Sha256};
 use similar::TextDiff;
+use std::path::Path;
 
 /// Produce a unified diff string in `git diff --no-index` style.
 /// Header uses `a/<rel>` and `b/<rel>` to match standard parsers.
@@ -167,9 +167,18 @@ mod tests {
 
     #[test]
     fn detects_common_languages() {
-        assert_eq!(language_from_extension(&PathBuf::from("a.rs")), Some("rust"));
-        assert_eq!(language_from_extension(&PathBuf::from("a.PY")), Some("python"));
-        assert_eq!(language_from_extension(&PathBuf::from("a.tsx")), Some("typescript"));
+        assert_eq!(
+            language_from_extension(&PathBuf::from("a.rs")),
+            Some("rust")
+        );
+        assert_eq!(
+            language_from_extension(&PathBuf::from("a.PY")),
+            Some("python")
+        );
+        assert_eq!(
+            language_from_extension(&PathBuf::from("a.tsx")),
+            Some("typescript")
+        );
     }
 
     #[test]
@@ -186,7 +195,9 @@ mod tests {
         let h3 = sha256_hash(b"world");
         assert_ne!(h1, h3);
         // Known-answer test:
-        let expected = hex::decode("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824").unwrap();
+        let expected =
+            hex::decode("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+                .unwrap();
         assert_eq!(&h1[..], expected.as_slice());
     }
 
@@ -221,7 +232,10 @@ mod tests {
         assert!(pre_ex.contains("line50\n"), "missing line50:\n{pre_ex}");
         assert!(pre_ex.contains("line100\n"));
         assert!(pre_ex.contains("line150\n"));
-        assert!(!pre_ex.contains("line49\n"), "excerpt should not include line49");
+        assert!(
+            !pre_ex.contains("line49\n"),
+            "excerpt should not include line49"
+        );
         assert!(!pre_ex.contains("line151\n"));
 
         assert!(post_ex.contains("CHANGED\n"));

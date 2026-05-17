@@ -30,7 +30,9 @@ pub fn extract_tarball(bytes: &[u8], dest_dir: &Path) -> anyhow::Result<Vec<Path
         let path = entry.path()?.to_path_buf();
         // Strip the first path component.
         let stripped: PathBuf = path.components().skip(1).collect();
-        if stripped.as_os_str().is_empty() { continue; }
+        if stripped.as_os_str().is_empty() {
+            continue;
+        }
         let dest = dest_dir.join(&stripped);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)?;
@@ -46,8 +48,12 @@ pub fn extract_tarball(bytes: &[u8], dest_dir: &Path) -> anyhow::Result<Vec<Path
 /// which is racy in the worst case but acceptable for self-update
 /// (the daemon is stopped before this runs).
 pub fn atomic_swap(staged: &Path, target: &Path) -> std::io::Result<()> {
-    #[cfg(unix)] { std::fs::rename(staged, target) }
-    #[cfg(windows)] {
+    #[cfg(unix)]
+    {
+        std::fs::rename(staged, target)
+    }
+    #[cfg(windows)]
+    {
         if target.exists() {
             let backup = target.with_extension("old");
             let _ = std::fs::remove_file(&backup);
@@ -66,10 +72,16 @@ mod tests_io {
     #[test]
     fn verify_sha256_accepts_correct_hex() {
         // sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
-        verify_sha256(b"hello", "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
-            .expect("matches");
-        verify_sha256(b"hello", "2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824")
-            .expect("case-insensitive");
+        verify_sha256(
+            b"hello",
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+        )
+        .expect("matches");
+        verify_sha256(
+            b"hello",
+            "2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824",
+        )
+        .expect("case-insensitive");
     }
 
     #[test]
@@ -103,8 +115,14 @@ mod tests_io {
         let dir = tempfile::tempdir().unwrap();
         let extracted = extract_tarball(&tar, dir.path()).unwrap();
         assert_eq!(extracted.len(), 2);
-        assert_eq!(std::fs::read(dir.path().join("teramind")).unwrap(), b"BINARY");
-        assert_eq!(std::fs::read(dir.path().join("teramindd")).unwrap(), b"DAEMON");
+        assert_eq!(
+            std::fs::read(dir.path().join("teramind")).unwrap(),
+            b"BINARY"
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join("teramindd")).unwrap(),
+            b"DAEMON"
+        );
     }
 
     #[test]

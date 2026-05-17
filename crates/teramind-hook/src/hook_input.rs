@@ -58,7 +58,11 @@ mod tests {
         }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
         match parsed {
-            HookInput::SessionStart { session_id, cwd, source } => {
+            HookInput::SessionStart {
+                session_id,
+                cwd,
+                source,
+            } => {
                 assert_eq!(session_id, "abc-123");
                 assert_eq!(cwd, "/Users/me/project");
                 assert_eq!(source.as_deref(), Some("startup"));
@@ -77,7 +81,11 @@ mod tests {
         }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
         match parsed {
-            HookInput::UserPromptSubmit { session_id, cwd, prompt } => {
+            HookInput::UserPromptSubmit {
+                session_id,
+                cwd,
+                prompt,
+            } => {
                 assert_eq!(session_id, "abc-123");
                 assert_eq!(cwd, "/Users/me/project");
                 assert_eq!(prompt, "Fix the failing test");
@@ -97,7 +105,12 @@ mod tests {
         }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
         match parsed {
-            HookInput::PreToolUse { session_id, tool_name, tool_input, .. } => {
+            HookInput::PreToolUse {
+                session_id,
+                tool_name,
+                tool_input,
+                ..
+            } => {
                 assert_eq!(session_id, "abc-123");
                 assert_eq!(tool_name, "Edit");
                 assert_eq!(tool_input["file_path"], "/w/x.rs");
@@ -118,7 +131,13 @@ mod tests {
         }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
         match parsed {
-            HookInput::PostToolUse { session_id, tool_name, tool_response, is_error, .. } => {
+            HookInput::PostToolUse {
+                session_id,
+                tool_name,
+                tool_response,
+                is_error,
+                ..
+            } => {
                 assert_eq!(session_id, "abc-123");
                 assert_eq!(tool_name, "Edit");
                 assert_eq!(tool_response, Some("edited successfully".to_string()));
@@ -156,7 +175,11 @@ mod tests {
         }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
         match parsed {
-            HookInput::Stop { session_id, stop_hook_active, .. } => {
+            HookInput::Stop {
+                session_id,
+                stop_hook_active,
+                ..
+            } => {
                 assert_eq!(session_id, "abc-123");
                 assert!(!stop_hook_active);
             }

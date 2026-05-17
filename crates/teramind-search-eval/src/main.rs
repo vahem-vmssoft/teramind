@@ -58,11 +58,16 @@ async fn main() -> anyhow::Result<()> {
             let dest = out.unwrap_or_else(|| "benches/search-eval".into());
             teramind_search_eval::generator::generate_to(&dest, scale)
         }
-        Cmd::Run { corpus, out, semantic, semantic_weight } => {
-            teramind_search_eval::harness::run(&corpus, &out, semantic, semantic_weight).await
-        }
-        Cmd::CompareBaseline { results, baseline, update_baseline } => {
-            teramind_search_eval::gates::compare(&results, &baseline, update_baseline)
-        }
+        Cmd::Run {
+            corpus,
+            out,
+            semantic,
+            semantic_weight,
+        } => teramind_search_eval::harness::run(&corpus, &out, semantic, semantic_weight).await,
+        Cmd::CompareBaseline {
+            results,
+            baseline,
+            update_baseline,
+        } => teramind_search_eval::gates::compare(&results, &baseline, update_baseline),
     }
 }

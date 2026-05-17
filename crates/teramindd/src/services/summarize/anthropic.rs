@@ -67,16 +67,30 @@ impl AnthropicProvider {
             .timeout(timeout)
             .build()
             .map_err(|e| SummaryError::Other(format!("reqwest build: {e}")))?;
-        Ok(Self { api_key, model, max_input_tokens, max_output_tokens, client })
+        Ok(Self {
+            api_key,
+            model,
+            max_input_tokens,
+            max_output_tokens,
+            client,
+        })
     }
 }
 
 #[async_trait]
 impl SummaryProvider for AnthropicProvider {
-    fn kind(&self) -> ProviderKind { ProviderKind::Anthropic }
-    fn model_id(&self) -> &str { &self.model }
-    fn max_input_tokens(&self) -> usize { self.max_input_tokens }
-    fn max_output_tokens(&self) -> usize { self.max_output_tokens }
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::Anthropic
+    }
+    fn model_id(&self) -> &str {
+        &self.model
+    }
+    fn max_input_tokens(&self) -> usize {
+        self.max_input_tokens
+    }
+    fn max_output_tokens(&self) -> usize {
+        self.max_output_tokens
+    }
 
     async fn health_check(&self) -> Result<(), SummaryError> {
         // Cheapest valid call: send a 1-token request.
@@ -84,15 +98,25 @@ impl SummaryProvider for AnthropicProvider {
             model: &self.model,
             max_tokens: 1,
             system: "Reply with just OK.",
-            messages: [UserMessage { role: "user", content: "ok" }],
+            messages: [UserMessage {
+                role: "user",
+                content: "ok",
+            }],
         };
-        let resp = self.client.post("https://api.anthropic.com/v1/messages")
+        let resp = self
+            .client
+            .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
-            .json(&body).send().await
+            .json(&body)
+            .send()
+            .await
             .map_err(|e| SummaryError::Unhealthy(format!("anthropic health: {e}")))?;
         if !resp.status().is_success() {
-            return Err(SummaryError::Unhealthy(format!("anthropic returned {}", resp.status())));
+            return Err(SummaryError::Unhealthy(format!(
+                "anthropic returned {}",
+                resp.status()
+            )));
         }
         Ok(())
     }
@@ -107,12 +131,19 @@ impl SummaryProvider for AnthropicProvider {
             model: &self.model,
             max_tokens: max_output_tokens as u32,
             system: system_prompt,
-            messages: [UserMessage { role: "user", content: user_prompt }],
+            messages: [UserMessage {
+                role: "user",
+                content: user_prompt,
+            }],
         };
-        let resp = self.client.post("https://api.anthropic.com/v1/messages")
+        let resp = self
+            .client
+            .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
-            .json(&body).send().await
+            .json(&body)
+            .send()
+            .await
             .map_err(|e| SummaryError::Network(format!("anthropic POST: {e}")))?;
         let status = resp.status();
         if status == reqwest::StatusCode::NOT_FOUND {
@@ -123,11 +154,18 @@ impl SummaryProvider for AnthropicProvider {
         }
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(SummaryError::Other(format!("anthropic returned {}: {}", status, body)));
+            return Err(SummaryError::Other(format!(
+                "anthropic returned {}: {}",
+                status, body
+            )));
         }
-        let parsed: MessagesResponse = resp.json().await
+        let parsed: MessagesResponse = resp
+            .json()
+            .await
             .map_err(|e| SummaryError::Other(format!("decode anthropic: {e}")))?;
-        let content = parsed.content.iter()
+        let content = parsed
+            .content
+            .iter()
             .filter(|b| b.block_type == "text")
             .map(|b| b.text.as_str())
             .collect::<Vec<_>>()
@@ -149,7 +187,8 @@ mod tests {
         let r = AnthropicProvider::new(
             "  ".into(),
             "claude-haiku-4-5-20251001".into(),
-            16384, 1500,
+            16384,
+            1500,
             Duration::from_secs(30),
         );
         assert!(r.is_err());
@@ -160,9 +199,11 @@ mod tests {
         let p = AnthropicProvider::new(
             "sk-ant-test".into(),
             "claude-haiku-4-5-20251001".into(),
-            16384, 1500,
+            16384,
+            1500,
             Duration::from_secs(30),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(p.kind(), ProviderKind::Anthropic);
     }
 }

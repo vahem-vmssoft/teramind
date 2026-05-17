@@ -1,6 +1,10 @@
 use std::io::Read;
 use teramind_hook::{hook_input::HookInput, inbox, spawn, translate};
-use teramind_ipc::{client::{IpcClient, StreamClient}, proto::Notify, transport::{connect, default_socket_path}};
+use teramind_ipc::{
+    client::{IpcClient, StreamClient},
+    proto::Notify,
+    transport::{connect, default_socket_path},
+};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -8,7 +12,10 @@ async fn main() {
     if args.iter().any(|a| a == "--selftest") {
         match teramind_hook::selftest::run() {
             Ok(()) => std::process::exit(0),
-            Err(e) => { eprintln!("teramind-hook selftest FAILED: {e}"); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("teramind-hook selftest FAILED: {e}");
+                std::process::exit(1);
+            }
         }
     }
     let mut buf = String::new();
@@ -37,9 +44,14 @@ async fn main() {
         }
     };
     let mut client = StreamClient::new(stream);
-    let is_session_start = matches!(envelope.event, teramind_core::types::ingest_event::IngestEvent::SessionStart { .. });
+    let is_session_start = matches!(
+        envelope.event,
+        teramind_core::types::ingest_event::IngestEvent::SessionStart { .. }
+    );
     let session_cwd = match &envelope.event {
-        teramind_core::types::ingest_event::IngestEvent::SessionStart { cwd, .. } => Some(cwd.clone()),
+        teramind_core::types::ingest_event::IngestEvent::SessionStart { cwd, .. } => {
+            Some(cwd.clone())
+        }
         _ => None,
     };
     let _ = client.notify(Notify::Ingest(envelope.clone())).await;
@@ -48,7 +60,9 @@ async fn main() {
     if is_session_start {
         if let Some(cwd) = session_cwd {
             // Best-effort auto-recall — cap at 2s so we don't block Claude.
-            let _ = teramind_hook::auto_recall::run(&socket, cwd, std::time::Duration::from_secs(2)).await;
+            let _ =
+                teramind_hook::auto_recall::run(&socket, cwd, std::time::Duration::from_secs(2))
+                    .await;
         }
     }
 

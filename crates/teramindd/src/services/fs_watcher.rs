@@ -70,32 +70,43 @@ impl WatchRegistry {
         let filter = IgnoreFilter::for_root(&cwd);
         let filter_for_cb = filter.clone();
         let gaps = self.gaps_counter.clone();
-        let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-            let ev = match res {
-                Ok(ev) => ev,
-                Err(_) => {
-                    gaps.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let mut watcher =
+            notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+                let ev = match res {
+                    Ok(ev) => ev,
+                    Err(_) => {
+                        gaps.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        return;
+                    }
+                };
+                if !matches!(
+                    ev.kind,
+                    EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
+                ) {
                     return;
                 }
-            };
-            if !matches!(ev.kind,
-                EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
-            ) {
-                return;
-            }
-            for p in ev.paths {
-                if filter_for_cb.is_ignored(&p) { continue; }
-                let _ = tx.send(RawEvent {
-                    cwd: cwd_for_cb.clone(),
-                    abs_path: p,
-                    at: OffsetDateTime::now_utc(),
-                });
-            }
-        })?;
+                for p in ev.paths {
+                    if filter_for_cb.is_ignored(&p) {
+                        continue;
+                    }
+                    let _ = tx.send(RawEvent {
+                        cwd: cwd_for_cb.clone(),
+                        abs_path: p,
+                        at: OffsetDateTime::now_utc(),
+                    });
+                }
+            })?;
         watcher.watch(&cwd, RecursiveMode::Recursive)?;
         let mut sessions = HashSet::new();
         sessions.insert(session);
-        g.insert(cwd, WatchEntry { sessions, watcher, filter });
+        g.insert(
+            cwd,
+            WatchEntry {
+                sessions,
+                watcher,
+                filter,
+            },
+        );
         Ok(())
     }
 
@@ -259,9 +270,7 @@ async fn handle_event(deps: &FsWatcherDeps, ev: RawEvent) -> anyhow::Result<()> 
     }
 
     // 7. Update snapshot cache with the new content.
-    deps.cache
-        .put(ev.cwd.clone(), rel_path, post)
-        .await;
+    deps.cache.put(ev.cwd.clone(), rel_path, post).await;
 
     debug!(abs_path = ?ev.abs_path, "fs_watcher emitted FileDiff");
     Ok(())
@@ -273,7 +282,11 @@ async fn handle_event(deps: &FsWatcherDeps, ev: RawEvent) -> anyhow::Result<()> 
 async fn decide_attribution(
     deps: &FsWatcherDeps,
     ev_cwd: &Path,
-) -> (Option<SessionId>, Option<teramind_core::ids::TurnId>, Attribution) {
+) -> (
+    Option<SessionId>,
+    Option<teramind_core::ids::TurnId>,
+    Attribution,
+) {
     let sessions: Vec<SessionId> = {
         let g = deps.registry.inner.lock().await;
         match g.get(ev_cwd) {
@@ -332,12 +345,16 @@ mod tests {
         let reg = WatchRegistry::new(tx, fresh_counter());
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("a.rs"), "x").unwrap();
-        reg.register(dir.path().to_path_buf(), SessionId::new()).await.unwrap();
+        reg.register(dir.path().to_path_buf(), SessionId::new())
+            .await
+            .unwrap();
         // Modify the file.
         std::fs::write(dir.path().join("a.rs"), "y").unwrap();
         // Wait briefly for notify to fire.
         let evt = tokio::time::timeout(Duration::from_secs(2), rx.recv())
-            .await.expect("timed out").expect("channel closed");
+            .await
+            .expect("timed out")
+            .expect("channel closed");
         assert!(evt.abs_path.ends_with("a.rs"), "got {:?}", evt.abs_path);
     }
 
@@ -350,17 +367,28 @@ mod tests {
         let p = PathBuf::from("/p/a.rs");
         let now = OffsetDateTime::now_utc();
         for _ in 0..5 {
-            deb.enqueue(RawEvent { cwd: cwd.clone(), abs_path: p.clone(), at: now }).await;
+            deb.enqueue(RawEvent {
+                cwd: cwd.clone(),
+                abs_path: p.clone(),
+                at: now,
+            })
+            .await;
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
         // After the 80ms quiet period we should get exactly one resolved event.
         let first = tokio::time::timeout(Duration::from_millis(500), out_rx.recv())
-            .await.expect("timeout").unwrap();
+            .await
+            .expect("timeout")
+            .unwrap();
         assert_eq!(first.abs_path, p);
 
         // No additional events expected.
         let extra = tokio::time::timeout(Duration::from_millis(150), out_rx.recv()).await;
-        assert!(extra.is_err(), "expected no further events, got {:?}", extra.unwrap());
+        assert!(
+            extra.is_err(),
+            "expected no further events, got {:?}",
+            extra.unwrap()
+        );
     }
 
     #[tokio::test]
@@ -374,12 +402,15 @@ mod tests {
                 cwd: cwd.clone(),
                 abs_path: PathBuf::from(format!("/p/f{i}.rs")),
                 at: OffsetDateTime::now_utc(),
-            }).await;
+            })
+            .await;
         }
         // Drain 5 events.
         for _ in 0..5 {
             let _ = tokio::time::timeout(Duration::from_millis(500), out_rx.recv())
-                .await.expect("timeout").expect("closed");
+                .await
+                .expect("timeout")
+                .expect("closed");
         }
         // Give the loop a chance to receive the done signals.
         tokio::time::sleep(Duration::from_millis(50)).await;

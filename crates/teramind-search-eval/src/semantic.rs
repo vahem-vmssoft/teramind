@@ -25,8 +25,8 @@ pub async fn run_with_semantic(
 
     let cor = corpus::load(corpus_root)?;
     let size = CorpusSize {
-        sessions:   cor.sessions.len()   as u32,
-        turns:      cor.turns.len()      as u32,
+        sessions: cor.sessions.len() as u32,
+        turns: cor.turns.len() as u32,
         tool_calls: cor.tool_calls.len() as u32,
         file_diffs: cor.file_diffs.len() as u32,
     };
@@ -37,8 +37,9 @@ pub async fn run_with_semantic(
         .map_err(|e| anyhow::anyhow!("provider init: {e}. Is Ollama running?"))?;
     let model = format!("ollama:{}", cfg.model);
 
-    provider.health_check().await
-        .map_err(|e| anyhow::anyhow!("provider health: {e}. Is Ollama running with the model pulled?"))?;
+    provider.health_check().await.map_err(|e| {
+        anyhow::anyhow!("provider health: {e}. Is Ollama running with the model pulled?")
+    })?;
     info!("eval-semantic: provider {} healthy", provider.model_id());
 
     let embed_repo = EmbeddingRepo::new(pool.clone());
@@ -51,29 +52,49 @@ pub async fn run_with_semantic(
     let mut latencies: Vec<u128> = Vec::with_capacity(QUERIES.len());
     for q in QUERIES {
         let started = Instant::now();
-        let q_vec = provider.embed(&[q.text.to_string()]).await
-            .map(|mut v| v.pop()).ok().flatten();
+        let q_vec = provider
+            .embed(&[q.text.to_string()])
+            .await
+            .map(|mut v| v.pop())
+            .ok()
+            .flatten();
         let fts = search.fts_turns(q.text, 10).await.unwrap_or_default();
         let diffs = search.trgm_diffs(q.text, 10).await.unwrap_or_default();
         let sem_turns = match q_vec.as_ref() {
-            Some(v) => search.vector_search_turns(v, &model, 10).await.unwrap_or_default(),
+            Some(v) => search
+                .vector_search_turns(v, &model, 10)
+                .await
+                .unwrap_or_default(),
             None => vec![],
         };
         let sem_diffs = match q_vec.as_ref() {
-            Some(v) => search.vector_search_diffs(v, &model, 10).await.unwrap_or_default(),
+            Some(v) => search
+                .vector_search_diffs(v, &model, 10)
+                .await
+                .unwrap_or_default(),
             None => vec![],
         };
         let elapsed = started.elapsed().as_millis();
         latencies.push(elapsed);
 
         let mut hit_ids: Vec<String> = Vec::with_capacity(40);
-        for f in &fts       { hit_ids.push(format!("turn:{}", f.turn_id)); }
-        for d in &diffs     { hit_ids.push(format!("diff:{}", d.diff_id)); }
-        for s in &sem_turns { hit_ids.push(format!("turn:{}", s.turn_id)); }
-        for s in &sem_diffs { hit_ids.push(format!("diff:{}", s.diff_id)); }
+        for f in &fts {
+            hit_ids.push(format!("turn:{}", f.turn_id));
+        }
+        for d in &diffs {
+            hit_ids.push(format!("diff:{}", d.diff_id));
+        }
+        for s in &sem_turns {
+            hit_ids.push(format!("turn:{}", s.turn_id));
+        }
+        for s in &sem_diffs {
+            hit_ids.push(format!("diff:{}", s.diff_id));
+        }
 
         let relevance = crate::harness::relevance_for(&qrels, q.id, &hit_ids);
-        let total_rel = qrels.judgments.get(q.id)
+        let total_rel = qrels
+            .judgments
+            .get(q.id)
             .map(|v| v.iter().filter(|j| j.grade > 0).count() as u32)
             .unwrap_or(0);
 
@@ -91,12 +112,16 @@ pub async fn run_with_semantic(
     let report = reporter::aggregate(&per_query, size, p95_ms);
 
     std::fs::create_dir_all(out_dir)?;
-    std::fs::write(out_dir.join("eval-results-semantic.json"),
-                   serde_json::to_string_pretty(&report)?)?;
-    std::fs::write(out_dir.join("eval-scorecard-semantic.md"),
-                   reporter::render_markdown(&report))?;
+    std::fs::write(
+        out_dir.join("eval-results-semantic.json"),
+        serde_json::to_string_pretty(&report)?,
+    )?;
+    std::fs::write(
+        out_dir.join("eval-scorecard-semantic.md"),
+        reporter::render_markdown(&report),
+    )?;
 
-    let _ = semantic_weight;  // wire to blend in v1.0.1 (paraphrase corpus)
+    let _ = semantic_weight; // wire to blend in v1.0.1 (paraphrase corpus)
 
     println!(
         "teramind-search-eval (semantic): nDCG@10={:.3} MRR={:.3} p95={}ms ({} queries)",
@@ -115,11 +140,16 @@ async fn fill_all_embeddings(
 ) -> anyhow::Result<()> {
     loop {
         let rows = repo.fetch_to_embed(model, 32).await?;
-        if rows.is_empty() { break; }
+        if rows.is_empty() {
+            break;
+        }
         let texts: Vec<String> = rows.iter().map(|r| r.text.clone()).collect();
-        let vectors = provider.embed(&texts).await
+        let vectors = provider
+            .embed(&texts)
+            .await
             .map_err(|e| anyhow::anyhow!("embed: {e}"))?;
-        repo.bulk_insert(&rows, model, provider.dimension() as i32, &vectors).await?;
+        repo.bulk_insert(&rows, model, provider.dimension() as i32, &vectors)
+            .await?;
     }
     Ok(())
 }

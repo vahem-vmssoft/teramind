@@ -5,3 +5,5 @@ pub mod config;
 pub mod paths;
 pub mod services;
 pub mod signals;
+
+pub use crate::services::ingest::{route_with_deps, IngestAuth, RouteDeps};

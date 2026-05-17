@@ -11,7 +11,11 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
     let ts = OffsetDateTime::now_utc();
     let client_event_id = ClientEventId::new();
     let event = match input {
-        HookInput::SessionStart { session_id, cwd, source: _ } => IngestEvent::SessionStart {
+        HookInput::SessionStart {
+            session_id,
+            cwd,
+            source: _,
+        } => IngestEvent::SessionStart {
             session_id: claude_session_to_uuid(&session_id),
             agent_session_id: Some(session_id),
             agent_kind: "claude_code".to_string(),
@@ -22,7 +26,11 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
             git_head: None,
             git_branch: None,
         },
-        HookInput::UserPromptSubmit { session_id, cwd: _, prompt } => {
+        HookInput::UserPromptSubmit {
+            session_id,
+            cwd: _,
+            prompt,
+        } => {
             let ordinal = next_turn_ordinal(&session_id);
             let sid_uuid = claude_session_to_uuid(&session_id);
             let turn_id = claude_turn_to_uuid(sid_uuid, ordinal);
@@ -33,7 +41,12 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 turn_id: Some(turn_id),
             }
         }
-        HookInput::PreToolUse { session_id, cwd: _, tool_name, tool_input } => {
+        HookInput::PreToolUse {
+            session_id,
+            cwd: _,
+            tool_name,
+            tool_input,
+        } => {
             let sid_uuid = claude_session_to_uuid(&session_id);
             let turn_ord = current_turn_ordinal(&session_id);
             let turn_id = claude_turn_to_uuid(sid_uuid, turn_ord);
@@ -47,10 +60,14 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 input: tool_input,
             }
         }
-        HookInput::PreCompact { session_id, cwd: _ } => {
-            IngestEvent::PreCompact { session_id: claude_session_to_uuid(&session_id) }
-        }
-        HookInput::Stop { session_id, cwd: _, stop_hook_active } => {
+        HookInput::PreCompact { session_id, cwd: _ } => IngestEvent::PreCompact {
+            session_id: claude_session_to_uuid(&session_id),
+        },
+        HookInput::Stop {
+            session_id,
+            cwd: _,
+            stop_hook_active,
+        } => {
             if stop_hook_active {
                 return None;
             }
@@ -59,7 +76,14 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
                 reason: "stop_hook".to_string(),
             }
         }
-        HookInput::PostToolUse { session_id, cwd: _, tool_name, tool_input: _, tool_response, is_error } => {
+        HookInput::PostToolUse {
+            session_id,
+            cwd: _,
+            tool_name,
+            tool_input: _,
+            tool_response,
+            is_error,
+        } => {
             let sid_uuid = claude_session_to_uuid(&session_id);
             let turn_ord = current_turn_ordinal(&session_id);
             let turn_id = claude_turn_to_uuid(sid_uuid, turn_ord);
@@ -77,22 +101,32 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
         }
         _ => return None,
     };
-    Some(EventEnvelope { client_event_id, ts, event })
+    Some(EventEnvelope {
+        client_event_id,
+        ts,
+        event,
+    })
 }
 
 fn hostname() -> Option<String> {
     std::env::var("HOSTNAME").ok().or_else(|| {
-        #[cfg(unix)] {
-            std::fs::read_to_string("/etc/hostname").ok().map(|s| s.trim().to_string())
+        #[cfg(unix)]
+        {
+            std::fs::read_to_string("/etc/hostname")
+                .ok()
+                .map(|s| s.trim().to_string())
         }
-        #[cfg(windows)] {
+        #[cfg(windows)]
+        {
             std::env::var("COMPUTERNAME").ok()
         }
     })
 }
 
 fn whoami_login() -> Option<String> {
-    std::env::var("USER").ok().or_else(|| std::env::var("USERNAME").ok())
+    std::env::var("USER")
+        .ok()
+        .or_else(|| std::env::var("USERNAME").ok())
 }
 
 use std::path::PathBuf;
@@ -105,7 +139,8 @@ fn next_turn_ordinal(session_id: &str) -> i32 {
         return 0;
     }
     let path: PathBuf = dir.join(format!("{session_id}.count"));
-    let current: i32 = std::fs::read_to_string(&path).ok()
+    let current: i32 = std::fs::read_to_string(&path)
+        .ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(-1);
     let next = current + 1;
@@ -115,8 +150,8 @@ fn next_turn_ordinal(session_id: &str) -> i32 {
 
 pub fn claude_turn_to_uuid(session_id: SessionId, turn_ordinal: i32) -> TurnId {
     const NAMESPACE: Uuid = Uuid::from_bytes([
-        0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x07, 0x18,
-        0x29, 0x3a, 0x4b, 0x5c, 0x6d, 0x7e, 0x8f, 0x90,
+        0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x07, 0x18, 0x29, 0x3a, 0x4b, 0x5c, 0x6d, 0x7e, 0x8f,
+        0x90,
     ]);
     let mut bytes = [0u8; 20];
     bytes[..16].copy_from_slice(session_id.0.as_bytes());
@@ -125,16 +160,19 @@ pub fn claude_turn_to_uuid(session_id: SessionId, turn_ordinal: i32) -> TurnId {
 }
 
 fn current_turn_ordinal(session_id: &str) -> i32 {
-    let path = teramind_state_dir().join("turns").join(format!("{session_id}.count"));
-    std::fs::read_to_string(&path).ok()
+    let path = teramind_state_dir()
+        .join("turns")
+        .join(format!("{session_id}.count"));
+    std::fs::read_to_string(&path)
+        .ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(0)
 }
 
 pub fn claude_tool_call_to_uuid(turn_id: TurnId, tool_ordinal: i32) -> ToolCallId {
     const NAMESPACE: Uuid = Uuid::from_bytes([
-        0xc1, 0xd2, 0xe3, 0xf4, 0x05, 0x16, 0x27, 0x38,
-        0x49, 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0xaf, 0xb0,
+        0xc1, 0xd2, 0xe3, 0xf4, 0x05, 0x16, 0x27, 0x38, 0x49, 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0xaf,
+        0xb0,
     ]);
     let mut bytes = [0u8; 20];
     bytes[..16].copy_from_slice(turn_id.0.as_bytes());
@@ -143,8 +181,11 @@ pub fn claude_tool_call_to_uuid(turn_id: TurnId, tool_ordinal: i32) -> ToolCallI
 }
 
 fn current_tool_ordinal(session_id: &str, turn_ordinal: i32) -> i32 {
-    let path = teramind_state_dir().join("tools").join(format!("{session_id}-{turn_ordinal}.count"));
-    std::fs::read_to_string(&path).ok()
+    let path = teramind_state_dir()
+        .join("tools")
+        .join(format!("{session_id}-{turn_ordinal}.count"));
+    std::fs::read_to_string(&path)
+        .ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(0)
 }
@@ -155,7 +196,8 @@ fn next_tool_ordinal(session_id: &str, turn_ordinal: i32) -> i32 {
         return 0;
     }
     let path = dir.join(format!("{session_id}-{turn_ordinal}.count"));
-    let current: i32 = std::fs::read_to_string(&path).ok()
+    let current: i32 = std::fs::read_to_string(&path)
+        .ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(-1);
     let next = current + 1;
@@ -164,15 +206,20 @@ fn next_tool_ordinal(session_id: &str, turn_ordinal: i32) -> i32 {
 }
 
 fn teramind_state_dir() -> PathBuf {
-    #[cfg(unix)] {
-        let home = std::env::var_os("HOME").map(PathBuf::from)
+    #[cfg(unix)]
+    {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/tmp"));
-        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from)
+        std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
             .unwrap_or_else(|| home.join(".local/share"))
             .join("teramind")
     }
-    #[cfg(windows)] {
-        std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+    #[cfg(windows)]
+    {
+        std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from(r"C:\Temp"))
             .join("teramind")
     }
@@ -182,8 +229,8 @@ fn teramind_state_dir() -> PathBuf {
 /// Uses UUID v5 with a fixed namespace so multiple hook invocations agree.
 pub fn claude_session_to_uuid(claude_session: &str) -> SessionId {
     const NAMESPACE: Uuid = Uuid::from_bytes([
-        0x4b, 0x37, 0x8a, 0x7e, 0xb1, 0x4a, 0x4c, 0x2b,
-        0x8a, 0x90, 0x6e, 0x6d, 0x6c, 0x6c, 0x77, 0x6f,
+        0x4b, 0x37, 0x8a, 0x7e, 0xb1, 0x4a, 0x4c, 0x2b, 0x8a, 0x90, 0x6e, 0x6d, 0x6c, 0x6c, 0x77,
+        0x6f,
     ]);
     SessionId(Uuid::new_v5(&NAMESPACE, claude_session.as_bytes()))
 }
@@ -208,7 +255,10 @@ mod tests {
 
     #[test]
     fn translates_pre_compact() {
-        let input = HookInput::PreCompact { session_id: "abc-pc".into(), cwd: "/w".into() };
+        let input = HookInput::PreCompact {
+            session_id: "abc-pc".into(),
+            cwd: "/w".into(),
+        };
         let env = translate(input).expect("must translate");
         matches!(env.event, IngestEvent::PreCompact { .. });
     }
@@ -250,8 +300,13 @@ mod tests {
         let env = translate(input).expect("must translate");
         match env.event {
             IngestEvent::ToolCallEnd {
-                tool_call_id, output, is_error, duration_ms,
-                session_id, turn_id, tool_name
+                tool_call_id,
+                output,
+                is_error,
+                duration_ms,
+                session_id,
+                turn_id,
+                tool_name,
             } => {
                 let expected_turn = claude_turn_to_uuid(claude_session_to_uuid(&sid), 0);
                 let expected_tc = claude_tool_call_to_uuid(expected_turn, 0);
@@ -279,8 +334,17 @@ mod tests {
         };
         let env = translate(input).expect("must translate");
         match env.event {
-            IngestEvent::ToolCallStart { turn_id, ordinal, name, input, tool_call_id } => {
-                assert_eq!(turn_id, claude_turn_to_uuid(claude_session_to_uuid(&sid), 0));
+            IngestEvent::ToolCallStart {
+                turn_id,
+                ordinal,
+                name,
+                input,
+                tool_call_id,
+            } => {
+                assert_eq!(
+                    turn_id,
+                    claude_turn_to_uuid(claude_session_to_uuid(&sid), 0)
+                );
                 assert_eq!(ordinal, 0);
                 assert_eq!(name, "Edit");
                 assert_eq!(input["file_path"], "/w/x.rs");
@@ -303,7 +367,12 @@ mod tests {
         };
         let env = translate(input).expect("must translate");
         match env.event {
-            IngestEvent::UserPrompt { session_id, turn_ordinal, prompt, turn_id } => {
+            IngestEvent::UserPrompt {
+                session_id,
+                turn_ordinal,
+                prompt,
+                turn_id,
+            } => {
                 assert_eq!(session_id, claude_session_to_uuid(&sid));
                 assert_eq!(turn_ordinal, 0);
                 assert_eq!(prompt, "hello");
@@ -312,8 +381,11 @@ mod tests {
             other => panic!("expected UserPrompt, got {other:?}"),
         }
         let env2 = translate(HookInput::UserPromptSubmit {
-            session_id: sid, cwd: "/w".into(), prompt: "next".into(),
-        }).unwrap();
+            session_id: sid,
+            cwd: "/w".into(),
+            prompt: "next".into(),
+        })
+        .unwrap();
         if let IngestEvent::UserPrompt { turn_ordinal, .. } = env2.event {
             assert_eq!(turn_ordinal, 1);
         }
@@ -328,7 +400,12 @@ mod tests {
         };
         let env = translate(input).expect("must translate");
         match env.event {
-            IngestEvent::SessionStart { session_id, cwd, agent_kind, .. } => {
+            IngestEvent::SessionStart {
+                session_id,
+                cwd,
+                agent_kind,
+                ..
+            } => {
                 assert_eq!(session_id, claude_session_to_uuid("abc-123"));
                 assert_eq!(cwd, "/work");
                 assert_eq!(agent_kind, "claude_code");

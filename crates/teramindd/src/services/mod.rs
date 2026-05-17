@@ -1,4 +1,5 @@
 pub mod diff_engine;
+pub mod embed;
 pub mod embedding_worker;
 pub mod fs_watcher;
 pub mod git_index;
@@ -12,7 +13,6 @@ pub mod search;
 pub mod session_manager;
 pub mod snapshot_cache;
 pub mod storage_stats;
-pub mod write_tool_ring;
-pub mod embed;
 pub mod summarize;
 pub mod summarizer_worker;
+pub mod write_tool_ring;

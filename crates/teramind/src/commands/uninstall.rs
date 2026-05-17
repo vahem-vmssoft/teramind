@@ -42,13 +42,23 @@ pub async fn run(purge: bool, confirm: bool) -> anyhow::Result<()> {
     for r in &reports {
         println!(
             "{} {}",
-            if r.removed { "[removed]" } else if r.existed { "[skipped]" } else { "[absent]" },
+            if r.removed {
+                "[removed]"
+            } else if r.existed {
+                "[skipped]"
+            } else {
+                "[absent]"
+            },
             r.path.display()
         );
     }
     println!(
         "teramind uninstall: done{}",
-        if purge { " (data + config also removed)" } else { " (data preserved; --purge to remove it)" },
+        if purge {
+            " (data + config also removed)"
+        } else {
+            " (data preserved; --purge to remove it)"
+        },
     );
     Ok(())
 }
@@ -57,12 +67,18 @@ fn install_root_from_env() -> PathBuf {
     if let Some(p) = std::env::var_os("TERAMIND_INSTALL_ROOT") {
         return PathBuf::from(p);
     }
-    #[cfg(unix)] {
-        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    #[cfg(unix)]
+    {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default();
         home.join(".local/share/teramind")
     }
-    #[cfg(windows)] {
-        let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_default();
+    #[cfg(windows)]
+    {
+        let local = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_default();
         local.join("teramind")
     }
 }
@@ -71,34 +87,64 @@ fn symlink_target_from_env() -> PathBuf {
     if let Some(p) = std::env::var_os("TERAMIND_BIN_SYMLINK") {
         return PathBuf::from(p);
     }
-    #[cfg(unix)] {
-        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    #[cfg(unix)]
+    {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default();
         home.join(".local/bin/teramind")
     }
-    #[cfg(windows)] {
+    #[cfg(windows)]
+    {
         // No symlink on Windows; install.ps1 prepends bin dir to PATH instead.
         PathBuf::new()
     }
 }
 
 fn format_exe(name: &str) -> String {
-    #[cfg(windows)] { format!("{name}.exe") }
-    #[cfg(unix)] { name.to_string() }
+    #[cfg(windows)]
+    {
+        format!("{name}.exe")
+    }
+    #[cfg(unix)]
+    {
+        name.to_string()
+    }
 }
 
 fn remove_if_exists(p: &Path) -> RemovalReport {
     if p.as_os_str().is_empty() {
-        return RemovalReport { path: p.into(), existed: false, removed: false };
+        return RemovalReport {
+            path: p.into(),
+            existed: false,
+            removed: false,
+        };
     }
     let existed = p.exists() || p.symlink_metadata().is_ok();
-    let removed = if existed { std::fs::remove_file(p).is_ok() } else { false };
-    RemovalReport { path: p.into(), existed, removed }
+    let removed = if existed {
+        std::fs::remove_file(p).is_ok()
+    } else {
+        false
+    };
+    RemovalReport {
+        path: p.into(),
+        existed,
+        removed,
+    }
 }
 
 fn remove_dir_if_exists(p: &Path) -> RemovalReport {
     let existed = p.exists();
-    let removed = if existed { std::fs::remove_dir_all(p).is_ok() } else { false };
-    RemovalReport { path: p.into(), existed, removed }
+    let removed = if existed {
+        std::fs::remove_dir_all(p).is_ok()
+    } else {
+        false
+    };
+    RemovalReport {
+        path: p.into(),
+        existed,
+        removed,
+    }
 }
 
 #[cfg(test)]
@@ -147,7 +193,9 @@ mod tests {
     #[test]
     fn format_exe_is_platform_aware() {
         let n = format_exe("teramind");
-        #[cfg(windows)] assert_eq!(n, "teramind.exe");
-        #[cfg(unix)] assert_eq!(n, "teramind");
+        #[cfg(windows)]
+        assert_eq!(n, "teramind.exe");
+        #[cfg(unix)]
+        assert_eq!(n, "teramind");
     }
 }

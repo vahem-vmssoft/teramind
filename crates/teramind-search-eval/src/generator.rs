@@ -6,7 +6,7 @@
 
 use crate::corpus::{Corpus, FileDiffRow, SessionRow, ToolCallRow, TurnRow};
 use crate::queries_bank::QUERIES;
-use crate::types::{Judgment, QrelsFile, Query, QueryClass, QueriesFile};
+use crate::types::{Judgment, QrelsFile, QueriesFile, Query, QueryClass};
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
@@ -27,10 +27,41 @@ struct Template {
 }
 
 const TEMPLATES: &[Template] = &[
-    Template { tag: "rust-web",    cwd: "/proj/rust-web",    seed_tokens: &["axum router", "tower middleware", "serde_json", "tokio spawn"] },
-    Template { tag: "python-data", cwd: "/proj/python-data", seed_tokens: &["pandas DataFrame", "scikit-learn", "numpy vectorize", "matplotlib"] },
-    Template { tag: "ts-react",    cwd: "/proj/ts-react",    seed_tokens: &["useState hook", "react-query", "tsx Component", "tailwind"] },
-    Template { tag: "go-cli",      cwd: "/proj/go-cli",      seed_tokens: &["cobra command", "context.Context", "errgroup.Wait", "flag.StringVar"] },
+    Template {
+        tag: "rust-web",
+        cwd: "/proj/rust-web",
+        seed_tokens: &[
+            "axum router",
+            "tower middleware",
+            "serde_json",
+            "tokio spawn",
+        ],
+    },
+    Template {
+        tag: "python-data",
+        cwd: "/proj/python-data",
+        seed_tokens: &[
+            "pandas DataFrame",
+            "scikit-learn",
+            "numpy vectorize",
+            "matplotlib",
+        ],
+    },
+    Template {
+        tag: "ts-react",
+        cwd: "/proj/ts-react",
+        seed_tokens: &["useState hook", "react-query", "tsx Component", "tailwind"],
+    },
+    Template {
+        tag: "go-cli",
+        cwd: "/proj/go-cli",
+        seed_tokens: &[
+            "cobra command",
+            "context.Context",
+            "errgroup.Wait",
+            "flag.StringVar",
+        ],
+    },
 ];
 
 pub fn generate_to(dest: &Path, scale: u32) -> anyhow::Result<()> {
@@ -48,7 +79,8 @@ pub fn generate_to(dest: &Path, scale: u32) -> anyhow::Result<()> {
 }
 
 fn build(rng: &mut ChaCha20Rng, scale: u32) -> (Corpus, QrelsFile) {
-    let triggers_by_query: Vec<(String, QueryClass, &'static [&'static str])> = QUERIES.iter()
+    let triggers_by_query: Vec<(String, QueryClass, &'static [&'static str])> = QUERIES
+        .iter()
         .map(|q| (q.id.to_string(), q.class, q.triggers))
         .collect();
 
@@ -88,11 +120,17 @@ fn build(rng: &mut ChaCha20Rng, scale: u32) -> (Corpus, QrelsFile) {
                 let (qid, class, triggers) = &triggers_by_query[qi];
                 let trig = pick_one(rng, triggers);
                 match class {
-                    QueryClass::NaturalLanguage => { prompt.push_str(&format!(" -- {}", trig)); }
-                    QueryClass::StackTrace      => { assistant.push_str(&format!("\n{}", trig)); }
-                    QueryClass::SymbolicPath    => { assistant.push_str(&format!(" using {}", trig)); }
-                    QueryClass::CodeSnippet     => { /* planted in the file_diff below */ }
-                    QueryClass::ToolTyped       => { /* planted in the tool_call below */ }
+                    QueryClass::NaturalLanguage => {
+                        prompt.push_str(&format!(" -- {}", trig));
+                    }
+                    QueryClass::StackTrace => {
+                        assistant.push_str(&format!("\n{}", trig));
+                    }
+                    QueryClass::SymbolicPath => {
+                        assistant.push_str(&format!(" using {}", trig));
+                    }
+                    QueryClass::CodeSnippet => { /* planted in the file_diff below */ }
+                    QueryClass::ToolTyped => { /* planted in the tool_call below */ }
                 }
                 qrels.entry(qid.clone()).or_default().push(Judgment {
                     item: format!("turn:{}", turn_id),
@@ -113,7 +151,10 @@ fn build(rng: &mut ChaCha20Rng, scale: u32) -> (Corpus, QrelsFile) {
             let n_tools: u32 = rng.gen_range(0..=2);
             for tc_idx in 0..n_tools {
                 let tool_id = deterministic_uuid(rng);
-                let mut tool_output = format!("ran {} successfully", pick_one(rng, &["test", "bench", "build"]));
+                let mut tool_output = format!(
+                    "ran {} successfully",
+                    pick_one(rng, &["test", "bench", "build"])
+                );
                 let mut tool_name = pick_one(rng, &["Bash", "Read", "Grep"]);
 
                 if let Some(qi) = chosen_query_idx {
@@ -170,7 +211,8 @@ fn build(rng: &mut ChaCha20Rng, scale: u32) -> (Corpus, QrelsFile) {
                     pre_excerpt,
                     post_excerpt,
                     unified_diff: "@@ stub @@".into(),
-                    captured_at: base_ts + time::Duration::seconds(s_idx as i64 * 60 + t_idx as i64),
+                    captured_at: base_ts
+                        + time::Duration::seconds(s_idx as i64 * 60 + t_idx as i64),
                 });
             }
         }
@@ -194,8 +236,8 @@ fn pick_one<'a>(rng: &mut ChaCha20Rng, slice: &'a [&'a str]) -> &'a str {
 fn write_outputs(dest: &Path, corpus: &Corpus, qrels: &QrelsFile) -> anyhow::Result<()> {
     let corpus_dir = dest.join("corpus");
     std::fs::create_dir_all(&corpus_dir)?;
-    write_jsonl(&corpus_dir.join("sessions.jsonl"),   &corpus.sessions)?;
-    write_jsonl(&corpus_dir.join("turns.jsonl"),      &corpus.turns)?;
+    write_jsonl(&corpus_dir.join("sessions.jsonl"), &corpus.sessions)?;
+    write_jsonl(&corpus_dir.join("turns.jsonl"), &corpus.turns)?;
     write_jsonl(&corpus_dir.join("tool_calls.jsonl"), &corpus.tool_calls)?;
     write_jsonl(&corpus_dir.join("file_diffs.jsonl"), &corpus.file_diffs)?;
     std::fs::write(dest.join("qrels.toml"), toml::to_string_pretty(qrels)?)?;
@@ -215,11 +257,14 @@ fn write_jsonl<T: Serialize>(path: &Path, rows: &[T]) -> anyhow::Result<()> {
 }
 
 fn build_queries_toml() -> anyhow::Result<String> {
-    let queries: Vec<Query> = QUERIES.iter().map(|q| Query {
-        id: q.id.into(),
-        class: q.class,
-        text: q.text.into(),
-    }).collect();
+    let queries: Vec<Query> = QUERIES
+        .iter()
+        .map(|q| Query {
+            id: q.id.into(),
+            class: q.class,
+            text: q.text.into(),
+        })
+        .collect();
     Ok(toml::to_string_pretty(&QueriesFile { queries })?)
 }
 

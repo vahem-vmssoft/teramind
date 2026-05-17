@@ -47,10 +47,16 @@ pub async fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
     let staging = tempfile::tempdir()?;
     extract_tarball(&bytes, staging.path())?;
 
-    let current_exe = std::env::current_exe()?;
-    let bin_dir = current_exe.parent()
-        .ok_or_else(|| anyhow::anyhow!("current_exe() has no parent dir"))?
-        .to_path_buf();
+    // TERAMIND_INSTALL_ROOT overrides the destination directory (useful in tests).
+    let bin_dir = if let Ok(root) = std::env::var("TERAMIND_INSTALL_ROOT") {
+        std::path::PathBuf::from(root)
+    } else {
+        let current_exe = std::env::current_exe()?;
+        current_exe
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("current_exe() has no parent dir"))?
+            .to_path_buf()
+    };
     swap_all(staging.path(), &bin_dir)?;
 
     println!("teramind self-update: upgraded {current} -> {latest}");
@@ -59,7 +65,11 @@ pub async fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
 
 fn swap_all(staging: &Path, bin_dir: &Path) -> anyhow::Result<()> {
     for name in ["teramind", "teramindd", "teramind-hook", "teramind-mcp"] {
-        let exe = if cfg!(windows) { format!("{name}.exe") } else { name.to_string() };
+        let exe = if cfg!(windows) {
+            format!("{name}.exe")
+        } else {
+            name.to_string()
+        };
         let staged = staging.join(&exe);
         if !staged.exists() {
             // Some archives may omit a binary intentionally (e.g. trimmed builds).
@@ -79,16 +89,17 @@ fn current_target_triple() -> String {
         return t.to_string();
     }
     let arch = std::env::consts::ARCH; // "x86_64" / "aarch64"
-    let os = std::env::consts::OS;     // "linux" / "macos" / "windows"
+    let os = std::env::consts::OS; // "linux" / "macos" / "windows"
     match (arch, os) {
-        ("aarch64", "macos")   => "aarch64-apple-darwin",
-        ("x86_64",  "macos")   => "x86_64-apple-darwin",
-        ("x86_64",  "linux")   => "x86_64-unknown-linux-gnu",
-        ("aarch64", "linux")   => "aarch64-unknown-linux-gnu",
-        ("x86_64",  "windows") => "x86_64-pc-windows-msvc",
+        ("aarch64", "macos") => "aarch64-apple-darwin",
+        ("x86_64", "macos") => "x86_64-apple-darwin",
+        ("x86_64", "linux") => "x86_64-unknown-linux-gnu",
+        ("aarch64", "linux") => "aarch64-unknown-linux-gnu",
+        ("x86_64", "windows") => "x86_64-pc-windows-msvc",
         ("aarch64", "windows") => "aarch64-pc-windows-msvc",
         _ => "unknown-unknown-unknown",
-    }.to_string()
+    }
+    .to_string()
 }
 
 async fn fetch_text(url: &str) -> anyhow::Result<String> {
@@ -100,7 +111,8 @@ async fn fetch_text(url: &str) -> anyhow::Result<String> {
         .user_agent(concat!("teramind/", env!("CARGO_PKG_VERSION")))
         .build()?
         .get(url)
-        .send().await?
+        .send()
+        .await?
         .error_for_status()?;
     Ok(res.text().await?)
 }
@@ -113,7 +125,8 @@ async fn fetch_bytes(url: &str) -> anyhow::Result<Vec<u8>> {
         .user_agent(concat!("teramind/", env!("CARGO_PKG_VERSION")))
         .build()?
         .get(url)
-        .send().await?
+        .send()
+        .await?
         .error_for_status()?;
     Ok(res.bytes().await?.to_vec())
 }
