@@ -60,6 +60,81 @@ impl Config {
     }
 }
 
+// ── CodifyConfig ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CodifyConfig {
+    #[serde(default = "CodifyConfig::default_provider")]
+    pub provider: String,
+    #[serde(default = "CodifyConfig::default_model")]
+    pub model: String,
+    #[serde(default = "CodifyConfig::default_input_char_budget")]
+    pub input_char_budget: usize,
+    #[serde(default = "CodifyConfig::default_output_token_budget")]
+    pub output_token_budget: u32,
+    #[serde(default = "CodifyConfig::default_poll_interval_secs")]
+    pub poll_interval_secs: u64,
+    #[serde(default = "CodifyConfig::default_autonomous_cycle_secs")]
+    pub autonomous_cycle_secs: u64,
+    #[serde(default = "CodifyConfig::default_min_observation_frequency")]
+    pub min_observation_frequency: i32,
+    #[serde(default = "CodifyConfig::default_max_pending_candidates")]
+    pub max_pending_candidates: i64,
+    #[serde(default = "CodifyConfig::default_digest_top_k")]
+    pub digest_top_k: usize,
+    #[serde(default)]
+    pub detectors: DetectorToggles,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DetectorToggles {
+    #[serde(default = "always_true")] pub tool_chain: bool,
+    #[serde(default = "always_true")] pub problem_fix: bool,
+    #[serde(default = "always_true")] pub llm_proposal: bool,
+}
+
+fn always_true() -> bool { true }
+
+impl Default for DetectorToggles {
+    fn default() -> Self {
+        Self { tool_chain: true, problem_fix: true, llm_proposal: true }
+    }
+}
+
+impl CodifyConfig {
+    fn default_provider() -> String { "ollama".into() }
+    fn default_model() -> String { "qwen3.6:latest".into() }
+    fn default_input_char_budget() -> usize { 24_000 }
+    fn default_output_token_budget() -> u32 { 1500 }
+    fn default_poll_interval_secs() -> u64 { 30 }
+    fn default_autonomous_cycle_secs() -> u64 { 21_600 }
+    fn default_min_observation_frequency() -> i32 { 3 }
+    fn default_max_pending_candidates() -> i64 { 50 }
+    fn default_digest_top_k() -> usize { 5 }
+
+    pub fn load_or_default(path: &std::path::Path) -> Self {
+        if !path.exists() {
+            return Self {
+                provider: Self::default_provider(),
+                model: Self::default_model(),
+                input_char_budget: Self::default_input_char_budget(),
+                output_token_budget: Self::default_output_token_budget(),
+                poll_interval_secs: Self::default_poll_interval_secs(),
+                autonomous_cycle_secs: Self::default_autonomous_cycle_secs(),
+                min_observation_frequency: Self::default_min_observation_frequency(),
+                max_pending_candidates: Self::default_max_pending_candidates(),
+                digest_top_k: Self::default_digest_top_k(),
+                detectors: Default::default(),
+            };
+        }
+        let raw = std::fs::read_to_string(path).unwrap_or_default();
+        toml::from_str(&raw).unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "failed to parse codify.toml; using defaults");
+            Self::load_or_default(std::path::Path::new("/nonexistent"))
+        })
+    }
+}
+
 // ── EmbedConfig ──────────────────────────────────────────────────────────────
 
 use teramind_core::embed::ProviderKind;
