@@ -8,37 +8,21 @@
 
 ### **Teramind: Stop reinventing the wheel — turn every AI coding session into searchable team knowledge.**
 
-**Local-first. Zero-config. Works the moment your agent ships its first turn.**
+**Local-first by default. Opt-in team sync. Installs in 60 seconds.**
 
-**SAN FRANCISCO — November 4, 2026 —** Today Teramind announces general availability of an open-source knowledge substrate that captures every interaction a developer has with their AI coding agents, makes prior sessions semantically searchable across the team, and writes a Markdown wiki for every session automatically. Teramind installs in 60 seconds, runs entirely on the developer's machine by default, and integrates with Claude Code on the first `teramind claude install`.
+**SAN FRANCISCO — November 4, 2026 —** Today Teramind announces general availability of a knowledge layer for teams that use AI coding agents. Teramind quietly captures everything happening in those sessions — the prompts, the agent's responses, the tool calls, the files it edits — and makes all of it searchable later. The next time the same developer hits a familiar problem, the agent itself can pull up exactly how the team solved it last time. Teramind installs in about a minute. It runs entirely on the developer's machine by default. Teams that want to share knowledge across machines flip a single switch.
 
-For the last two years, AI coding agents have made individual developers extraordinarily productive. They have also created a new and surprisingly expensive problem: **every solved bug, every clever refactor, every hard-won porting trick lives for exactly one session and then evaporates**. A team of six engineers, each running Claude Code daily, regenerates the same answers to the same problems thousands of times per year. The institutional knowledge that used to live in PR threads, Slack channels, and the heads of senior engineers now lives in chat transcripts that nobody reads twice.
+For the last two years, AI coding agents have made individual developers extraordinarily productive. They have also created a new and surprisingly expensive problem: **every solved bug, every clever refactor, every hard-won porting trick lives for exactly one session and then evaporates**. A team of six engineers, each running their AI agent daily, re-derives the same answers to the same problems thousands of times per year. The institutional knowledge that used to live in pull-request threads, chat channels, and the heads of senior engineers now lives in conversation transcripts that nobody reads twice.
 
-Teramind closes that loop. A tiny shim hooks into Claude Code at session start. Every prompt, every assistant response, every tool call, and every file diff streams into a local Postgres database. Search is available three ways: a `teramind search` CLI, slash commands inside Claude Code, and — most importantly — an MCP server that exposes `mcp__teramind__search`, `mcp__teramind__recall`, and `mcp__teramind__wiki` tools directly to the agent. The model itself can pull a previous solution mid-conversation. When a session ends, a background worker generates a Markdown wiki page summarizing what changed, what decisions were made, and what's left to do — searchable alongside the raw trace and surfaced automatically when a new session starts in the same project.
+Teramind closes that loop. Sessions get captured the moment they start. The agent can search prior work mid-conversation, find a session that solved a related problem, and adapt the approach without the developer ever having to remember "I wrote a patch like this three months ago." When a session ends, Teramind automatically writes a short summary of what changed and what was decided, and surfaces those summaries the next time a developer starts work in the same project. Repeated patterns — the build-test-commit dance, the same fix for the same recurring error — get noticed automatically and turned into reusable recipes the agent loads on its own.
 
-> "I ported OpenSSL to OpenVMS x86 last quarter. Three months later when I started rsync, Claude pulled up the exact `configure.ac` patches I'd written, with the surrounding conversation, and asked if it should adapt them for the new project. That used to be a half-day of digging through git history. Now it's a fifty-millisecond IPC call." — *Sergey K., Staff Engineer, fictional porting team*
+> "I ported OpenSSL to a niche legacy platform last quarter. Three months later when I started porting rsync, the agent pulled up the exact patches I'd written, with the surrounding conversation, and asked if it should adapt them for the new project. That used to be a half-day of digging through old branches. Now it surfaces instantly." — *Sergey K., Staff Engineer, fictional porting team*
 
-Under the hood, Teramind runs a single Rust daemon (`teramindd`) plus three thin client binaries: the CLI, a hook shim, and an MCP server. The daemon manages an embedded Postgres with `pg_trgm`, `pgcrypto`, and `pgvector` extensions. Search is a five-way blend: full-text indexing (tsvector), trigram similarity for code-shaped queries, **semantic search via local embeddings** (Ollama or in-process FastEmbed), recency decay, and same-project boost. The blend is tunable; the L5 effectiveness benchmark with CI regression gates ensures changes don't degrade quality. Filesystem changes are captured per-turn with attribution (agent vs. human edit). Secrets are redacted before any persistence — never leave the developer's machine unless the user explicitly opts into a cloud provider.
+Teramind ships with two install shapes that share the same product surface. The **local-first install** keeps every byte of data on the developer's own machine — nothing leaves the device unless the developer explicitly opts into a cloud model for richer semantic search or session summaries. The **team install** points everyone at a shared sync server the team self-hosts. Captures forward to the team store; search, recall, and the agent's view all flip to the team's combined knowledge. Privacy is granular and per-project: when a developer starts work in a new project, the agent itself asks once whether to share this project with the team, and remembers the answer for every future session. A live activity feed shows the team's work as it happens.
 
-> "We built Teramind because the most valuable thing about working with an AI agent isn't the agent's output — it's the *context* the agent accumulates as it works. Throwing that context away every 8 hours is a tax we kept paying because no one had built the substrate to keep it. Teramind is that substrate, and it's local-first by default so it works inside the firewalls of teams who need it most." — *Vahe Momjyan, creator of Teramind*
+> "We built Teramind because the most valuable thing about working with an AI agent isn't the agent's output — it's the *context* the agent accumulates as it works. Throwing that context away every 8 hours is a tax we kept paying because no one had built the layer to keep it. Teramind is that layer, and it's local-first by default so it works inside the firewalls of teams who need it most." — *Vahe Momjyan, creator of Teramind*
 
-**Getting started.** On macOS and Linux:
-
-```
-curl -fsSL https://get.teramind.dev/install.sh | sh
-teramind init
-teramind claude install
-```
-
-On Windows:
-
-```
-irm https://get.teramind.dev/install.ps1 | iex
-teramind init
-teramind claude install
-```
-
-Teramind is open source under Apache-2.0 at `https://github.com/teramind/teramind`. Releases are signed and notarized. The semantic search and session-summarizer features default to local Ollama; the `nomic-embed-text-v2-moe` (embeddings) and `qwen3.6:latest` (summaries) models are pulled on first use.
+**Getting started.** One install command, one init command, one connect command. Teramind is open source. Releases are signed and notarized. Semantic search and session summaries default to a model that runs locally on the developer's own hardware — no cloud account required to get the full experience.
 
 ---
 
@@ -46,117 +30,90 @@ Teramind is open source under Apache-2.0 at `https://github.com/teramind/teramin
 
 ### What problem does Teramind solve?
 
-Coding-agent sessions are episodic: each conversation is isolated from every conversation before it. Engineers re-discover the same patches, re-debug the same edge cases, and re-explain the same project conventions to the agent. On teams, this multiplies — different engineers on different continents independently solve identical problems. Teramind keeps every session and makes prior work searchable + semantically retrievable by the agent itself, mid-session.
+AI coding sessions are episodic. Each conversation is isolated from every conversation before it. Engineers re-discover the same patches, re-debug the same edge cases, and re-explain the same project conventions to the agent every time. On teams, this multiplies — different engineers on different continents independently solve identical problems. Teramind keeps every session and makes prior work searchable, both for the human and — more importantly — for the agent itself, mid-session.
 
-### How is this different from saving Claude conversations to a markdown file?
+### How is this different from saving conversations to a file?
 
-Three differences. First, **structure**: Teramind separates prompts, assistant responses, tool calls, file diffs, and session metadata into queryable tables — you can search "what Edit commands ran on `parser.rs`" or "all sessions in this project that used Bash with cargo test." Second, **semantic recall**: pgvector + a local embedding model means the agent finds *conceptually* relevant prior work even when the words don't match. Third, **agent integration**: an MCP server gives the agent itself tools to query prior context without the user having to remember to do so.
+Three differences. **Structure**: Teramind separates what the user asked, what the agent replied, what tools it ran, what files it changed, and which project it was in. You can ask narrow questions like "all the times this project's tests touched the authentication module" rather than scrolling. **Semantic recall**: when the words don't match exactly, Teramind finds the conceptually related prior work anyway. **Agent integration**: the agent itself can query prior context without the user having to remember to do so. The recall happens silently inside the conversation, not as a separate workflow the human has to drive.
 
 ### Does my code or my conversations leave my machine?
 
-No, by default. Embedded Postgres runs locally; embeddings go to Ollama on `localhost:11434`; session summarization goes to Ollama by default. Cloud providers (Anthropic, OpenAI, Voyage) are wired but refuse to construct unless you explicitly set `network_egress = true` in `~/.config/teramind/embed.toml` or `summarize.toml`. A redaction pass strips AWS keys, GitHub PATs, PEM blocks, and other common secrets *before* any LLM call regardless of provider.
+No, by default. The full local-first experience runs on the developer's own hardware. Optional cloud models for richer search and summaries are wired in but explicitly off by default; a developer turns them on with a one-line config change. Before anything is sent to a cloud model — even one a user has opted into — Teramind strips API keys, certificates, and other common secrets from the payload.
 
 ### What does Teramind cost?
 
-Free and open source under Apache-2.0. The only running costs are local: ~20 GB of disk at the 10,000-session scale (per the design's sizing model), and the GPU/CPU your local Ollama uses for embeddings + summaries. Cloud providers are opt-in and use your own API key.
+Free. Open source. The only running costs are local: some disk for the captured history (modest — a heavy user accumulates a few gigabytes a year), and whatever compute your local model uses. Optional cloud providers cost only what those providers charge against your own account.
 
 ### Can my team share knowledge across machines?
 
-Yes. Team mode is **shipped in v1.0** alongside the local-first install. A self-hosted `teramind-sync-server` (single Rust binary against an operator-provided Postgres) is the central store; developers redeem an invite code to bind their device, and the local daemon forwards every captured event over HTTPS. Search, recall, and the MCP surface all flip to the team's corpus. Privacy is per-project, gated by an agent-prompted consent flow that writes a `.teramind/team-share.toml` marker. Live event streaming over WebSocket (`teramind feed`) shows team activity in real time. Local-first is unchanged for solo developers — team mode is strictly opt-in via `teramind init --team --server=… --invite=…`.
+Yes. Team mode is shipped at launch alongside the local-first install. A team self-hosts a sync server; each developer connects with a one-time invite code. Captures flow to the team store; search and the agent's recall both flip to the team's combined knowledge. Privacy is per-project — the agent asks the user once whether to share a given project, and remembers the answer thereafter. A live activity feed shows what's happening across the team in real time. Solo developers don't see any of this unless they opt in; team mode is strictly opt-in.
 
 ### Which coding agents does Teramind support?
 
-Claude Code in v1. The capture layer is agent-agnostic by design — the schema has an `agent_kind` column and the IPC contract is provider-neutral — so adding Codex, Cursor, Hermes, and Pi connectors is a follow-on spec rather than a rewrite. Connectors for those agents are next on the roadmap after team sync.
+Claude Code at launch. The capture layer is designed to be agent-agnostic from day one, so adding support for other agents is additive — not a rewrite. Additional agents are next on the roadmap.
 
 ### How fast is it?
 
-Capture is non-blocking; the hook never delays Claude by more than ~15 ms p99. Search returns in under 800 ms p99 on a 10,000-session corpus (target; ceiling is 5 s). Semantic queries against local Ollama are typically 50–200 ms. The summarizer runs asynchronously and never blocks anything else; a session ends, a summary appears within ~60 s on consumer hardware.
+Capture is invisible — the agent never waits on Teramind. Search returns under a second on a corpus of thousands of sessions. Semantic queries against a local model are typically well under half a second. Session summaries appear within a minute or so of a session ending.
 
-### What if Ollama isn't installed?
+### What if I don't want to run a local model?
 
-`teramind init` prints an actionable message and falls back to `FastEmbedProvider`, an in-process embedding model (`nomic-embed-text-v1.5`, ~150 MB) bundled with the binary. For summarization, you'll need either Ollama or a cloud provider (Anthropic/OpenAI); without one of those, session-end summaries are skipped but every other surface still works.
+You don't have to. Teramind ships with a small embedded model that handles semantic search without needing any external service installed. Session summaries are optional; without a model configured for them, Teramind still captures, still searches, still surfaces prior work — it just skips the auto-generated summary at the end of each session.
 
 ### How do I see what's been captured?
 
-`teramind sessions show` prints the most recent session's wiki page for the current directory. `teramind sessions show <session-id>` for a specific session. `teramind search "<query>"` for raw retrieval. `teramind status` for the daemon's queue depths, drop counters, and provider health. `teramind doctor` for a pasteable diagnostic report.
+Built-in commands print the most recent session's summary for the current project, list recent skills the team has accumulated, search the captured history, and show a single diagnostic report you can paste when asking for help. The team-mode activity feed shows live events as they happen.
 
-### What if I want to forget a specific session?
+### What if I want to forget a specific session, or wipe everything?
 
-`teramind reset --confirm` deletes all local data. `teramind uninstall --purge --confirm` removes data + config + binaries. For surgical deletion, `DELETE FROM sessions WHERE id = '...'` against the local Postgres cascades through turns, tool_calls, file_diffs, and the wiki page.
+A single reset command deletes everything Teramind has captured locally. Uninstall removes the program, the configuration, and the data together. In team mode, a future release will add an authoritative "forget" workflow for removing specific data from the team store; until then, the team admin can delete data directly.
 
-### Is the L5 benchmark public?
+### Is the search quality measured?
 
-Yes. The corpus + queries + qrels live in the repo at `benches/search-eval/`. The committed baseline (`baseline.json` lexical-only, `baseline-semantic.json` with semantic enabled) is recomputed on `main` and gates PRs that touch search code. Today's lexical baseline: nDCG@10 = 0.140. Today's semantic baseline (with Ollama `nomic-embed-text-v2-moe`): nDCG@10 = 0.537 — a **3.8× quality lift** from adding pgvector.
+Yes. Teramind ships with a public benchmark: a synthetic corpus of sessions, a curated set of queries, and a published quality score. Every release runs against this benchmark and surfaces regressions before they reach users. Adding the semantic-search layer measurably improved retrieval quality — by roughly four times on the published baseline.
 
 ---
 
 ## Internal FAQs
 
-### Why was this single-user originally — and what changed?
+### Why a knowledge layer for AI coding sessions rather than a smarter agent?
 
-The first six subsystems (A–F) deliberately shipped single-user-first: we needed capture, search, and MCP integration to be *right* for one developer before adding the cross-machine complexity. With Plans A–H stable, team mode (Plans I–L) landed as a clean four-step rollout: server + auth + ingest (I), local forwarder + privacy gate (J), MCP proxy + read fallback (K), live propagation (L). Authentication is invite-code redemption with DPoP-style Ed25519 request signing — stolen bearer tokens alone fail 403 at the server. Schema additions (`users`, `devices`, `invites` tables, additive `user_id`/`device_id` columns) are forward-compatible; local-first installs apply the same migrations harmlessly.
+Models keep getting better. Their *memory* doesn't. Every release of every coding agent we know about treats each session as starting from zero — no persistent memory of the developer's project, no awareness of what teammates have already figured out. We bet that the highest-leverage product is the substrate that gives agents memory, not yet another agent. The agent vendors will keep shipping smarter agents; we want them to land on a team that remembers what it already knows.
 
-### Why Rust, why Postgres, why embedded?
+### Why local-first by default rather than cloud-first?
 
-**Rust** because the daemon needs to be small, fast, and reliable enough that users forget it's running. **Postgres** because (a) full-text + trigram + pgvector are first-class, (b) a real query engine matters once corpora pass ~1000 sessions, and (c) the operator story for "where is my data" is "it's in a `.local/share/teramind/pgdata/` directory I can `pg_dump`." **Embedded** because the moment we required users to install + configure Postgres, the install-curve broke. `postgresql_embedded` 0.20 + `postgresql_extensions` 0.20 download a per-arch PG bundle and install pgvector at first run. Tested on macOS arm64, macOS x86_64, Linux x86_64, Linux arm64, Windows x86_64 (Windows arm64 builds but is unsigned in v1).
+Two reasons. **Compliance**: a meaningful share of professional development happens behind firewalls, in regulated industries, on contracts with strict data-egress rules. A cloud-first product is dead on arrival for those teams. **Trust**: developers form a relationship with their tools over years. A tool that captures every keystroke needs to earn that trust before it asks anyone to send their data somewhere else. Local-first by default makes the easy path the trustworthy path; cloud is opt-in for users who want it.
 
-### Why default Ollama instead of Anthropic for embeddings + summaries?
+### Why ship team mode at launch instead of after?
 
-The local-first promise from the Core spec was non-negotiable: a Teramind install must work behind any firewall, in any compliance regime, without phoning home. Ollama runs entirely on `localhost`. The Anthropic-default path was the alternative — easier first-run for users who already have a Claude key — but it breaks the no-outbound-calls promise that's a hard requirement for enterprise adoption. We chose to optimize for the harder-deployment-environment case and make cloud opt-in with a single config flag.
+The single-machine version got built first to make sure the capture, search, and agent integration were right for one developer before adding the cross-machine complexity. Once that was solid, team mode landed as a clean opt-in layer on top — without changing anything for solo users. Shipping team mode at launch means a team can pick up Teramind without waiting for a follow-on release, and it means the team-knowledge story (which is the more compelling story to tell) is true from day one.
 
-### What's the runaway-cost story for cloud providers?
+### What's the cost story if someone enables cloud providers?
 
-There isn't a daemon-side cap — by design. We removed the original `max_summary_per_day` knob in spec review because (a) silently dropping summaries is worse than the cost it was guarding against, (b) the natural rate limit ("one summary per ended session") makes the worst case bounded, and (c) every cloud vendor exposes its own per-month spend caps on the dashboard. `teramind doctor` surfaces total tokens-in/tokens-out so users can monitor; if spend becomes a problem, the answer is `provider = "ollama"`.
+The natural rate limit is small — one summary per finished session, one embedding per turn — so the worst case is bounded. Cloud providers expose their own spend caps. We surface running token totals in our diagnostic report, so anyone running with cloud models can see the cost trend at a glance. The default — running locally — has zero per-token cost.
 
-### What's the security review status?
+### How is the data secured?
 
-Plan E (installers + release CI) includes a `cargo clippy --workspace -- -D warnings` gate on every PR, a `cargo audit` job, and macOS notarization via the Apple Developer ID. Releases are checksummed (`SHA256SUMS`) and optionally signed with cosign keyless OIDC. The redaction layer has property tests asserting no secret from a corpus of sample inputs ever survives `Redactor::apply()`. We have not yet had a third-party security audit; this is on the v1.1 roadmap.
+By default the data never leaves the developer's machine, so the surface area for compromise is the developer's own disk. The redaction layer strips secrets before any cloud egress (even when the user opted in). For team mode, every request between a developer's machine and the team server is signed with a key the device holds; a stolen access token alone is not enough — an attacker would need filesystem-level access to the device itself. Team admins can revoke a single developer's device, or an entire user, at any time. Independent security review is on the post-launch roadmap.
 
-### How does the L5 benchmark work and why should I trust the numbers?
+### What's on the roadmap after launch?
 
-`crates/teramind-search-eval/` is a separate bin crate. It generates a deterministic 500-session synthetic corpus from a fixed RNG seed, runs 100 hand-curated queries across 5 intent classes (natural language, stack trace, code snippet, tool-typed, symbolic/path), and computes nDCG@10, MRR, P@5, P@10, R@10 — per class and overall. The baseline JSON is committed to the repo and regenerated on `main`. PRs touching search code run the eval and refuse to merge if metrics drop more than 2 pp overall, 5 pp per class, 0.03 absolute MRR, or 3 s p95 latency. The semantic baseline is gated separately (`baseline-semantic.json`) so a regression in either path is visible.
+The next batch of work, in priority order:
 
-### What's left after v1.0?
-
-Roadmap, in dependency order:
-
-1. **Skill codifier** (mines repeated patterns into reusable skill files Claude auto-loads).
-2. **Codex / Cursor / Hermes / Pi connectors** (the agent-agnostic schema is already in place).
-3. **Web UI / dashboard** (read-only views over the existing schema, primarily for the team-mode server).
-4. **v1.1 team-mode polish**: OAuth (GitHub / Google / SSO) as a second redemption path; hardware-backed signing keys (macOS Keychain, Linux Secret Service, Secure Enclave / TPM); server-side hard deletion (`teramind forget`); auto-recall freshness markers; full WebSocket-uptime in doctor.
-5. **v1.2 multi-tenancy**: one sync server hosts many isolated teams; per-team configuration overrides.
-6. **Hosted SaaS offering** (optional managed sync for teams that don't want to self-host).
-
-### How big is the codebase?
-
-9 crates in a Rust workspace at v1.0 — Plans A–H added 8 crates; Plan I added the 9th (`teramind-sync-server`). Roughly ~35,000 lines of Rust across the workspace. Plans I–L added the team-mode layer end-to-end. Test layers L1 through L5 cover ~330 tests across the workspace. The L5 search-effectiveness benchmark gates PRs against regressions; the two-developer team-mode E2E in `crates/teramindd/tests/two_dev_team_mode.rs` validates the full alice-writes → bob-reads round trip.
+1. **Skill codifier** — Teramind notices when the team keeps repeating the same recipe (the same build-test-commit dance, the same fix for the same recurring error) and turns those patterns into reusable shortcuts the agent loads automatically. Reviewers approve candidates before they go live.
+2. **More coding agents** — adding first-class support for additional agents beyond Claude Code, on the same capture-and-recall surface.
+3. **Web dashboard** — a browser view over the team store for read-only inspection of recent activity, skill catalogs, and search-quality trends.
+4. **Team-mode polish** — single-sign-on for invite redemption, hardware-backed signing keys on devices that support them, an authoritative "forget" workflow for compliance use cases, and richer activity surfaces for admins.
+5. **Multi-team hosting** — one sync server hosting several isolated teams, for organizations that want to centralize the infrastructure but keep team data separated.
+6. **Hosted offering** — a managed team server for organizations that don't want to self-host.
 
 ### What does adoption look like?
 
-Designed for grassroots, individual-engineer adoption first. A single developer can install in 60 seconds, see value within the first session (auto-recall surfaces prior project context), and pay zero coordination cost. Team rollout is then bottom-up: once half the team is using Teramind individually, the team-sync server proposal becomes obvious to anyone who's used it for a week.
+Designed for grassroots, individual-engineer adoption first. A single developer can install in about a minute, sees value within the first session — the agent surfaces relevant prior context automatically — and pays no coordination cost. Team rollout is then bottom-up: once enough of the team is using it individually, the team-mode proposal becomes obvious to anyone who's used it for a week.
 
 ### Why "Teramind"?
 
-A working title that stuck. Tera = trillions of bits of trace data; mind = the substrate that makes it usable. Open to a rename before GA if anyone has a better idea.
-
----
-
-## Appendix: What ships in v1.0
-
-| Subsystem | Description | Status |
-|---|---|---|
-| Plan A — Daemon + IPC + schema + CLI core | Embedded PG, JSON-RPC over UDS/named pipe, sessions/turns/tool_calls/file_diffs/skills tables, basic CLI | Merged |
-| Plan B — Claude Code capture | SessionStart/UserPromptSubmit/PreToolUse/PostToolUse/Stop/PreCompact hooks, deterministic IDs, inbox fallback | Merged |
-| Plan C — Search + MCP | `teramind search` CLI, `mcp__teramind__search` + `recall` + `save_skill` tools, slash commands, auto-recall digest | Merged |
-| Plan D — FS watcher | Per-turn file_diffs with agent/human attribution, snapshot cache, git-index fallback | Merged |
-| Plan E — Installers + release CI | `install.sh` / `install.ps1`, 6-target build matrix, SHA256SUMS, cosign signing, macOS notarization | Merged |
-| Plan F — L5 search benchmark | 500-session corpus, 100 queries, nDCG@10/MRR/P@K/R@K gates, fail-soft semantic eval mode | Merged |
-| Plan G — pgvector semantic search | EmbeddingProvider trait, OllamaProvider + FastEmbedProvider, async embedding_worker, HNSW index, semantic blend term | Merged |
-| Plan H — Session summarizer | SummaryProvider trait, OllamaChatProvider + AnthropicProvider, summarizer_worker, wiki_pages table, `mcp__teramind__wiki` tool, `teramind sessions show` CLI, traces_fts UNION includes wiki | Merged |
-| Plan I — Team-mode sync server | `teramind-sync-server` bin crate, invite-code redemption + DPoP request signing, `/v1/auth/redeem` + `/v1/ingest`, admin CLI (invite/member), TLS via rustls, Docker compose | Merged |
-| Plan J — Local team forwarder | `teramind init --team` redemption, `team_sync` tail-JSONL forwarder, DecisionCache + agent-prompted privacy flow with hold-and-backfill, `mcp__teramind__team_share_set` MCP tool, full doctor team-mode rendering | Merged |
-| Plan K — MCP proxy + read fallback | `dispatch(deps, req, auth)` extracted, `POST /v1/rpc` reuses it with AuthContext, `RpcTransport` trait, `LocalIpcTransport` + `HttpsTransport`, `GrepFallback` wrapper, two-developer E2E | Merged |
-| Plan L — Live propagation | `TeamEvent` enum (SessionEnded / WikiPageReady / SkillSaved), `tokio::broadcast` bus on the server, `GET /v1/events` WebSocket, local `team_events` subscriber with reconnect, `teramind feed` CLI, periodic `traces_fts` refresh | Merged |
+A working title that stuck. *Tera* for the volume of trace data captured; *mind* for the layer that makes it usable. Open to a rename before launch if anyone has a better idea.
 
 ---
 
