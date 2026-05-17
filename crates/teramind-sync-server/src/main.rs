@@ -24,6 +24,41 @@ enum Cmd {
     },
     /// Print version.
     Version,
+    /// Manage invite codes.
+    Invite {
+        #[command(subcommand)]
+        action: InviteAction,
+    },
+    /// Manage members + devices.
+    Member {
+        #[command(subcommand)]
+        action: MemberAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum InviteAction {
+    /// Create a new invite for an email.
+    Create {
+        #[arg(long)] email: String,
+        #[arg(long)] name: Option<String>,
+        #[arg(long)] created_by: Option<String>,
+        #[arg(long)] expires_in_days: Option<i64>,
+    },
+    /// List outstanding invites.
+    List,
+    /// Revoke an invite by id.
+    Revoke { id: String },
+}
+
+#[derive(Subcommand)]
+enum MemberAction {
+    /// List users + device counts.
+    List,
+    /// Revoke a single device by id.
+    RevokeDevice { id: String },
+    /// Revoke a user (cascade-revokes auth lookups for their devices).
+    RevokeUser { id: String },
 }
 
 fn init_logging() {
@@ -66,6 +101,26 @@ async fn main() -> anyhow::Result<()> {
                 teramind_sync_server::server::serve_tls(state, addr, tls).await
             } else {
                 teramind_sync_server::server::serve(state, addr).await
+            }
+        }
+        Cmd::Invite { action } => {
+            let cfg = teramind_sync_server::config::ServerConfig::load(&cli.config.unwrap_or_else(default_config_path))?;
+            let ctx = teramind_sync_server::admin::AdminCtx::open(cfg).await?;
+            match action {
+                InviteAction::Create { email, name, created_by, expires_in_days } =>
+                    teramind_sync_server::admin::invite_create(&ctx, &email,
+                        name.as_deref(), created_by.as_deref(), expires_in_days).await,
+                InviteAction::List => teramind_sync_server::admin::invite_list(&ctx).await,
+                InviteAction::Revoke { id } => teramind_sync_server::admin::invite_revoke(&ctx, &id).await,
+            }
+        }
+        Cmd::Member { action } => {
+            let cfg = teramind_sync_server::config::ServerConfig::load(&cli.config.unwrap_or_else(default_config_path))?;
+            let ctx = teramind_sync_server::admin::AdminCtx::open(cfg).await?;
+            match action {
+                MemberAction::List => teramind_sync_server::admin::member_list(&ctx).await,
+                MemberAction::RevokeDevice { id } => teramind_sync_server::admin::member_revoke_device(&ctx, &id).await,
+                MemberAction::RevokeUser   { id } => teramind_sync_server::admin::member_revoke_user(&ctx, &id).await,
             }
         }
     }
