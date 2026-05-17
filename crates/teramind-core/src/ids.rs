@@ -38,6 +38,7 @@ id_newtype!(FileDiffId);
 id_newtype!(ProjectId);
 id_newtype!(SessionId);
 id_newtype!(SkillId);
+id_newtype!(SkillObservationId);
 id_newtype!(ToolCallId);
 id_newtype!(TurnId);
 id_newtype!(UserId);
