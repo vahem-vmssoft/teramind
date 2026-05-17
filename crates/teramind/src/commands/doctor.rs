@@ -77,6 +77,14 @@ pub async fn run() -> anyhow::Result<()> {
         Ok(other) => println!("  daemon         : unexpected response {:?}", other),
         Err(_) => println!("  daemon         : not responding"),
     }
+    // team mode
+    let team_toml = paths.config_dir.join("team.toml");
+    if team_toml.exists() {
+        println!("team mode:   configured (team.toml present at {})", team_toml.display());
+        println!("             full team-mode health rendered in Plan J");
+    } else {
+        println!("team mode:   not configured (run `teramind init --team --server=… --invite=…` to opt in)");
+    }
     if let Some(metrics) = load_local_baseline() {
         println!(
             "search baseline (last committed): nDCG@10={:.3}  MRR={:.3}  p95={}ms  ({} queries)",
