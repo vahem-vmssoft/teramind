@@ -7,6 +7,7 @@ pub mod config;
 pub mod event_log_pruner;
 pub mod event_log_writer;
 pub mod fts_refresh;
+pub mod quality_scheduler;
 pub mod handlers;
 pub mod invite;
 pub mod proof;

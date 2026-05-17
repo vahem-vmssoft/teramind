@@ -115,6 +115,9 @@ async fn main() -> anyhow::Result<()> {
                     std::time::Duration::from_secs(6 * 3600),
                 );
             }
+            if let Some(quality_cfg) = cfg.quality.clone() {
+                let _ = teramind_sync_server::quality_scheduler::spawn(pool.clone(), quality_cfg);
+            }
             let addr: SocketAddr = cfg.listen_addr.parse()?;
             let state = teramind_sync_server::state::AppState::new(pool, cfg.clone());
             if let Some(tls) = cfg.tls.as_ref() {
