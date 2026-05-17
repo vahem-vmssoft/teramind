@@ -1,4 +1,5 @@
 pub mod decision_cache;
+pub mod rpc_dispatch;
 pub mod diff_engine;
 pub mod embed;
 pub mod embedding_worker;

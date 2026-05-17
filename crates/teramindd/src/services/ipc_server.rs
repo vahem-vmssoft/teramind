@@ -1,4 +1,5 @@
 use crate::services::ingest::{IngestService, IngestStats};
+use crate::services::rpc_dispatch::RpcDeps;
 use crate::services::search::BlendWeights;
 use async_trait::async_trait;
 use std::sync::atomic::Ordering;
@@ -38,6 +39,22 @@ pub struct DaemonIpcHandler {
     pub summarizer_stats: std::sync::Arc<crate::services::summarizer_worker::SummarizerStats>,
     pub decision_cache: Option<std::sync::Arc<crate::services::decision_cache::DecisionCache>>,
     pub team_share_writer: Option<std::sync::Arc<dyn TeamShareSetter>>,
+}
+
+impl DaemonIpcHandler {
+    fn rpc_deps(&self) -> RpcDeps {
+        RpcDeps {
+            pool: self.pool.clone(),
+            search_repo: self.search_repo.clone(),
+            wiki_repo: self.wiki_repo.clone(),
+            embed_provider: self.embed_provider.clone(),
+            embed_model: self.embed_model.clone(),
+            search_weights: self.search_weights,
+            summary_provider: self.summary_provider.clone(),
+            summary_model: self.summary_model.clone(),
+            jsonl_dir: self.jsonl_dir.clone(),
+        }
+    }
 }
 
 #[async_trait]
@@ -96,54 +113,13 @@ impl IpcServer for DaemonIpcHandler {
             }
             Request::Ping => Response::Pong,
             Request::Shutdown => Response::Ok,
-            Request::Search(r) => {
-                let out = crate::services::search::do_search_with_fallback(
-                    &self.search_repo,
-                    &self.jsonl_dir,
-                    Some(self.embed_provider.clone()),
-                    &self.embed_model,
-                    self.search_weights,
-                    &r,
-                )
-                .await;
-                Response::SearchResults(teramind_core::types::SearchResults {
-                    hits: out.hits,
-                    degraded: out.degraded,
-                    took_ms: out.took_ms,
-                })
+            req @ (Request::Search(_)
+            | Request::Recall(_)
+            | Request::AutoRecall(_)
+            | Request::SaveSkill(_)
+            | Request::WikiLookup { .. }) => {
+                crate::services::rpc_dispatch::dispatch(&self.rpc_deps(), req, None).await
             }
-            Request::Recall(r) => {
-                match crate::services::search::do_recall(&self.search_repo, &r).await {
-                    Ok(out) => Response::SearchResults(teramind_core::types::SearchResults {
-                        hits: out.hits,
-                        degraded: out.degraded,
-                        took_ms: out.took_ms,
-                    }),
-                    Err(e) => Response::Error(format!("recall failed: {e}")),
-                }
-            }
-            Request::AutoRecall(r) => {
-                match crate::services::search::do_auto_recall(
-                    &self.search_repo,
-                    &self.wiki_repo,
-                    &r,
-                )
-                .await
-                {
-                    Ok(md) => Response::AutoRecallDigest {
-                        markdown: md,
-                        degraded: false,
-                    },
-                    Err(_) => Response::AutoRecallDigest {
-                        markdown: String::new(),
-                        degraded: true,
-                    },
-                }
-            }
-            Request::SaveSkill(r) => match self.search_repo.upsert_skill(&r).await {
-                Ok(s) => Response::SkillRef(s),
-                Err(e) => Response::Error(format!("save_skill failed: {e}")),
-            },
             Request::TeamShareSet {
                 session_id,
                 cwd,
@@ -161,43 +137,6 @@ impl IpcServer for DaemonIpcHandler {
                 match writer.write_and_signal(&cwd_path, sid, share, "user").await {
                     Ok(()) => Response::Ok,
                     Err(e) => Response::Error(e.to_string()),
-                }
-            }
-            Request::WikiLookup { session_id, cwd } => {
-                let result: anyhow::Result<Option<teramind_db::repos::WikiPage>> = async {
-                    if let Some(sid_str) = session_id {
-                        let sid = teramind_core::ids::SessionId(uuid::Uuid::parse_str(&sid_str)?);
-                        let p = self
-                            .wiki_repo
-                            .get_for_session(sid, &self.summary_model)
-                            .await?;
-                        Ok(p)
-                    } else if let Some(cwd) = cwd {
-                        let p = self.wiki_repo.latest_for_cwd(&cwd).await?;
-                        Ok(p)
-                    } else {
-                        Ok(None)
-                    }
-                }
-                .await;
-                match result {
-                    Ok(Some(p)) => {
-                        let session_cwd: String =
-                            sqlx::query_scalar("SELECT cwd FROM sessions WHERE id = $1")
-                                .bind(p.session_id.0)
-                                .fetch_one(self.pool.pg())
-                                .await
-                                .unwrap_or_default();
-                        Response::WikiPage {
-                            session_id: p.session_id.0.to_string(),
-                            cwd: session_cwd,
-                            model: p.model,
-                            content: p.content,
-                            generated_at: p.generated_at,
-                        }
-                    }
-                    Ok(None) => Response::WikiNotFound,
-                    Err(e) => Response::Error(format!("wiki lookup failed: {e}")),
                 }
             }
         }
