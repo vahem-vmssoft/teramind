@@ -37,6 +37,7 @@ id_newtype!(DeviceId);
 id_newtype!(FileDiffId);
 id_newtype!(ProjectId);
 id_newtype!(SessionId);
+id_newtype!(SkillCandidateId);
 id_newtype!(SkillId);
 id_newtype!(SkillObservationId);
 id_newtype!(ToolCallId);
