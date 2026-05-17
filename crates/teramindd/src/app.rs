@@ -201,7 +201,16 @@ impl App {
                 "ollama" => std::sync::Arc::new(
                     crate::services::codify::ollama::OllamaCodifyProvider::new(codify_cfg.model.clone())
                 ),
-                // anthropic is added in §18; for v1 of the implementation, fall through to null.
+                "anthropic" => {
+                    let secrets = paths.config_dir.join("secrets.toml");
+                    match crate::services::codify::anthropic::AnthropicCodifyProvider::try_new(&secrets, codify_cfg.model.clone()) {
+                        Ok(p) => std::sync::Arc::new(p),
+                        Err(e) => {
+                            tracing::warn!(error = %e, "Anthropic codify provider unavailable; falling back to null");
+                            std::sync::Arc::new(crate::services::codify::null::NullCodifyProvider)
+                        }
+                    }
+                }
                 _ => std::sync::Arc::new(crate::services::codify::null::NullCodifyProvider),
             };
         let _codifier = crate::services::codifier_worker::CodifierWorker::spawn(

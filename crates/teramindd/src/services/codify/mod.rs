@@ -1,5 +1,6 @@
 //! Skill codifier subsystem.
 
+pub mod anthropic;
 pub mod detectors;
 pub mod glob;
 pub mod heuristics;
