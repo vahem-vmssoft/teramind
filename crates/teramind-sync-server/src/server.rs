@@ -49,6 +49,11 @@ pub fn build_router(state: AppState) -> Router {
         .route("/admin/invites",                        axum::routing::get(crate::admin_api::handlers::members::list_invites)
                                                             .post(crate::admin_api::handlers::members::create_invite))
         .route("/admin/invites/:id/revoke",             axum::routing::post(crate::admin_api::handlers::members::revoke_invite))
+        .route("/admin/quality",        axum::routing::get(crate::admin_api::handlers::quality::list))
+        .route("/admin/quality/latest", axum::routing::get(crate::admin_api::handlers::quality::latest))
+        .route("/admin/quality/runs",   axum::routing::post(crate::admin_api::handlers::quality::upload))
+        .route("/admin/quality/config", axum::routing::get(crate::admin_api::handlers::quality::config))
+        .route("/admin/health",         axum::routing::get(crate::admin_api::handlers::health::health))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::admin_api::auth::admin_middleware,
