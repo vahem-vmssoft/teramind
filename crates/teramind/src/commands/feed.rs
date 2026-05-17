@@ -3,21 +3,26 @@
 
 use anyhow::{anyhow, Context, Result};
 use base64::Engine;
+use futures_util::StreamExt;
 use std::sync::Arc;
 use teramind_core::dpop::{body_hash_hex, sign, token_hash_hex, ProofClaims};
 use teramind_core::team::TeamConfig;
 use teramind_core::team_event::TeamEvent;
 use time::OffsetDateTime;
 use tokio_tungstenite::tungstenite::{handshake::client::Request, Message};
-use futures_util::StreamExt;
 
 pub async fn run(follow: bool, _backlog: u32) -> Result<()> {
     let cfg_dir = teramind_core::team::default_config_dir();
     let cfg = TeamConfig::load(&cfg_dir.join("team.toml"))
         .with_context(|| format!("load {}/team.toml — team mode required", cfg_dir.display()))?;
-    let key = Arc::new(teramind_core::team::load_signing_key(&cfg_dir.join("team-key"))?);
+    let key = Arc::new(teramind_core::team::load_signing_key(
+        &cfg_dir.join("team-key"),
+    )?);
 
-    let server_ws = cfg.server_url.replace("http://", "ws://").replace("https://", "wss://");
+    let server_ws = cfg
+        .server_url
+        .replace("http://", "ws://")
+        .replace("https://", "wss://");
     let url_for_signing = format!("{}/v1/events", cfg.server_url);
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let claims = ProofClaims {
@@ -32,7 +37,8 @@ pub async fn run(follow: bool, _backlog: u32) -> Result<()> {
     let proof_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(proof.as_bytes());
     let ws_url = format!("{server_ws}/v1/events?proof={proof_b64}");
 
-    let host = cfg.server_url
+    let host = cfg
+        .server_url
         .trim_start_matches("http://")
         .trim_start_matches("https://")
         .to_string();

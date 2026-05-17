@@ -71,7 +71,8 @@ impl AppState {
             cfg.auth.proof_replay_cache_size,
             cfg.auth.proof_replay_window_secs as u64,
         );
-        let (bus, _rx) = tokio::sync::broadcast::channel::<teramind_core::team_event::TeamEvent>(256);
+        let (bus, _rx) =
+            tokio::sync::broadcast::channel::<teramind_core::team_event::TeamEvent>(256);
         Self {
             users: UserRepo::new(pool.clone()),
             devices: DeviceRepo::new(pool.clone()),

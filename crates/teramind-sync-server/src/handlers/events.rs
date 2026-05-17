@@ -34,8 +34,7 @@ pub async fn events(
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or(StatusCode::UNAUTHORIZED)?
         .to_string();
-    let token =
-        crate::token::DeviceToken::parse(&bearer).map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let token = crate::token::DeviceToken::parse(&bearer).map_err(|_| StatusCode::UNAUTHORIZED)?;
     let device = state
         .devices
         .get_active_by_token_hash(&token.hash())
@@ -47,8 +46,7 @@ pub async fn events(
     let proof_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(&q.proof)
         .map_err(|_| StatusCode::FORBIDDEN)?;
-    let proof_str =
-        std::str::from_utf8(&proof_bytes).map_err(|_| StatusCode::FORBIDDEN)?;
+    let proof_str = std::str::from_utf8(&proof_bytes).map_err(|_| StatusCode::FORBIDDEN)?;
 
     // 3. Verify proof.
     let now = OffsetDateTime::now_utc().unix_timestamp();
@@ -98,11 +96,7 @@ async fn handle_socket(mut socket: WebSocket, mut rx: broadcast::Receiver<TeamEv
         "type": "hello",
         "server_version": crate::VERSION,
     });
-    if socket
-        .send(Message::Text(hello.to_string()))
-        .await
-        .is_err()
-    {
+    if socket.send(Message::Text(hello.to_string())).await.is_err() {
         return;
     }
     loop {

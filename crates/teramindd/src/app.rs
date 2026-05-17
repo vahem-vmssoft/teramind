@@ -245,7 +245,7 @@ impl App {
                     team_cfg: cfg.clone(),
                     signing_key: sk.clone(),
                     local_bus: local_event_bus_tx.clone(),
-                }
+                },
             )
         });
 

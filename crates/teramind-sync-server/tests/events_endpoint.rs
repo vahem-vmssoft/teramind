@@ -78,8 +78,7 @@ async fn session_ended_event_streams_to_ws_subscriber() -> anyhow::Result<()> {
         bsh: body_hash_hex(b""),
     };
     let proof = sign(&claims, &sk);
-    let proof_b64 =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(proof.as_bytes());
+    let proof_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(proof.as_bytes());
 
     // Open WS.
     let ws_url = format!("ws://{addr}/v1/events?proof={proof_b64}");

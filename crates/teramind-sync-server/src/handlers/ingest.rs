@@ -77,11 +77,13 @@ async fn publish_on_success(state: &AppState, event: &IngestEvent, user_id: uuid
             .ok()
             .flatten()
             .unwrap_or_default();
-        let _ = state.bus.send(teramind_core::team_event::TeamEvent::SessionEnded {
-            session_id: session_id.0,
-            user_id,
-            cwd,
-            ts: time::OffsetDateTime::now_utc(),
-        });
+        let _ = state
+            .bus
+            .send(teramind_core::team_event::TeamEvent::SessionEnded {
+                session_id: session_id.0,
+                user_id,
+                cwd,
+                ts: time::OffsetDateTime::now_utc(),
+            });
     }
 }

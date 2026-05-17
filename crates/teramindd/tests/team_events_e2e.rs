@@ -24,29 +24,45 @@ async fn ws_subscriber_receives_server_bus_event() -> anyhow::Result<()> {
     let pool = DbPool::connect(sup.connect_options()).await?;
     migrate::run(&pool).await?;
     let cfg = ServerConfig {
-        listen_addr: "127.0.0.1:0".into(), database_url: "ignored".into(),
-        tls: None, auth: AuthConfig::default(), ingest: IngestConfig::default(),
+        listen_addr: "127.0.0.1:0".into(),
+        database_url: "ignored".into(),
+        tls: None,
+        auth: AuthConfig::default(),
+        ingest: IngestConfig::default(),
     };
     let state = AppState::new(pool.clone(), cfg);
     let server_bus = state.bus.clone();
     let app = build_router(state);
     let listener = tokio::net::TcpListener::bind::<SocketAddr>("127.0.0.1:0".parse()?).await?;
     let addr = listener.local_addr()?;
-    tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); });
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
 
     // Redeem.
     let invites = InviteRepo::new(pool.clone());
-    let mut seed = [0u8; 32]; OsRng.fill_bytes(&mut seed);
+    let mut seed = [0u8; 32];
+    OsRng.fill_bytes(&mut seed);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes().to_vec();
     let code = InviteCode::generate(&mut OsRng);
-    invites.create(&code.hash(), "alice@acme.dev", None, None,
-                   OffsetDateTime::now_utc() + TDur::days(7)).await?;
-    let r = reqwest::Client::new().post(format!("http://{addr}/v1/auth/redeem"))
+    invites
+        .create(
+            &code.hash(),
+            "alice@acme.dev",
+            None,
+            None,
+            OffsetDateTime::now_utc() + TDur::days(7),
+        )
+        .await?;
+    let r = reqwest::Client::new()
+        .post(format!("http://{addr}/v1/auth/redeem"))
         .json(&json!({
             "invite_code": code.as_str(), "device_name": "dev",
             "device_public_key_b64": base64::engine::general_purpose::STANDARD.encode(&pk),
-        })).send().await?;
+        }))
+        .send()
+        .await?;
     let body: serde_json::Value = r.json().await?;
     let team_cfg = TeamConfig {
         server_url: format!("http://{addr}"),
