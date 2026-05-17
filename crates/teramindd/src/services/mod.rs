@@ -14,6 +14,7 @@ pub mod search;
 pub mod session_manager;
 pub mod snapshot_cache;
 pub mod storage_stats;
+pub mod sync_offset;
 pub mod summarize;
 pub mod summarizer_worker;
 pub mod write_tool_ring;
