@@ -3,6 +3,7 @@
 pub mod client;
 pub mod codec;
 pub mod error;
+pub mod grep_fallback_client;
 pub mod proto;
 pub mod rpc_transport;
 pub mod server;
