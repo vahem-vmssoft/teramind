@@ -23,8 +23,22 @@ pub fn build_router(state: AppState) -> Router {
             state.clone(),
             crate::auth::auth_middleware,
         ));
+
+    let admin_public = Router::new()
+        .route("/admin/login",   post(crate::admin_api::handlers::session::login))
+        .route("/admin/logout",  post(crate::admin_api::handlers::session::logout))
+        .route("/admin/version", get(crate::admin_api::handlers::session::version));
+    let admin_authed = Router::new()
+        .route("/admin/me", get(crate::admin_api::handlers::session::me))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::admin_api::auth::admin_middleware,
+        ));
+    let admin = admin_public.merge(admin_authed);
+
     public
         .merge(authed)
+        .merge(admin)
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -33,7 +47,7 @@ pub async fn serve(state: AppState, addr: SocketAddr) -> anyhow::Result<()> {
     let app = build_router(state);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!(%addr, "teramind-sync-server listening (HTTP)");
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
     Ok(())
 }
 
