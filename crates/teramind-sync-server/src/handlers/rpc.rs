@@ -15,7 +15,6 @@ pub async fn rpc(
         device_id: auth.device_id.0,
     };
     let deps = state.rpc_deps();
-    let resp: Response =
-        teramindd::services::rpc_dispatch::dispatch(&deps, req, Some(auth)).await;
+    let resp: Response = teramindd::services::rpc_dispatch::dispatch(&deps, req, Some(auth)).await;
     (StatusCode::OK, Json(resp))
 }

@@ -1,5 +1,4 @@
 pub mod decision_cache;
-pub mod rpc_dispatch;
 pub mod diff_engine;
 pub mod embed;
 pub mod embedding_worker;
@@ -11,6 +10,7 @@ pub mod ingest;
 pub mod ipc_server;
 pub mod jsonl_writer;
 pub mod orphan_sweeper;
+pub mod rpc_dispatch;
 pub mod search;
 pub mod session_manager;
 pub mod snapshot_cache;

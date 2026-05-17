@@ -5,9 +5,7 @@ use rmcp::{transport::stdio, ServiceExt};
 use std::sync::Arc;
 use teramind_ipc::rpc_transport::RpcTransport;
 use teramind_mcp::{
-    server::TeramindMcpServer,
-    transport_https::HttpsTransport,
-    transport_local::LocalIpcTransport,
+    server::TeramindMcpServer, transport_https::HttpsTransport, transport_local::LocalIpcTransport,
 };
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
@@ -42,8 +40,8 @@ fn build_transport() -> anyhow::Result<Arc<dyn RpcTransport>> {
     if team_toml.exists() {
         let cfg = teramind_core::team::TeamConfig::load(&team_toml)?;
         let key = teramind_core::team::load_signing_key(&config_dir.join("team-key"))?;
-        let https = Arc::new(HttpsTransport::new(Arc::new(cfg), Arc::new(key)))
-            as Arc<dyn RpcTransport>;
+        let https =
+            Arc::new(HttpsTransport::new(Arc::new(cfg), Arc::new(key))) as Arc<dyn RpcTransport>;
 
         // Resolve raw_dir for GrepFallback using the same XDG logic as teramindd.
         let raw_dir = {
@@ -57,9 +55,9 @@ fn build_transport() -> anyhow::Result<Arc<dyn RpcTransport>> {
                 .join("raw")
         };
 
-        let transport =
-            Arc::new(teramind_ipc::grep_fallback_client::GrepFallback::new(https, raw_dir))
-                as Arc<dyn RpcTransport>;
+        let transport = Arc::new(teramind_ipc::grep_fallback_client::GrepFallback::new(
+            https, raw_dir,
+        )) as Arc<dyn RpcTransport>;
         Ok(transport)
     } else {
         let sock = teramind_ipc::transport::default_socket_path();

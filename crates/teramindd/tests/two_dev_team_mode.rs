@@ -19,7 +19,11 @@ use teramindd::services::team_sync::{TeamSync, TeamSyncDeps};
 use time::{Duration as TDur, OffsetDateTime};
 use uuid::Uuid;
 
-async fn redeem(addr: SocketAddr, pool: &DbPool, email: &str) -> anyhow::Result<(Arc<TeamConfig>, Arc<SigningKey>)> {
+async fn redeem(
+    addr: SocketAddr,
+    pool: &DbPool,
+    email: &str,
+) -> anyhow::Result<(Arc<TeamConfig>, Arc<SigningKey>)> {
     let invites = InviteRepo::new(pool.clone());
     let mut seed = [0u8; 32];
     OsRng.fill_bytes(&mut seed);

@@ -64,12 +64,8 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, _auth: Option<AuthContext>) 
             }
         }
         Request::AutoRecall(r) => {
-            match crate::services::search::do_auto_recall(
-                &deps.search_repo,
-                &deps.wiki_repo,
-                &r,
-            )
-            .await
+            match crate::services::search::do_auto_recall(&deps.search_repo, &deps.wiki_repo, &r)
+                .await
             {
                 Ok(md) => Response::AutoRecallDigest {
                     markdown: md,
@@ -88,8 +84,7 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, _auth: Option<AuthContext>) 
         Request::WikiLookup { session_id, cwd } => {
             let result: anyhow::Result<Option<teramind_db::repos::WikiPage>> = async {
                 if let Some(sid_str) = session_id {
-                    let sid =
-                        teramind_core::ids::SessionId(uuid::Uuid::parse_str(&sid_str)?);
+                    let sid = teramind_core::ids::SessionId(uuid::Uuid::parse_str(&sid_str)?);
                     let p = deps
                         .wiki_repo
                         .get_for_session(sid, &deps.summary_model)
@@ -124,10 +119,7 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, _auth: Option<AuthContext>) 
             }
         }
         // Daemon-control + local-only — not handled here.
-        Request::Status
-        | Request::Ping
-        | Request::Shutdown
-        | Request::TeamShareSet { .. } => {
+        Request::Status | Request::Ping | Request::Shutdown | Request::TeamShareSet { .. } => {
             Response::Error("unsupported in shared dispatch".into())
         }
     }

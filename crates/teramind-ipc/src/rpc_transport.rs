@@ -1,7 +1,7 @@
 //! Pluggable transport for MCP and hook RPC.
 
-use async_trait::async_trait;
 use crate::proto::{Request, Response};
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait RpcTransport: Send + Sync {

@@ -113,13 +113,15 @@ fn build_transport() -> anyhow::Result<Arc<dyn RpcTransport>> {
                 .join("raw")
         };
 
-        let transport =
-            Arc::new(teramind_ipc::grep_fallback_client::GrepFallback::new(https, raw_dir))
-                as Arc<dyn RpcTransport>;
+        let transport = Arc::new(teramind_ipc::grep_fallback_client::GrepFallback::new(
+            https, raw_dir,
+        )) as Arc<dyn RpcTransport>;
         Ok(transport)
     } else {
         let sock = teramind_ipc::transport::default_socket_path();
-        Ok(Arc::new(teramind_mcp::transport_local::LocalIpcTransport::new(sock))
-            as Arc<dyn RpcTransport>)
+        Ok(
+            Arc::new(teramind_mcp::transport_local::LocalIpcTransport::new(sock))
+                as Arc<dyn RpcTransport>,
+        )
     }
 }

@@ -33,9 +33,9 @@ impl RpcTransport for GrepFallback {
         match self.inner.request(req.clone()).await {
             Ok(r) => Ok(r),
             Err(e) if !e.is_connect() => Err(e),
-            Err(_) if !is_read => {
-                Err(RpcError::Connect("server unreachable; write refused".into()))
-            }
+            Err(_) if !is_read => Err(RpcError::Connect(
+                "server unreachable; write refused".into(),
+            )),
             Err(_) => fallback(&req, &self.jsonl_dir).await,
         }
     }
@@ -67,19 +67,21 @@ async fn fallback(req: &Request, jsonl_dir: &std::path::Path) -> Result<Response
                     }
                 }
             }
-            Ok(Response::SearchResults(teramind_core::types::SearchResults {
-                hits,
-                degraded: true,
-                took_ms: 0,
-            }))
+            Ok(Response::SearchResults(
+                teramind_core::types::SearchResults {
+                    hits,
+                    degraded: true,
+                    took_ms: 0,
+                },
+            ))
         }
-        Request::Recall(_) | Request::AutoRecall(_) | Request::WikiLookup { .. } => {
-            Ok(Response::SearchResults(teramind_core::types::SearchResults {
+        Request::Recall(_) | Request::AutoRecall(_) | Request::WikiLookup { .. } => Ok(
+            Response::SearchResults(teramind_core::types::SearchResults {
                 hits: vec![],
                 degraded: true,
                 took_ms: 0,
-            }))
-        }
+            }),
+        ),
         _ => Err(RpcError::Connect("not fallen back".into())),
     }
 }
