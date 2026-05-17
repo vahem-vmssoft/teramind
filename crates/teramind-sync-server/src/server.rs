@@ -3,6 +3,9 @@
 use crate::handlers;
 use crate::state::AppState;
 use axum::{
+    extract::Path,
+    http::{header, HeaderValue, StatusCode},
+    response::IntoResponse,
     routing::{get, post},
     Router,
 };
@@ -10,12 +13,36 @@ use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
+async fn serve_dashboard_index() -> impl IntoResponse {
+    match crate::dashboard_assets::lookup("index.html") {
+        Some((bytes, ct)) => {
+            let mut resp = bytes.into_response();
+            resp.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_static(ct));
+            resp
+        }
+        None => (StatusCode::NOT_FOUND, "dashboard not built").into_response(),
+    }
+}
+
+async fn serve_dashboard_asset(Path(path): Path<String>) -> impl IntoResponse {
+    match crate::dashboard_assets::lookup(&path) {
+        Some((bytes, ct)) => {
+            let mut resp = bytes.into_response();
+            resp.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_static(ct));
+            resp
+        }
+        None => (StatusCode::NOT_FOUND, "not found").into_response(),
+    }
+}
+
 pub fn build_router(state: AppState) -> Router {
     let public = Router::new()
         .route("/v1/health", get(handlers::health::health))
         .route("/v1/version", get(handlers::health::version))
         .route("/v1/auth/redeem", post(handlers::redeem::redeem))
-        .route("/v1/events", get(handlers::events::events));
+        .route("/v1/events", get(handlers::events::events))
+        .route("/dashboard", axum::routing::get(serve_dashboard_index))
+        .route("/dashboard/*path", axum::routing::get(serve_dashboard_asset));
     let authed = Router::new()
         .route("/v1/ingest", post(handlers::ingest::ingest))
         .route("/v1/rpc", post(handlers::rpc::rpc))

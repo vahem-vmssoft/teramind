@@ -1,6 +1,7 @@
 //! Teramind central sync server. See docs/superpowers/specs/2026-05-17-teramind-team-sync-design.md.
 
 pub mod admin;
+pub mod dashboard_assets;
 pub mod admin_api;
 pub mod auth;
 pub mod config;
