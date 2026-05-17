@@ -42,9 +42,7 @@ async fn main() -> anyhow::Result<()> {
         },
         Command::Feed { follow, backlog } => commands::feed::run(follow, backlog).await,
         Command::Skills { action } => match action {
-            SkillsAction::List { filter, limit } => {
-                commands::skills::list(filter, limit).await
-            }
+            SkillsAction::List { filter, limit } => commands::skills::list(filter, limit).await,
             SkillsAction::Show { name_or_id } => commands::skills::show(name_or_id).await,
             SkillsAction::Observations {
                 kind,

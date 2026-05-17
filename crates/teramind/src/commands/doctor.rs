@@ -108,9 +108,13 @@ pub async fn run() -> anyhow::Result<()> {
     let codify_cfg_path = paths.config_dir.join("codify.toml");
     if codify_cfg_path.exists() {
         let raw = std::fs::read_to_string(&codify_cfg_path).unwrap_or_default();
-        let provider = if raw.contains("provider = \"null\"") { "null" }
-                       else if raw.contains("provider = \"anthropic\"") { "anthropic" }
-                       else { "ollama" };
+        let provider = if raw.contains("provider = \"null\"") {
+            "null"
+        } else if raw.contains("provider = \"anthropic\"") {
+            "anthropic"
+        } else {
+            "ollama"
+        };
         println!("codifier:    enabled ({})", provider);
     } else {
         println!("codifier:    disabled (no codify.toml)");

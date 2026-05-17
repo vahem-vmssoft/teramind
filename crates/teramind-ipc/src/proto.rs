@@ -138,7 +138,7 @@ pub struct SkillRow {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub source: String,        // "authored" | "codified" | "imported"
+    pub source: String,         // "authored" | "codified" | "imported"
     pub status: Option<String>, // None for live skills, Some("pending"|...) for candidates
     pub applies_to_cwds: Vec<String>,
 }

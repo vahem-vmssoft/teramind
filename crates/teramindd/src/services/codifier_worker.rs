@@ -17,9 +17,9 @@ use tracing::{info, warn};
 #[derive(Default)]
 pub struct CodifierStats {
     pub observations_total: AtomicU64,
-    pub candidates_total:   AtomicU64,
-    pub promotions_total:   AtomicU64,
-    pub skips_total:        AtomicU64,
+    pub candidates_total: AtomicU64,
+    pub promotions_total: AtomicU64,
+    pub skips_total: AtomicU64,
 }
 
 pub struct CodifierDeps {
@@ -55,9 +55,15 @@ impl CodifierWorker {
         let h_detect = if deps.run_detectors {
             let dep = deps.clone_for_detectors(stats.clone());
             Some(tokio::spawn(async move { detector_loop(dep).await }))
-        } else { None };
+        } else {
+            None
+        };
 
-        Self { stats, _h_synth: h_synth, _h_detect: h_detect }
+        Self {
+            stats,
+            _h_synth: h_synth,
+            _h_detect: h_detect,
+        }
     }
 }
 
@@ -106,15 +112,24 @@ async fn synthesis_promote_loop(d: SynthAndPromoteLoop) {
         }
 
         // 2. Back-pressure: skip synthesis when too many pending.
-        let pending_n = d.cand.list_pending(d.cfg.max_pending_candidates).await
-            .map(|v| v.len() as i64).unwrap_or(0);
+        let pending_n = d
+            .cand
+            .list_pending(d.cfg.max_pending_candidates)
+            .await
+            .map(|v| v.len() as i64)
+            .unwrap_or(0);
         if pending_n >= d.cfg.max_pending_candidates {
             tokio::time::sleep(d.poll_interval).await;
             continue;
         }
 
         // 3. Pick one open observation above threshold.
-        let open = d.obs.list_open(d.cfg.min_observation_frequency, 1).await.ok().unwrap_or_default();
+        let open = d
+            .obs
+            .list_open(d.cfg.min_observation_frequency, 1)
+            .await
+            .ok()
+            .unwrap_or_default();
         if let Some(o) = open.into_iter().next() {
             let deps = SynthesisDeps {
                 pool: d.pool.clone(),
@@ -128,8 +143,8 @@ async fn synthesis_promote_loop(d: SynthAndPromoteLoop) {
             };
             match synthesize_one(&deps, o).await {
                 Ok(Some(_)) => info!("synthesized candidate"),
-                Ok(None)    => info!("observation skipped"),
-                Err(e)      => warn!(error = %e, "synthesis error"),
+                Ok(None) => info!("observation skipped"),
+                Err(e) => warn!(error = %e, "synthesis error"),
             }
         }
 
@@ -148,17 +163,23 @@ struct DetectorLoop {
 async fn detector_loop(d: DetectorLoop) {
     loop {
         if d.cfg.detectors.tool_chain {
-            if let Err(e) = tool_chain::run(&d.pool, &d.obs, time::Duration::days(30), d.cache.clone()).await {
+            if let Err(e) =
+                tool_chain::run(&d.pool, &d.obs, time::Duration::days(30), d.cache.clone()).await
+            {
                 warn!(error = %e, "tool_chain detector error");
             }
         }
         if d.cfg.detectors.problem_fix {
-            if let Err(e) = problem_fix::run(&d.pool, &d.obs, time::Duration::days(30), d.cache.clone()).await {
+            if let Err(e) =
+                problem_fix::run(&d.pool, &d.obs, time::Duration::days(30), d.cache.clone()).await
+            {
                 warn!(error = %e, "problem_fix detector error");
             }
         }
         if d.cfg.detectors.llm_proposal {
-            if let Err(e) = llm_proposal::run(&d.pool, &d.obs, d.provider.as_ref(), d.cache.clone()).await {
+            if let Err(e) =
+                llm_proposal::run(&d.pool, &d.obs, d.provider.as_ref(), d.cache.clone()).await
+            {
                 warn!(error = %e, "llm_proposal detector error");
             }
         }

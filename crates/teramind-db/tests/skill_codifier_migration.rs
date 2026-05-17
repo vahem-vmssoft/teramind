@@ -11,15 +11,20 @@ async fn migration_creates_observation_and_candidate_tables() -> anyhow::Result<
 
     for t in ["skill_observations", "skill_candidates"] {
         let (exists,): (bool,) = sqlx::query_as(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1)"
-        ).bind(t).fetch_one(pool.pg()).await?;
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1)",
+        )
+        .bind(t)
+        .fetch_one(pool.pg())
+        .await?;
         assert!(exists, "table `{t}` must exist after migration");
     }
 
     let (exists,): (bool,) = sqlx::query_as(
         "SELECT EXISTS (SELECT 1 FROM information_schema.columns \
-         WHERE table_name = 'skills' AND column_name = 'applies_to_cwds')"
-    ).fetch_one(pool.pg()).await?;
+         WHERE table_name = 'skills' AND column_name = 'applies_to_cwds')",
+    )
+    .fetch_one(pool.pg())
+    .await?;
     assert!(exists, "skills.applies_to_cwds must exist after migration");
 
     sup.shutdown().await?;

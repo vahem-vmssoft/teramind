@@ -1,6 +1,6 @@
-pub mod tool_chain;
-pub mod problem_fix;
 pub mod llm_proposal;
+pub mod problem_fix;
+pub mod tool_chain;
 
 use crate::services::decision_cache::{DecisionCache, ShareDecision};
 use std::sync::Arc;

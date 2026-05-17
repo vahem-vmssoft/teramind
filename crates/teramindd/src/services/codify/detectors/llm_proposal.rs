@@ -21,12 +21,21 @@ pub async fn run(
            FROM sessions
            WHERE ended_at IS NOT NULL
            ORDER BY ended_at DESC
-           LIMIT 5"#)
-        .fetch_all(pool.pg()).await?;
-    if rows.is_empty() { return Ok(()); }
+           LIMIT 5"#,
+    )
+    .fetch_all(pool.pg())
+    .await?;
+    if rows.is_empty() {
+        return Ok(());
+    }
 
-    let rows: Vec<_> = rows.into_iter().filter(|(sid, _, _)| !is_denied(&cache, *sid)).collect();
-    if rows.is_empty() { return Ok(()); }
+    let rows: Vec<_> = rows
+        .into_iter()
+        .filter(|(sid, _, _)| !is_denied(&cache, *sid))
+        .collect();
+    if rows.is_empty() {
+        return Ok(());
+    }
 
     // Bundle: wiki excerpts if any, else fall back to last few turns.
     let mut bundle = String::new();
@@ -54,9 +63,15 @@ pub async fn run(
     };
     let result = provider.codify(req).await?;
     match result.decision {
-        CodifyDecision::Skill { name, description, body: _, applies_to_cwds: _ } => {
+        CodifyDecision::Skill {
+            name,
+            description,
+            body: _,
+            applies_to_cwds: _,
+        } => {
             // Use the name as the dedup key so re-proposing the same name dedups.
-            let mut h = Sha256::new(); h.update(name.as_bytes());
+            let mut h = Sha256::new();
+            h.update(name.as_bytes());
             let sig = hex::encode(&h.finalize()[..8]);
             let ctx = serde_json::json!({
                 "proposed_name": name,

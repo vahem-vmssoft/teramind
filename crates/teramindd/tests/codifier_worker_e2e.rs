@@ -29,7 +29,9 @@ impl CodifyProvider for AlwaysSkill {
             output_tokens: 50,
         })
     }
-    fn name(&self) -> &str { "always-skill" }
+    fn name(&self) -> &str {
+        "always-skill"
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -40,9 +42,17 @@ async fn synthesis_then_approval_promotes() -> anyhow::Result<()> {
     migrate::run(&pool).await?;
 
     let obs = SkillObservationRepo::new(pool.clone());
-    obs.upsert("tool_chain", "sig1",
-               &[SessionId(Uuid::new_v4()), SessionId(Uuid::new_v4()), SessionId(Uuid::new_v4())],
-               serde_json::json!({})).await?;
+    obs.upsert(
+        "tool_chain",
+        "sig1",
+        &[
+            SessionId(Uuid::new_v4()),
+            SessionId(Uuid::new_v4()),
+            SessionId(Uuid::new_v4()),
+        ],
+        serde_json::json!({}),
+    )
+    .await?;
 
     let cand = SkillCandidateRepo::new(pool.clone());
     let skills = SkillRepo::new(pool.clone());
@@ -65,7 +75,9 @@ async fn synthesis_then_approval_promotes() -> anyhow::Result<()> {
     // Wait for synthesis.
     for _ in 0..50 {
         tokio::time::sleep(Duration::from_millis(100)).await;
-        if !cand.list_pending(10).await?.is_empty() { break; }
+        if !cand.list_pending(10).await?.is_empty() {
+            break;
+        }
     }
     let pending = cand.list_pending(10).await?;
     assert_eq!(pending.len(), 1);
@@ -79,11 +91,16 @@ async fn synthesis_then_approval_promotes() -> anyhow::Result<()> {
     for _ in 0..50 {
         tokio::time::sleep(Duration::from_millis(100)).await;
         let (n,): (i64,) = sqlx::query_as("SELECT count(*) FROM skills WHERE source='codified'")
-            .fetch_one(pool.pg()).await?;
-        if n == 1 { break; }
+            .fetch_one(pool.pg())
+            .await?;
+        if n == 1 {
+            break;
+        }
     }
-    let (n,): (i64,) = sqlx::query_as("SELECT count(*) FROM skills WHERE source='codified' AND name='test-skill'")
-        .fetch_one(pool.pg()).await?;
+    let (n,): (i64,) =
+        sqlx::query_as("SELECT count(*) FROM skills WHERE source='codified' AND name='test-skill'")
+            .fetch_one(pool.pg())
+            .await?;
     assert_eq!(n, 1, "candidate must be promoted");
 
     sup.shutdown().await?;

@@ -63,16 +63,24 @@ impl SkillRepo {
 
     /// List all codified skills. The glob match against `cwd` is done in the caller.
     /// Returns `(id, name, description, applies_to_cwds, seeded_from_count)`.
-    pub async fn list_codified_for_cwd(&self, cwd: &str, limit: i64) -> Result<Vec<(SkillId, String, String, Vec<String>, i32)>> {
+    pub async fn list_codified_for_cwd(
+        &self,
+        cwd: &str,
+        limit: i64,
+    ) -> Result<Vec<(SkillId, String, String, Vec<String>, i32)>> {
         let rows: Vec<CodifiedRow> = sqlx::query_as(
             r#"SELECT id, name, description, applies_to_cwds, source_session_ids
                FROM skills WHERE source = 'codified'
                ORDER BY updated_at DESC
-               LIMIT $1"#)
-            .bind(limit).fetch_all(self.pool.pg()).await?;
+               LIMIT $1"#,
+        )
+        .bind(limit)
+        .fetch_all(self.pool.pg())
+        .await?;
         // Glob matching happens in the caller (services::codify::glob).
         let _ = cwd;
-        Ok(rows.into_iter()
+        Ok(rows
+            .into_iter()
             .map(|r| (SkillId(r.0), r.1, r.2, r.3, r.4.len() as i32))
             .collect())
     }

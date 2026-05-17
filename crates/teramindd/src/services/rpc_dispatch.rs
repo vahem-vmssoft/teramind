@@ -7,7 +7,9 @@ use std::sync::Arc;
 use teramind_core::embed::EmbeddingProvider;
 use teramind_core::summarize::SummaryProvider;
 use teramind_db::pool::DbPool;
-use teramind_db::repos::{SearchRepo, SkillCandidateRepo, SkillObservationRepo, SkillRepo, WikiRepo};
+use teramind_db::repos::{
+    SearchRepo, SkillCandidateRepo, SkillObservationRepo, SkillRepo, WikiRepo,
+};
 use teramind_ipc::proto::{Request, Response};
 
 #[derive(Clone)]
@@ -69,8 +71,13 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
             }
         }
         Request::AutoRecall(r) => {
-            match crate::services::search::do_auto_recall(&deps.search_repo, &deps.wiki_repo, &deps.skill_repo, &r)
-                .await
+            match crate::services::search::do_auto_recall(
+                &deps.search_repo,
+                &deps.wiki_repo,
+                &deps.skill_repo,
+                &r,
+            )
+            .await
             {
                 Ok(md) => Response::AutoRecallDigest {
                     markdown: md,
@@ -134,9 +141,13 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
                 Err(e) => Response::Error(format!("wiki lookup failed: {e}")),
             }
         }
-        Request::CodifyNow { seed_session_ids, hint } => {
+        Request::CodifyNow {
+            seed_session_ids,
+            hint,
+        } => {
             use sha2::{Digest, Sha256};
-            let sids: Vec<teramind_core::ids::SessionId> = seed_session_ids.iter()
+            let sids: Vec<teramind_core::ids::SessionId> = seed_session_ids
+                .iter()
                 .filter_map(|s| uuid::Uuid::parse_str(s).ok())
                 .map(teramind_core::ids::SessionId)
                 .collect();
@@ -146,9 +157,21 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
             h.update(format!("{:?}", sids).as_bytes());
             let sig = hex::encode(&h.finalize()[..8]);
             let ctx = serde_json::json!({ "hint": hint_str, "source": "mcp" });
-            let _ = deps.skill_obs.upsert("llm_proposal", &sig,
-                if sids.is_empty() { &[] } else { &sids[..] }, ctx).await;
-            let obs = deps.skill_obs.find_by_sig("llm_proposal", &sig).await.ok().flatten();
+            let _ = deps
+                .skill_obs
+                .upsert(
+                    "llm_proposal",
+                    &sig,
+                    if sids.is_empty() { &[] } else { &sids[..] },
+                    ctx,
+                )
+                .await;
+            let obs = deps
+                .skill_obs
+                .find_by_sig("llm_proposal", &sig)
+                .await
+                .ok()
+                .flatten();
             let id = obs.map(|o| o.id.0.to_string()).unwrap_or_default();
             Response::CodifyQueued { observation_id: id }
         }
@@ -157,7 +180,11 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
             let mut rows: Vec<teramind_ipc::proto::SkillRow> = vec![];
             let f = filter.unwrap_or_else(|| "all".into());
             if f == "pending" || f == "rejected" || f == "approved" {
-                let cands = deps.skill_cand.list_filter(Some(&f), limit as i64).await.unwrap_or_default();
+                let cands = deps
+                    .skill_cand
+                    .list_filter(Some(&f), limit as i64)
+                    .await
+                    .unwrap_or_default();
                 for c in cands {
                     rows.push(teramind_ipc::proto::SkillRow {
                         id: c.id.0.to_string(),
@@ -172,11 +199,19 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
                 // Live skills.
                 let live: Vec<(uuid::Uuid, String, String, String, Vec<String>)> = sqlx::query_as(
                     r#"SELECT id, name, description, source, applies_to_cwds
-                       FROM skills ORDER BY updated_at DESC LIMIT $1"#)
-                    .bind(limit as i64).fetch_all(deps.pool.pg()).await.unwrap_or_default();
+                       FROM skills ORDER BY updated_at DESC LIMIT $1"#,
+                )
+                .bind(limit as i64)
+                .fetch_all(deps.pool.pg())
+                .await
+                .unwrap_or_default();
                 for (id, n, d, s, cwds) in live {
-                    if f == "codified" && s != "codified" { continue; }
-                    if f == "authored" && s != "authored" { continue; }
+                    if f == "codified" && s != "codified" {
+                        continue;
+                    }
+                    if f == "authored" && s != "authored" {
+                        continue;
+                    }
                     rows.push(teramind_ipc::proto::SkillRow {
                         id: id.to_string(),
                         name: n,
@@ -191,30 +226,52 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
         }
 
         Request::SkillsShow { name_or_id } => {
-            let row: Option<(uuid::Uuid, String, String, String, String, Vec<String>)> = sqlx::query_as(
-                r#"SELECT id, name, description, body, source, applies_to_cwds
+            let row: Option<(uuid::Uuid, String, String, String, String, Vec<String>)> =
+                sqlx::query_as(
+                    r#"SELECT id, name, description, body, source, applies_to_cwds
                    FROM skills
-                   WHERE name = $1 OR id::text = $1"#)
-                .bind(&name_or_id).fetch_optional(deps.pool.pg()).await.unwrap_or(None);
+                   WHERE name = $1 OR id::text = $1"#,
+                )
+                .bind(&name_or_id)
+                .fetch_optional(deps.pool.pg())
+                .await
+                .unwrap_or(None);
             if let Some((_, name, description, body, source, applies_to_cwds)) = row {
-                Response::SkillShow { name, description, body, source, applies_to_cwds }
+                Response::SkillShow {
+                    name,
+                    description,
+                    body,
+                    source,
+                    applies_to_cwds,
+                }
             } else {
                 Response::Error(format!("no skill named or with id '{name_or_id}'"))
             }
         }
 
-        Request::SkillsObservations { kind, min_freq, status, limit } => {
+        Request::SkillsObservations {
+            kind,
+            min_freq,
+            status,
+            limit,
+        } => {
             let _ = min_freq; // status takes priority; could combine
-            let obs = deps.skill_obs.list_recent(kind.as_deref(), status.as_deref(), limit as i64)
-                .await.unwrap_or_default();
-            let rows = obs.into_iter().map(|o| teramind_ipc::proto::ObservationRow {
-                id: o.id.0.to_string(),
-                kind: o.kind,
-                signature: o.signature,
-                frequency: o.frequency,
-                status: o.status,
-                last_seen_at: o.last_seen_at.to_string(),
-            }).collect();
+            let obs = deps
+                .skill_obs
+                .list_recent(kind.as_deref(), status.as_deref(), limit as i64)
+                .await
+                .unwrap_or_default();
+            let rows = obs
+                .into_iter()
+                .map(|o| teramind_ipc::proto::ObservationRow {
+                    id: o.id.0.to_string(),
+                    kind: o.kind,
+                    signature: o.signature,
+                    frequency: o.frequency,
+                    status: o.status,
+                    last_seen_at: o.last_seen_at.to_string(),
+                })
+                .collect();
             Response::SkillsObservations { rows }
         }
 

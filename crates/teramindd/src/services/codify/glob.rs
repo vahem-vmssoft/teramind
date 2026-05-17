@@ -8,7 +8,9 @@
 //! per-comparison work.
 
 pub fn matches(pattern: &str, cwd: &str) -> bool {
-    if pattern.is_empty() { return false; }
+    if pattern.is_empty() {
+        return false;
+    }
     // Plain prefix (no `*`): treat as ancestor match.
     if !pattern.contains('*') {
         return cwd == pattern || cwd.starts_with(&format!("{pattern}/"));
@@ -16,21 +18,31 @@ pub fn matches(pattern: &str, cwd: &str) -> bool {
     // Segment-wildcard match.
     let pat_segs: Vec<&str> = pattern.trim_start_matches('/').split('/').collect();
     let cwd_segs: Vec<&str> = cwd.trim_start_matches('/').split('/').collect();
-    if pat_segs.len() > cwd_segs.len() { return false; }
+    if pat_segs.len() > cwd_segs.len() {
+        return false;
+    }
     for (p, c) in pat_segs.iter().zip(cwd_segs.iter()) {
-        if !segment_matches(p, c) { return false; }
+        if !segment_matches(p, c) {
+            return false;
+        }
     }
     true
 }
 
 pub fn matches_any(patterns: &[String], cwd: &str) -> bool {
-    if patterns.is_empty() { return true; } // global
+    if patterns.is_empty() {
+        return true;
+    } // global
     patterns.iter().any(|p| matches(p, cwd))
 }
 
 fn segment_matches(pat: &str, seg: &str) -> bool {
-    if pat == "*" { return true; }
-    if !pat.contains('*') { return pat == seg; }
+    if pat == "*" {
+        return true;
+    }
+    if !pat.contains('*') {
+        return pat == seg;
+    }
     // Simple two-side wildcard: `prefix*suffix`. Only one `*` supported.
     let parts: Vec<&str> = pat.splitn(2, '*').collect();
     let (pre, post) = (parts[0], parts[1]);

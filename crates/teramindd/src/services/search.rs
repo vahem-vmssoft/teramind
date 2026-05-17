@@ -419,18 +419,23 @@ pub async fn relevant_codified_skills(
         Ok(rs) => rs,
         Err(_) => return String::new(),
     };
-    let matched: Vec<_> = rows.into_iter()
+    let matched: Vec<_> = rows
+        .into_iter()
         .filter(|(_, _, _, applies, _)| crate::services::codify::glob::matches_any(applies, cwd))
         .take(top_k)
         .collect();
-    if matched.is_empty() { return String::new(); }
+    if matched.is_empty() {
+        return String::new();
+    }
     let mut out = String::from("\n## Relevant codified skills\n\n");
     for (_id, name, desc, _, seeded_from) in &matched {
         out.push_str(&format!(
             "- **{name}** — {desc} _(seeded from {seeded_from} sessions)_\n"
         ));
     }
-    out.push_str("\nTo recall the full body of any skill: `mcp__teramind__search` with the skill name.\n");
+    out.push_str(
+        "\nTo recall the full body of any skill: `mcp__teramind__search` with the skill name.\n",
+    );
     out
 }
 
@@ -449,7 +454,11 @@ pub async fn do_auto_recall(
         return Ok(String::new());
     }
     let mut out = relevant_codified_skills(skills_repo, &req.cwd, 5).await;
-    out.push_str(&render_auto_recall_md(&recent, &diffs, latest_wiki.as_ref()));
+    out.push_str(&render_auto_recall_md(
+        &recent,
+        &diffs,
+        latest_wiki.as_ref(),
+    ));
     Ok(out)
 }
 

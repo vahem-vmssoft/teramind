@@ -198,12 +198,17 @@ impl App {
         let codify_provider: std::sync::Arc<dyn teramind_core::codify::CodifyProvider> =
             match codify_cfg.provider.as_str() {
                 "null" => std::sync::Arc::new(crate::services::codify::null::NullCodifyProvider),
-                "ollama" => std::sync::Arc::new(
-                    crate::services::codify::ollama::OllamaCodifyProvider::new(codify_cfg.model.clone())
-                ),
+                "ollama" => {
+                    std::sync::Arc::new(crate::services::codify::ollama::OllamaCodifyProvider::new(
+                        codify_cfg.model.clone(),
+                    ))
+                }
                 "anthropic" => {
                     let secrets = paths.config_dir.join("secrets.toml");
-                    match crate::services::codify::anthropic::AnthropicCodifyProvider::try_new(&secrets, codify_cfg.model.clone()) {
+                    match crate::services::codify::anthropic::AnthropicCodifyProvider::try_new(
+                        &secrets,
+                        codify_cfg.model.clone(),
+                    ) {
                         Ok(p) => std::sync::Arc::new(p),
                         Err(e) => {
                             tracing::warn!(error = %e, "Anthropic codify provider unavailable; falling back to null");

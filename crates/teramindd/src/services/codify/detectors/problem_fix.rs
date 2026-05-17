@@ -33,10 +33,18 @@ pub async fn run(
     let mut sig_to_context: HashMap<String, (String, String)> = HashMap::new();
 
     for (sid, _tid, prompt_opt, diff_opt) in rows {
-        if is_denied(&cache, sid) { continue; }
-        let Some(prompt) = prompt_opt else { continue; };
-        let Some(diff) = diff_opt else { continue; };
-        if !looks_like_error(&prompt) { continue; }
+        if is_denied(&cache, sid) {
+            continue;
+        }
+        let Some(prompt) = prompt_opt else {
+            continue;
+        };
+        let Some(diff) = diff_opt else {
+            continue;
+        };
+        if !looks_like_error(&prompt) {
+            continue;
+        }
 
         let normalized = normalize_error(&prompt);
         let diff_kind = classify_diff(&diff).as_str();
@@ -47,8 +55,13 @@ pub async fn run(
         h.update(diff_kind.as_bytes());
         let sig = hex::encode(&h.finalize()[..8]);
 
-        sig_to_sessions.entry(sig.clone()).or_default().push(SessionId(sid));
-        sig_to_context.entry(sig).or_insert((normalized, diff_kind.to_string()));
+        sig_to_sessions
+            .entry(sig.clone())
+            .or_default()
+            .push(SessionId(sid));
+        sig_to_context
+            .entry(sig)
+            .or_insert((normalized, diff_kind.to_string()));
     }
 
     for (sig, sessions) in sig_to_sessions {

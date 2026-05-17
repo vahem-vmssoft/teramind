@@ -17,7 +17,8 @@ impl AnthropicCodifyProvider {
     pub fn try_new(secrets_path: &Path, model: String) -> anyhow::Result<Self> {
         #[derive(Deserialize)]
         struct Secrets {
-            #[serde(default)] network_egress: bool,
+            #[serde(default)]
+            network_egress: bool,
             anthropic_api_key: Option<String>,
         }
         if !secrets_path.exists() {
@@ -28,20 +29,34 @@ impl AnthropicCodifyProvider {
         if !s.network_egress {
             anyhow::bail!("network_egress must be true to enable Anthropic codify provider");
         }
-        let key = s.anthropic_api_key.ok_or_else(|| anyhow::anyhow!("missing anthropic_api_key"))?;
+        let key = s
+            .anthropic_api_key
+            .ok_or_else(|| anyhow::anyhow!("missing anthropic_api_key"))?;
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(120))
             .build()?;
-        Ok(Self { api_key: key, model, http })
+        Ok(Self {
+            api_key: key,
+            model,
+            http,
+        })
     }
 }
 
 #[derive(Deserialize)]
-struct Msg { content: Vec<MsgPart>, usage: Usage }
+struct Msg {
+    content: Vec<MsgPart>,
+    usage: Usage,
+}
 #[derive(Deserialize)]
-struct MsgPart { text: Option<String> }
+struct MsgPart {
+    text: Option<String>,
+}
 #[derive(Deserialize)]
-struct Usage { input_tokens: u32, output_tokens: u32 }
+struct Usage {
+    input_tokens: u32,
+    output_tokens: u32,
+}
 
 #[async_trait]
 impl CodifyProvider for AnthropicCodifyProvider {
@@ -59,13 +74,21 @@ impl CodifyProvider for AnthropicCodifyProvider {
             "messages": [{"role":"user","content": user_prompt}],
             "max_tokens": req.max_output_tokens as i32,
         });
-        let resp = self.http.post("https://api.anthropic.com/v1/messages")
+        let resp = self
+            .http
+            .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
-            .json(&body).send().await?
+            .json(&body)
+            .send()
+            .await?
             .error_for_status()?;
         let m: Msg = resp.json().await?;
-        let text = m.content.into_iter().find_map(|p| p.text).unwrap_or_default();
+        let text = m
+            .content
+            .into_iter()
+            .find_map(|p| p.text)
+            .unwrap_or_default();
         let decision = parse_decision(&text)?;
         Ok(CodifyResult {
             decision,
@@ -73,5 +96,7 @@ impl CodifyProvider for AnthropicCodifyProvider {
             output_tokens: m.usage.output_tokens,
         })
     }
-    fn name(&self) -> &str { "anthropic" }
+    fn name(&self) -> &str {
+        "anthropic"
+    }
 }

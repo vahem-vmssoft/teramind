@@ -9,10 +9,14 @@ pub struct NullCodifyProvider;
 impl CodifyProvider for NullCodifyProvider {
     async fn codify(&self, _req: CodifyRequest) -> anyhow::Result<CodifyResult> {
         Ok(CodifyResult {
-            decision: CodifyDecision::Skip { reason: "null provider".into() },
+            decision: CodifyDecision::Skip {
+                reason: "null provider".into(),
+            },
             input_tokens: 0,
             output_tokens: 0,
         })
     }
-    fn name(&self) -> &str { "null" }
+    fn name(&self) -> &str {
+        "null"
+    }
 }

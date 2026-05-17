@@ -88,29 +88,56 @@ pub struct CodifyConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DetectorToggles {
-    #[serde(default = "always_true")] pub tool_chain: bool,
-    #[serde(default = "always_true")] pub problem_fix: bool,
-    #[serde(default = "always_true")] pub llm_proposal: bool,
+    #[serde(default = "always_true")]
+    pub tool_chain: bool,
+    #[serde(default = "always_true")]
+    pub problem_fix: bool,
+    #[serde(default = "always_true")]
+    pub llm_proposal: bool,
 }
 
-fn always_true() -> bool { true }
+fn always_true() -> bool {
+    true
+}
 
 impl Default for DetectorToggles {
     fn default() -> Self {
-        Self { tool_chain: true, problem_fix: true, llm_proposal: true }
+        Self {
+            tool_chain: true,
+            problem_fix: true,
+            llm_proposal: true,
+        }
     }
 }
 
 impl CodifyConfig {
-    fn default_provider() -> String { "ollama".into() }
-    fn default_model() -> String { "qwen3.6:latest".into() }
-    fn default_input_char_budget() -> usize { 24_000 }
-    fn default_output_token_budget() -> u32 { 1500 }
-    fn default_poll_interval_secs() -> u64 { 30 }
-    fn default_autonomous_cycle_secs() -> u64 { 21_600 }
-    fn default_min_observation_frequency() -> i32 { 3 }
-    fn default_max_pending_candidates() -> i64 { 50 }
-    fn default_digest_top_k() -> usize { 5 }
+    fn default_provider() -> String {
+        "ollama".into()
+    }
+    fn default_model() -> String {
+        "qwen3.6:latest".into()
+    }
+    fn default_input_char_budget() -> usize {
+        24_000
+    }
+    fn default_output_token_budget() -> u32 {
+        1500
+    }
+    fn default_poll_interval_secs() -> u64 {
+        30
+    }
+    fn default_autonomous_cycle_secs() -> u64 {
+        21_600
+    }
+    fn default_min_observation_frequency() -> i32 {
+        3
+    }
+    fn default_max_pending_candidates() -> i64 {
+        50
+    }
+    fn default_digest_top_k() -> usize {
+        5
+    }
 
     pub fn load_or_default(path: &std::path::Path) -> Self {
         if !path.exists() {

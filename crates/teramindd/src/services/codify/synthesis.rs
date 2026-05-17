@@ -17,7 +17,10 @@ pub struct SynthesisDeps {
     pub model_label: String,
 }
 
-pub async fn synthesize_one(deps: &SynthesisDeps, observation: Observation) -> anyhow::Result<Option<Candidate>> {
+pub async fn synthesize_one(
+    deps: &SynthesisDeps,
+    observation: Observation,
+) -> anyhow::Result<Option<Candidate>> {
     let mut bundle = bundle_context(&deps.pool, &observation, deps.input_char_budget).await?;
     bundle = deps.redactor.apply(&bundle);
 
@@ -37,22 +40,41 @@ pub async fn synthesize_one(deps: &SynthesisDeps, observation: Observation) -> a
             deps.obs.mark_skipped(observation.id, &reason).await?;
             Ok(None)
         }
-        CodifyDecision::Skill { name, description, body, applies_to_cwds } => {
-            let session_ids: Vec<teramind_core::ids::SessionId> = observation.session_ids.iter()
-                .copied().map(teramind_core::ids::SessionId).collect();
-            let cand_id = deps.cand.insert(
-                observation.id, &name, &description, &body,
-                &applies_to_cwds, &session_ids,
-                &deps.model_label,
-                result.input_tokens as i32, result.output_tokens as i32,
-            ).await?;
+        CodifyDecision::Skill {
+            name,
+            description,
+            body,
+            applies_to_cwds,
+        } => {
+            let session_ids: Vec<teramind_core::ids::SessionId> = observation
+                .session_ids
+                .iter()
+                .copied()
+                .map(teramind_core::ids::SessionId)
+                .collect();
+            let cand_id = deps
+                .cand
+                .insert(
+                    observation.id,
+                    &name,
+                    &description,
+                    &body,
+                    &applies_to_cwds,
+                    &session_ids,
+                    &deps.model_label,
+                    result.input_tokens as i32,
+                    result.output_tokens as i32,
+                )
+                .await?;
             // Supersede any older pending candidates for the same observation.
             let _ = deps.cand.supersede_prior(observation.id, cand_id).await;
             deps.obs.mark_synthesized(observation.id).await?;
             Ok(Some(Candidate {
                 id: cand_id,
                 observation_id: observation.id,
-                name, description, body,
+                name,
+                description,
+                body,
                 applies_to_cwds,
                 source_session_ids: observation.session_ids.clone(),
                 model: deps.model_label.clone(),
@@ -68,8 +90,10 @@ pub async fn synthesize_one(deps: &SynthesisDeps, observation: Observation) -> a
 }
 
 async fn bundle_context(pool: &DbPool, obs: &Observation, budget: usize) -> anyhow::Result<String> {
-    let mut out = format!("Observation kind: {}\nSignature: {}\nFrequency: {}\nContext: {}\n\n",
-        obs.kind, obs.signature, obs.frequency, obs.context_blob);
+    let mut out = format!(
+        "Observation kind: {}\nSignature: {}\nFrequency: {}\nContext: {}\n\n",
+        obs.kind, obs.signature, obs.frequency, obs.context_blob
+    );
     for sid in obs.session_ids.iter().take(5) {
         // Wiki excerpt first (most signal-dense).
         if let Some((content,)) = sqlx::query_as::<_, (String,)>(
@@ -101,8 +125,10 @@ async fn bundle_context(pool: &DbPool, obs: &Observation, budget: usize) -> anyh
 }
 
 async fn collect_cwds(pool: &DbPool, session_ids: &[uuid::Uuid]) -> anyhow::Result<Vec<String>> {
-    let rows: Vec<(String,)> = sqlx::query_as(
-        r#"SELECT DISTINCT cwd FROM sessions WHERE id = ANY($1)"#)
-        .bind(session_ids).fetch_all(pool.pg()).await?;
+    let rows: Vec<(String,)> =
+        sqlx::query_as(r#"SELECT DISTINCT cwd FROM sessions WHERE id = ANY($1)"#)
+            .bind(session_ids)
+            .fetch_all(pool.pg())
+            .await?;
     Ok(rows.into_iter().map(|(c,)| c).collect())
 }

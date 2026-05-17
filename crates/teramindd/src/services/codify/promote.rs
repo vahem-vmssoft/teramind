@@ -21,11 +21,15 @@ pub async fn promote_approved_batch(
             }
         };
 
-        let skill_res = skills.upsert_codified(
-            &c.name, &c.description, &c.body,
-            &c.source_session_ids,
-            &c.applies_to_cwds,
-        ).await;
+        let skill_res = skills
+            .upsert_codified(
+                &c.name,
+                &c.description,
+                &c.body,
+                &c.source_session_ids,
+                &c.applies_to_cwds,
+            )
+            .await;
         match skill_res {
             Ok(_) => {
                 if let Err(e) = candidates.mark_promoted(c.id).await {

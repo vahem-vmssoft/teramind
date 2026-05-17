@@ -2,8 +2,8 @@
 //! observation with frequency=5.
 
 use teramind_core::ids::TurnId;
-use teramind_db::repos::{AgentRepo, SessionRepo, SkillObservationRepo, TraceRepo};
 use teramind_db::repos::session::NewSession;
+use teramind_db::repos::{AgentRepo, SessionRepo, SkillObservationRepo, TraceRepo};
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::codify::detectors::tool_chain;
 use time::OffsetDateTime;
@@ -23,24 +23,59 @@ async fn five_identical_chains_produce_one_observation() -> anyhow::Result<()> {
     let started = OffsetDateTime::now_utc();
 
     for _ in 0..5 {
-        let sid = sessions.insert(NewSession {
-            agent_id: agent.id, agent_session_id: None, cwd: "/proj",
-            project_id: None, parent_session_id: None,
-            git_head: None, git_branch: None,
-            os: "linux", hostname: "h", user_login: "u",
-            started_at: started, user_id: None, device_id: None,
-        }).await?;
-        let tid = trace.upsert_turn_with_id(
-            TurnId(Uuid::new_v4()), sid, 0, started,
-            Some("build it"),
-        ).await?;
-        trace.finalize_turn(tid, started, Some("done"), None, Some("claude"), None, None).await?;
+        let sid = sessions
+            .insert(NewSession {
+                agent_id: agent.id,
+                agent_session_id: None,
+                cwd: "/proj",
+                project_id: None,
+                parent_session_id: None,
+                git_head: None,
+                git_branch: None,
+                os: "linux",
+                hostname: "h",
+                user_login: "u",
+                started_at: started,
+                user_id: None,
+                device_id: None,
+            })
+            .await?;
+        let tid = trace
+            .upsert_turn_with_id(TurnId(Uuid::new_v4()), sid, 0, started, Some("build it"))
+            .await?;
+        trace
+            .finalize_turn(tid, started, Some("done"), None, Some("claude"), None, None)
+            .await?;
         // Three tool calls: cargo build, edit Cargo.toml, cargo test.
-        let tc0 = trace.insert_tool_call_start(tid, 0, "Bash", &serde_json::json!({"command":"cargo build"}), started).await?;
+        let tc0 = trace
+            .insert_tool_call_start(
+                tid,
+                0,
+                "Bash",
+                &serde_json::json!({"command":"cargo build"}),
+                started,
+            )
+            .await?;
         trace.finalize_tool_call(tc0, "ok", false, 100).await?;
-        let tc1 = trace.insert_tool_call_start(tid, 1, "Edit", &serde_json::json!({"file_path":"Cargo.toml"}), started).await?;
+        let tc1 = trace
+            .insert_tool_call_start(
+                tid,
+                1,
+                "Edit",
+                &serde_json::json!({"file_path":"Cargo.toml"}),
+                started,
+            )
+            .await?;
         trace.finalize_tool_call(tc1, "ok", false, 50).await?;
-        let tc2 = trace.insert_tool_call_start(tid, 2, "Bash", &serde_json::json!({"command":"cargo test"}), started).await?;
+        let tc2 = trace
+            .insert_tool_call_start(
+                tid,
+                2,
+                "Bash",
+                &serde_json::json!({"command":"cargo test"}),
+                started,
+            )
+            .await?;
         trace.finalize_tool_call(tc2, "ok", false, 100).await?;
     }
 

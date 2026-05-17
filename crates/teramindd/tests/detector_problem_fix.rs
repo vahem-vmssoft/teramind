@@ -2,9 +2,9 @@
 //! diff produce one observation.
 
 use teramind_core::ids::TurnId;
-use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, SkillObservationRepo, TraceRepo};
 use teramind_db::repos::diff::NewFileDiff;
 use teramind_db::repos::session::NewSession;
+use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, SkillObservationRepo, TraceRepo};
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::codify::detectors::problem_fix;
 use time::OffsetDateTime;
@@ -25,33 +25,60 @@ async fn four_identical_failures_produce_one_observation() -> anyhow::Result<()>
     let started = OffsetDateTime::now_utc();
 
     for i in 0..4 {
-        let sid = sessions.insert(NewSession {
-            agent_id: agent.id, agent_session_id: None, cwd: "/proj",
-            project_id: None, parent_session_id: None,
-            git_head: None, git_branch: None,
-            os: "linux", hostname: "h", user_login: "u",
-            started_at: started, user_id: None, device_id: None,
-        }).await?;
-        let tid = trace.upsert_turn_with_id(
-            TurnId(Uuid::new_v4()), sid, 0, started,
-            Some(&format!("cargo test FAILED at file{i}.rs:42")),
-        ).await?;
-        trace.finalize_turn(tid, started, Some("Fixed."), None, Some("claude"), None, None).await?;
-        diffs.insert(NewFileDiff {
-            turn_id: Some(tid),
-            session_id: sid,
-            file_path: "src/lib.rs",
-            rel_path: "src/lib.rs",
-            attribution: teramind_core::types::file_diff::Attribution::Agent,
-            language: Some("rust"),
-            pre_excerpt: "old",
-            post_excerpt: "new",
-            unified_diff: "- pub fn foo() {}\n+ pub fn foo(x: i32) {}\n",
-            pre_hash: [0u8; 32],
-            post_hash: [1u8; 32],
-            byte_size: 100,
-            captured_at: started,
-        }).await?;
+        let sid = sessions
+            .insert(NewSession {
+                agent_id: agent.id,
+                agent_session_id: None,
+                cwd: "/proj",
+                project_id: None,
+                parent_session_id: None,
+                git_head: None,
+                git_branch: None,
+                os: "linux",
+                hostname: "h",
+                user_login: "u",
+                started_at: started,
+                user_id: None,
+                device_id: None,
+            })
+            .await?;
+        let tid = trace
+            .upsert_turn_with_id(
+                TurnId(Uuid::new_v4()),
+                sid,
+                0,
+                started,
+                Some(&format!("cargo test FAILED at file{i}.rs:42")),
+            )
+            .await?;
+        trace
+            .finalize_turn(
+                tid,
+                started,
+                Some("Fixed."),
+                None,
+                Some("claude"),
+                None,
+                None,
+            )
+            .await?;
+        diffs
+            .insert(NewFileDiff {
+                turn_id: Some(tid),
+                session_id: sid,
+                file_path: "src/lib.rs",
+                rel_path: "src/lib.rs",
+                attribution: teramind_core::types::file_diff::Attribution::Agent,
+                language: Some("rust"),
+                pre_excerpt: "old",
+                post_excerpt: "new",
+                unified_diff: "- pub fn foo() {}\n+ pub fn foo(x: i32) {}\n",
+                pre_hash: [0u8; 32],
+                post_hash: [1u8; 32],
+                byte_size: 100,
+                captured_at: started,
+            })
+            .await?;
     }
 
     let obs_repo = SkillObservationRepo::new(pool.clone());

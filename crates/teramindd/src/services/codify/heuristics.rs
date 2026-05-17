@@ -14,7 +14,10 @@ static ERROR_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
         r"clippy::[a-z_]+",
         r"cannot find ",
         r"undefined reference",
-    ].iter().map(|p| Regex::new(p).unwrap()).collect()
+    ]
+    .iter()
+    .map(|p| Regex::new(p).unwrap())
+    .collect()
 });
 
 pub fn looks_like_error(text: &str) -> bool {
@@ -29,7 +32,18 @@ pub fn normalize_error(text: &str) -> String {
     let re_line = Regex::new(r":\d+(:\d+)?").unwrap();
     let re_ident = Regex::new(r"\b[a-zA-Z_][a-zA-Z0-9_]+\b").unwrap();
     let no_lines = re_line.replace_all(text, "");
-    let keywords = ["error", "Error", "panicked", "Traceback", "FAILED", "cannot", "find", "undefined", "reference", "clippy"];
+    let keywords = [
+        "error",
+        "Error",
+        "panicked",
+        "Traceback",
+        "FAILED",
+        "cannot",
+        "find",
+        "undefined",
+        "reference",
+        "clippy",
+    ];
     let normalized = re_ident.replace_all(&no_lines, |caps: &regex::Captures| {
         let word = &caps[0];
         if keywords.iter().any(|k| word.eq_ignore_ascii_case(k)) {
@@ -54,32 +68,53 @@ pub enum DiffKind {
 impl DiffKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            DiffKind::AddedBlock     => "added_block",
-            DiffKind::RemovedBlock   => "removed_block",
-            DiffKind::SignatureChange=> "signature_change",
-            DiffKind::Rename         => "rename",
-            DiffKind::Mixed          => "mixed",
+            DiffKind::AddedBlock => "added_block",
+            DiffKind::RemovedBlock => "removed_block",
+            DiffKind::SignatureChange => "signature_change",
+            DiffKind::Rename => "rename",
+            DiffKind::Mixed => "mixed",
         }
     }
 }
 
 pub fn classify_diff(diff: &str) -> DiffKind {
-    let adds = diff.lines().filter(|l| l.starts_with('+') && !l.starts_with("+++")).count();
-    let dels = diff.lines().filter(|l| l.starts_with('-') && !l.starts_with("---")).count();
-    let renames = diff.lines().any(|l| l.starts_with("rename from ") || l.starts_with("similarity index "));
-    let sig_change = diff.lines().any(|l| (l.starts_with('+') || l.starts_with('-')) &&
-        (l.contains("fn ") || l.contains("def ") || l.contains("function ")));
+    let adds = diff
+        .lines()
+        .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
+        .count();
+    let dels = diff
+        .lines()
+        .filter(|l| l.starts_with('-') && !l.starts_with("---"))
+        .count();
+    let renames = diff
+        .lines()
+        .any(|l| l.starts_with("rename from ") || l.starts_with("similarity index "));
+    let sig_change = diff.lines().any(|l| {
+        (l.starts_with('+') || l.starts_with('-'))
+            && (l.contains("fn ") || l.contains("def ") || l.contains("function "))
+    });
 
-    if renames { return DiffKind::Rename; }
-    if sig_change { return DiffKind::SignatureChange; }
-    if adds > 0 && dels == 0 { return DiffKind::AddedBlock; }
-    if dels > 0 && adds == 0 { return DiffKind::RemovedBlock; }
+    if renames {
+        return DiffKind::Rename;
+    }
+    if sig_change {
+        return DiffKind::SignatureChange;
+    }
+    if adds > 0 && dels == 0 {
+        return DiffKind::AddedBlock;
+    }
+    if dels > 0 && adds == 0 {
+        return DiffKind::RemovedBlock;
+    }
     DiffKind::Mixed
 }
 
 /// Head verb of a Bash command: first whitespace-separated token, lowercased.
 pub fn bash_head_verb(cmd: &str) -> &str {
-    cmd.split_whitespace().next().unwrap_or("").trim_start_matches("./")
+    cmd.split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_start_matches("./")
 }
 
 /// Extension of a file path, or `_` if none.
@@ -107,14 +142,20 @@ mod tests {
     fn normalize_strips_line_numbers_and_identifiers() {
         let a = normalize_error("error: cannot find `foo` at file.rs:42:10");
         let b = normalize_error("error: cannot find `bar` at other.rs:99:1");
-        assert_eq!(a, b, "line numbers and ident names must collapse to the same form");
+        assert_eq!(
+            a, b,
+            "line numbers and ident names must collapse to the same form"
+        );
     }
 
     #[test]
     fn classify_diff_kinds() {
         assert_eq!(classify_diff("+ added line\n"), DiffKind::AddedBlock);
         assert_eq!(classify_diff("- removed line\n"), DiffKind::RemovedBlock);
-        assert_eq!(classify_diff("- pub fn foo() {}\n+ pub fn foo(x: i32) {}\n"), DiffKind::SignatureChange);
+        assert_eq!(
+            classify_diff("- pub fn foo() {}\n+ pub fn foo(x: i32) {}\n"),
+            DiffKind::SignatureChange
+        );
         assert_eq!(classify_diff("rename from a.rs\n"), DiffKind::Rename);
         assert_eq!(classify_diff("+ a\n- b\n"), DiffKind::Mixed);
     }

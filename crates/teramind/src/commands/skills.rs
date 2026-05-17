@@ -40,8 +40,7 @@ pub async fn list(filter: String, limit: u32) -> Result<()> {
 }
 
 pub async fn show(name_or_id: String) -> Result<()> {
-    let resp =
-        crate::ipc::request(Request::SkillsShow { name_or_id }, 10_000).await?;
+    let resp = crate::ipc::request(Request::SkillsShow { name_or_id }, 10_000).await?;
     match resp {
         Response::SkillShow {
             name,
