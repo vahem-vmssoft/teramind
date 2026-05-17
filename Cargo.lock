@@ -1569,6 +1569,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hostname"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "617aaa3557aef3810a6369d0a99fac8a080891b68bd9f9812a1eeda0c0730cbd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-link",
+]
+
+[[package]]
 name = "http"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4249,10 +4260,15 @@ name = "teramind-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
+ "base64 0.22.1",
  "clap",
+ "ed25519-dalek",
  "flate2",
  "hex",
+ "hostname",
  "libc",
+ "rand 0.8.6",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -4260,8 +4276,10 @@ dependencies = [
  "tar",
  "tempfile",
  "teramind-core",
+ "teramind-db",
  "teramind-ipc",
  "teramind-search-eval",
+ "teramind-sync-server",
  "teramindd",
  "time",
  "tokio",
@@ -4273,16 +4291,22 @@ dependencies = [
 name = "teramind-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "base64 0.22.1",
+ "ed25519-dalek",
  "hex",
  "once_cell",
  "proptest",
+ "rand 0.8.6",
  "regex",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "tempfile",
  "thiserror",
  "time",
+ "toml",
  "uuid",
 ]
 
