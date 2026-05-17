@@ -7,10 +7,10 @@ use rmcp::{
     schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler,
 };
 use serde::Deserialize;
+use std::sync::Arc;
 use teramind_ipc::{
-    client::{IpcClient, StreamClient},
     proto::{Request, Response},
-    transport::{connect, default_socket_path},
+    rpc_transport::RpcTransport,
 };
 
 /// MCP server that proxies tool calls into a running Teramind daemon.
@@ -20,35 +20,25 @@ pub struct TeramindMcpServer {
     // via `Self::tool_router()`, which the dead-code lint can't see through.
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
-}
-
-impl Default for TeramindMcpServer {
-    fn default() -> Self {
-        Self::new()
-    }
+    transport: Arc<dyn RpcTransport>,
 }
 
 impl TeramindMcpServer {
-    /// Construct a new server with the auto-generated tool router.
-    pub fn new() -> Self {
+    /// Construct a server using the provided `RpcTransport`.
+    /// Tests inject a mock transport; `main` passes the auto-selected one.
+    pub fn with_transport(transport: Arc<dyn RpcTransport>) -> Self {
         Self {
             tool_router: Self::tool_router(),
+            transport,
         }
     }
 
-    /// Open a fresh IPC connection to the daemon, send `req`, and return the
-    /// daemon's response.  Connections are not pooled: each MCP tool call
-    /// performs one connect/request/close cycle, mirroring how the CLI works.
+    /// Dispatch `req` through the pluggable transport.
     async fn ipc_request(&self, req: Request) -> Result<Response, McpError> {
-        let path = default_socket_path();
-        let stream = connect(&path)
-            .await
-            .map_err(|e| McpError::internal_error(format!("connect teramind daemon: {e}"), None))?;
-        let mut client = StreamClient::new(stream);
-        client
+        self.transport
             .request(req)
             .await
-            .map_err(|e| McpError::internal_error(format!("teramind ipc: {e}"), None))
+            .map_err(|e| McpError::internal_error(format!("teramind rpc: {e}"), None))
     }
 }
 
