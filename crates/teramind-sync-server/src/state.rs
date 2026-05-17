@@ -21,6 +21,10 @@ pub struct AppState {
     pub invites: InviteRepo,
     pub replay: Arc<ReplayCache>,
     pub cfg: Arc<ServerConfig>,
+    pub embed_provider: Arc<dyn teramind_core::embed::EmbeddingProvider>,
+    pub embed_model: String,
+    pub summary_provider: Arc<dyn teramind_core::summarize::SummaryProvider>,
+    pub summary_model: String,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -45,6 +49,21 @@ impl AppState {
         }
     }
 
+    pub fn rpc_deps(&self) -> teramindd::services::rpc_dispatch::RpcDeps {
+        use teramindd::services::search::BlendWeights;
+        teramindd::services::rpc_dispatch::RpcDeps {
+            pool: self.pool.clone(),
+            search_repo: teramind_db::repos::SearchRepo::new(self.pool.clone()),
+            wiki_repo: teramind_db::repos::WikiRepo::new(self.pool.clone()),
+            embed_provider: self.embed_provider.clone(),
+            embed_model: self.embed_model.clone(),
+            search_weights: BlendWeights::default(),
+            summary_provider: self.summary_provider.clone(),
+            summary_model: self.summary_model.clone(),
+            jsonl_dir: std::path::PathBuf::new(),
+        }
+    }
+
     pub fn new(pool: DbPool, cfg: ServerConfig) -> Self {
         let replay = ReplayCache::new(
             cfg.auth.proof_replay_cache_size,
@@ -57,6 +76,10 @@ impl AppState {
             pool,
             replay,
             cfg: Arc::new(cfg),
+            embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
+            embed_model: "null".into(),
+            summary_provider: Arc::new(teramindd::services::summarize::null::NullSummaryProvider),
+            summary_model: "null".into(),
         }
     }
 }
