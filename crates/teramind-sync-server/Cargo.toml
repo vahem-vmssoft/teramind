@@ -21,7 +21,7 @@ teramindd     = { path = "../teramindd" }
 
 anyhow         = { workspace = true }
 async-trait    = { workspace = true }
-axum           = { workspace = true }
+axum           = { workspace = true, features = ["ws", "query"] }
 axum-server    = { workspace = true }
 base32         = { workspace = true }
 base64         = { workspace = true }
@@ -52,3 +52,5 @@ tempfile   = { workspace = true }
 proptest   = { workspace = true }
 reqwest    = { workspace = true }
 rand_chacha = { workspace = true }
+tokio-tungstenite = { workspace = true }
+futures-util = "0.3"
