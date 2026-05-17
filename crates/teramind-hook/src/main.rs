@@ -61,8 +61,14 @@ async fn main() {
         if let Some(cwd) = session_cwd {
             // Best-effort auto-recall — cap at 2s so we don't block Claude.
             let _ =
-                teramind_hook::auto_recall::run(&socket, cwd, std::time::Duration::from_secs(2))
+                teramind_hook::auto_recall::run(&socket, cwd.clone(), std::time::Duration::from_secs(2))
                     .await;
+            // Inject team-share prompt if team mode is configured but no marker set.
+            if let Some(notice) =
+                teramind_hook::team_share_prompt::maybe_share_prompt(std::path::Path::new(&cwd))
+            {
+                println!("{notice}");
+            }
         }
     }
 
