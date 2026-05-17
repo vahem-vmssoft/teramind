@@ -12,6 +12,13 @@ use teramind_db::repos::{
 };
 use teramind_ipc::proto::{Request, Response};
 
+/// Implemented by `EventLogWriter` in the sync-server crate.
+/// Using a trait here keeps the daemon crate free from a dependency on
+/// `teramind-sync-server`.
+pub trait EventLogger: Send + Sync {
+    fn log(&self, event: teramind_core::team_event::TeamEvent);
+}
+
 #[derive(Clone)]
 pub struct RpcDeps {
     pub pool: DbPool,
@@ -24,6 +31,7 @@ pub struct RpcDeps {
     pub summary_model: String,
     pub jsonl_dir: PathBuf,
     pub event_bus: Option<tokio::sync::broadcast::Sender<teramind_core::team_event::TeamEvent>>,
+    pub event_log_writer: Option<Arc<dyn EventLogger>>,
     pub skill_obs: SkillObservationRepo,
     pub skill_cand: SkillCandidateRepo,
     pub skill_repo: SkillRepo,
@@ -93,12 +101,16 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
             Ok(s) => {
                 if let Some(bus) = deps.event_bus.as_ref() {
                     let user_id = auth.map(|a| a.user_id).unwrap_or_default();
-                    let _ = bus.send(teramind_core::team_event::TeamEvent::SkillSaved {
+                    let team_event = teramind_core::team_event::TeamEvent::SkillSaved {
                         skill_id: s.id.0,
                         user_id,
                         name: s.name.clone(),
                         ts: time::OffsetDateTime::now_utc(),
-                    });
+                    };
+                    let _ = bus.send(team_event.clone());
+                    if let Some(logger) = deps.event_log_writer.as_ref() {
+                        logger.log(team_event);
+                    }
                 }
                 Response::SkillRef(s)
             }

@@ -108,6 +108,13 @@ async fn main() -> anyhow::Result<()> {
                 pool.clone(),
                 std::time::Duration::from_secs(30),
             );
+            if let Some(admin_cfg) = cfg.admin.as_ref() {
+                teramind_sync_server::event_log_pruner::spawn(
+                    teramind_db::repos::TeamEventLogRepo::new(pool.clone()),
+                    admin_cfg.event_log_retention_days,
+                    std::time::Duration::from_secs(6 * 3600),
+                );
+            }
             let addr: SocketAddr = cfg.listen_addr.parse()?;
             let state = teramind_sync_server::state::AppState::new(pool, cfg.clone());
             if let Some(tls) = cfg.tls.as_ref() {

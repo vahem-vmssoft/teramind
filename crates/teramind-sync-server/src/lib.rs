@@ -4,6 +4,8 @@ pub mod admin;
 pub mod admin_api;
 pub mod auth;
 pub mod config;
+pub mod event_log_pruner;
+pub mod event_log_writer;
 pub mod fts_refresh;
 pub mod handlers;
 pub mod invite;

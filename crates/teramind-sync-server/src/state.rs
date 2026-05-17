@@ -29,6 +29,7 @@ pub struct AppState {
     pub admin: Option<std::sync::Arc<crate::config::AdminConfig>>,
     pub login_throttle: std::sync::Arc<crate::admin_api::rate_limit::LoginThrottle>,
     pub event_log: teramind_db::repos::TeamEventLogRepo,
+    pub event_log_writer: std::sync::Arc<crate::event_log_writer::EventLogWriter>,
     pub quality: teramind_db::repos::QualityRunRepo,
 }
 
@@ -67,6 +68,12 @@ impl AppState {
             summary_model: self.summary_model.clone(),
             jsonl_dir: std::path::PathBuf::new(),
             event_bus: Some(self.bus.clone()),
+            event_log_writer: Some(
+                self.event_log_writer.clone()
+                    as std::sync::Arc<
+                        dyn teramindd::services::rpc_dispatch::EventLogger,
+                    >,
+            ),
             skill_obs: teramind_db::repos::SkillObservationRepo::new(self.pool.clone()),
             skill_cand: teramind_db::repos::SkillCandidateRepo::new(self.pool.clone()),
             skill_repo: teramind_db::repos::SkillRepo::new(self.pool.clone()),
@@ -84,6 +91,7 @@ impl AppState {
         let admin = cfg.admin.clone().map(std::sync::Arc::new);
         let login_throttle = crate::admin_api::rate_limit::LoginThrottle::new();
         let event_log = teramind_db::repos::TeamEventLogRepo::new(pool.clone());
+        let event_log_writer = crate::event_log_writer::EventLogWriter::new(event_log.clone());
         let quality = teramind_db::repos::QualityRunRepo::new(pool.clone());
         Self {
             users: UserRepo::new(pool.clone()),
@@ -100,6 +108,7 @@ impl AppState {
             admin,
             login_throttle,
             event_log,
+            event_log_writer,
             quality,
         }
     }
