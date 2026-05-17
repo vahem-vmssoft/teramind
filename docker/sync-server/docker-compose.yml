@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: teramind
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: teramind
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "teramind"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sync-server:
+    build:
+      context: ../..
+      dockerfile: docker/sync-server/Dockerfile
+    environment:
+      TERAMIND_SYNC_CONFIG: /etc/teramind-sync-server/config.toml
+    volumes:
+      - ./config.toml:/etc/teramind-sync-server/config.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8443:8443"
+    command: ["serve", "--insecure-allow-http"]
+
+volumes:
+  pgdata:
