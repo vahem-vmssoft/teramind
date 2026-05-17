@@ -84,12 +84,10 @@ impl DeviceRepo {
     }
 
     pub async fn revoke(&self, id: DeviceId) -> Result<()> {
-        sqlx::query(
-            "UPDATE devices SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
-        )
-        .bind(id.0)
-        .execute(self.pool.pg())
-        .await?;
+        sqlx::query("UPDATE devices SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL")
+            .bind(id.0)
+            .execute(self.pool.pg())
+            .await?;
         Ok(())
     }
 

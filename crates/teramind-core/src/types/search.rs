@@ -10,7 +10,9 @@ pub struct SearchRequest {
 }
 
 impl SearchRequest {
-    fn default_limit() -> u32 { 10 }
+    fn default_limit() -> u32 {
+        10
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -27,7 +29,9 @@ pub struct RecallRequest {
 }
 
 impl RecallRequest {
-    fn default_limit() -> u32 { 10 }
+    fn default_limit() -> u32 {
+        10
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -40,7 +44,9 @@ pub struct AutoRecallRequest {
 }
 
 impl AutoRecallRequest {
-    fn default_limit() -> u32 { 5 }
+    fn default_limit() -> u32 {
+        5
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -78,7 +84,11 @@ mod tests {
 
     #[test]
     fn search_results_roundtrips() {
-        let r = SearchResults { hits: vec![], degraded: false, took_ms: 42 };
+        let r = SearchResults {
+            hits: vec![],
+            degraded: false,
+            took_ms: 42,
+        };
         let j = serde_json::to_string(&r).unwrap();
         assert_eq!(r, serde_json::from_str(&j).unwrap());
     }

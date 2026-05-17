@@ -32,9 +32,15 @@ pub struct AuthConfig {
 }
 
 impl AuthConfig {
-    fn default_invite_expiry_days() -> i64 { 7 }
-    fn default_replay_window() -> i64 { 60 }
-    fn default_replay_size() -> usize { 10_000 }
+    fn default_invite_expiry_days() -> i64 {
+        7
+    }
+    fn default_replay_window() -> i64 {
+        60
+    }
+    fn default_replay_size() -> usize {
+        10_000
+    }
 }
 
 impl Default for AuthConfig {
@@ -56,13 +62,20 @@ pub struct IngestConfig {
 }
 
 impl IngestConfig {
-    fn default_batch() -> usize { 32 }
-    fn default_body() -> usize { 10 * 1024 * 1024 }
+    fn default_batch() -> usize {
+        32
+    }
+    fn default_body() -> usize {
+        10 * 1024 * 1024
+    }
 }
 
 impl Default for IngestConfig {
     fn default() -> Self {
-        Self { max_batch_size: Self::default_batch(), max_request_body_bytes: Self::default_body() }
+        Self {
+            max_batch_size: Self::default_batch(),
+            max_request_body_bytes: Self::default_body(),
+        }
     }
 }
 
@@ -82,10 +95,14 @@ mod tests {
     #[test]
     fn loads_minimal() {
         let mut f = tempfile::NamedTempFile::new().unwrap();
-        writeln!(f, r#"
+        writeln!(
+            f,
+            r#"
 listen_addr  = "0.0.0.0:443"
 database_url = "postgres://u:p@h/db"
-"#).unwrap();
+"#
+        )
+        .unwrap();
         let cfg = ServerConfig::load(f.path()).unwrap();
         assert_eq!(cfg.listen_addr, "0.0.0.0:443");
         assert!(cfg.tls.is_none());
@@ -96,7 +113,9 @@ database_url = "postgres://u:p@h/db"
     #[test]
     fn loads_with_tls_and_overrides() {
         let mut f = tempfile::NamedTempFile::new().unwrap();
-        writeln!(f, r#"
+        writeln!(
+            f,
+            r#"
 listen_addr  = "0.0.0.0:443"
 database_url = "postgres://u:p@h/db"
 
@@ -106,7 +125,9 @@ key_file  = "/etc/key.pem"
 
 [auth]
 proof_replay_window_secs = 30
-"#).unwrap();
+"#
+        )
+        .unwrap();
         let cfg = ServerConfig::load(f.path()).unwrap();
         assert!(cfg.tls.is_some());
         assert_eq!(cfg.auth.proof_replay_window_secs, 30);

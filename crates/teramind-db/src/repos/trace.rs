@@ -125,9 +125,16 @@ impl TraceRepo {
             INSERT INTO tool_calls (id, turn_id, ordinal, name, input, started_at)
             VALUES ($1,$2,$3,$4,$5,$6)
             ON CONFLICT (turn_id, ordinal) DO NOTHING
-            "#)
-            .bind(id.0).bind(turn_id.0).bind(ordinal).bind(name).bind(input).bind(started_at)
-            .execute(self.pool.pg()).await?;
+            "#,
+        )
+        .bind(id.0)
+        .bind(turn_id.0)
+        .bind(ordinal)
+        .bind(name)
+        .bind(input)
+        .bind(started_at)
+        .execute(self.pool.pg())
+        .await?;
         Ok(id)
     }
 

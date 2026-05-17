@@ -40,10 +40,14 @@ enum Cmd {
 enum InviteAction {
     /// Create a new invite for an email.
     Create {
-        #[arg(long)] email: String,
-        #[arg(long)] name: Option<String>,
-        #[arg(long)] created_by: Option<String>,
-        #[arg(long)] expires_in_days: Option<i64>,
+        #[arg(long)]
+        email: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        created_by: Option<String>,
+        #[arg(long)]
+        expires_in_days: Option<i64>,
     },
     /// List outstanding invites.
     List,
@@ -67,7 +71,8 @@ fn init_logging() {
             tracing_subscriber::EnvFilter::try_from_env("TERAMIND_LOG")
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
-        .json().init();
+        .json()
+        .init();
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -87,7 +92,9 @@ async fn main() -> anyhow::Result<()> {
             println!("migrations OK");
             Ok(())
         }
-        Cmd::Serve { insecure_allow_http } => {
+        Cmd::Serve {
+            insecure_allow_http,
+        } => {
             let cfg_path = cli.config.unwrap_or_else(default_config_path);
             let cfg = teramind_sync_server::config::ServerConfig::load(&cfg_path)?;
             if cfg.tls.is_none() && !insecure_allow_http {
@@ -104,23 +111,45 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Cmd::Invite { action } => {
-            let cfg = teramind_sync_server::config::ServerConfig::load(&cli.config.unwrap_or_else(default_config_path))?;
+            let cfg = teramind_sync_server::config::ServerConfig::load(
+                &cli.config.unwrap_or_else(default_config_path),
+            )?;
             let ctx = teramind_sync_server::admin::AdminCtx::open(cfg).await?;
             match action {
-                InviteAction::Create { email, name, created_by, expires_in_days } =>
-                    teramind_sync_server::admin::invite_create(&ctx, &email,
-                        name.as_deref(), created_by.as_deref(), expires_in_days).await,
+                InviteAction::Create {
+                    email,
+                    name,
+                    created_by,
+                    expires_in_days,
+                } => {
+                    teramind_sync_server::admin::invite_create(
+                        &ctx,
+                        &email,
+                        name.as_deref(),
+                        created_by.as_deref(),
+                        expires_in_days,
+                    )
+                    .await
+                }
                 InviteAction::List => teramind_sync_server::admin::invite_list(&ctx).await,
-                InviteAction::Revoke { id } => teramind_sync_server::admin::invite_revoke(&ctx, &id).await,
+                InviteAction::Revoke { id } => {
+                    teramind_sync_server::admin::invite_revoke(&ctx, &id).await
+                }
             }
         }
         Cmd::Member { action } => {
-            let cfg = teramind_sync_server::config::ServerConfig::load(&cli.config.unwrap_or_else(default_config_path))?;
+            let cfg = teramind_sync_server::config::ServerConfig::load(
+                &cli.config.unwrap_or_else(default_config_path),
+            )?;
             let ctx = teramind_sync_server::admin::AdminCtx::open(cfg).await?;
             match action {
                 MemberAction::List => teramind_sync_server::admin::member_list(&ctx).await,
-                MemberAction::RevokeDevice { id } => teramind_sync_server::admin::member_revoke_device(&ctx, &id).await,
-                MemberAction::RevokeUser   { id } => teramind_sync_server::admin::member_revoke_user(&ctx, &id).await,
+                MemberAction::RevokeDevice { id } => {
+                    teramind_sync_server::admin::member_revoke_device(&ctx, &id).await
+                }
+                MemberAction::RevokeUser { id } => {
+                    teramind_sync_server::admin::member_revoke_user(&ctx, &id).await
+                }
             }
         }
     }

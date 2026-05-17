@@ -27,7 +27,10 @@ pub enum Response {
     Error(String),
     SearchResults(teramind_core::types::SearchResults),
     SkillRef(teramind_core::types::SkillRef),
-    AutoRecallDigest { markdown: String, degraded: bool },
+    AutoRecallDigest {
+        markdown: String,
+        degraded: bool,
+    },
     WikiPage {
         session_id: String,
         cwd: String,
@@ -110,9 +113,10 @@ mod tests {
     fn search_request_roundtrips() {
         let env = Envelope {
             id: uuid::Uuid::new_v4(),
-            payload: Payload::Request(Request::Search(
-                teramind_core::types::SearchRequest { query: "stack overflow".into(), limit: 5 }
-            )),
+            payload: Payload::Request(Request::Search(teramind_core::types::SearchRequest {
+                query: "stack overflow".into(),
+                limit: 5,
+            })),
         };
         let j = serde_json::to_string(&env).unwrap();
         let back: Envelope = serde_json::from_str(&j).unwrap();
@@ -124,7 +128,11 @@ mod tests {
         let env = Envelope {
             id: uuid::Uuid::new_v4(),
             payload: Payload::Response(Response::SearchResults(
-                teramind_core::types::SearchResults { hits: vec![], degraded: false, took_ms: 8 }
+                teramind_core::types::SearchResults {
+                    hits: vec![],
+                    degraded: false,
+                    took_ms: 8,
+                },
             )),
         };
         let j = serde_json::to_string(&env).unwrap();

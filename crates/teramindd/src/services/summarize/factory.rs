@@ -34,12 +34,11 @@ pub fn build_provider(
                 cfg.input_char_budget as usize,
                 cfg.output_token_budget as usize,
                 Duration::from_millis(cfg.anthropic.request_timeout_ms),
-            ).map_err(|e| anyhow::anyhow!("anthropic init: {e}"))?;
+            )
+            .map_err(|e| anyhow::anyhow!("anthropic init: {e}"))?;
             Ok(Arc::new(p))
         }
-        ProviderKind::Openai => {
-            Ok(Arc::new(OpenaiProvider::new(cfg.model.clone())))
-        }
+        ProviderKind::Openai => Ok(Arc::new(OpenaiProvider::new(cfg.model.clone()))),
         ProviderKind::Fastembed | ProviderKind::Voyage => {
             anyhow::bail!(
                 "provider {:?} is not valid for summarization. \
@@ -65,14 +64,16 @@ fn read_secret(path: &Path, field: &str) -> anyhow::Result<String> {
         if mode & 0o077 != 0 {
             anyhow::bail!(
                 "secrets file {} has insecure permissions ({:o}); chmod 0600 and retry",
-                path.display(), mode,
+                path.display(),
+                mode,
             );
         }
     }
     let body = std::fs::read_to_string(path)?;
-    let value: toml::Value = toml::from_str(&body)
-        .map_err(|e| anyhow::anyhow!("parse {}: {e}", path.display()))?;
-    let s = value.get(field)
+    let value: toml::Value =
+        toml::from_str(&body).map_err(|e| anyhow::anyhow!("parse {}: {e}", path.display()))?;
+    let s = value
+        .get(field)
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("secrets.toml missing field '{field}'"))?
         .to_string();
@@ -98,17 +99,21 @@ mod tests {
 
     #[test]
     fn build_anthropic_without_egress_fails() {
-        let mut cfg = SummarizeConfig::default();
-        cfg.provider = ProviderKind::Anthropic;
+        let cfg = SummarizeConfig {
+            provider: ProviderKind::Anthropic,
+            ..SummarizeConfig::default()
+        };
         let r = build_provider(&cfg, &std::path::PathBuf::from("/nonexistent"));
         assert!(r.is_err());
     }
 
     #[test]
     fn build_anthropic_without_secrets_file_fails() {
-        let mut cfg = SummarizeConfig::default();
-        cfg.provider = ProviderKind::Anthropic;
-        cfg.network_egress = true;
+        let cfg = SummarizeConfig {
+            provider: ProviderKind::Anthropic,
+            network_egress: true,
+            ..SummarizeConfig::default()
+        };
         let r = build_provider(&cfg, &std::path::PathBuf::from("/nonexistent"));
         assert!(r.is_err());
         let err = r.err().unwrap();
@@ -118,8 +123,10 @@ mod tests {
 
     #[test]
     fn fastembed_is_rejected() {
-        let mut cfg = SummarizeConfig::default();
-        cfg.provider = ProviderKind::Fastembed;
+        let cfg = SummarizeConfig {
+            provider: ProviderKind::Fastembed,
+            ..SummarizeConfig::default()
+        };
         let r = build_provider(&cfg, &std::path::PathBuf::from("/x"));
         assert!(r.is_err());
     }

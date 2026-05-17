@@ -40,11 +40,15 @@ pub enum ProofError {
 }
 
 pub fn body_hash_hex(body: &[u8]) -> String {
-    let mut h = Sha256::new(); h.update(body); hex::encode(h.finalize())
+    let mut h = Sha256::new();
+    h.update(body);
+    hex::encode(h.finalize())
 }
 
 pub fn token_hash_hex(token: &str) -> String {
-    let mut h = Sha256::new(); h.update(token.as_bytes()); hex::encode(h.finalize())
+    let mut h = Sha256::new();
+    h.update(token.as_bytes());
+    hex::encode(h.finalize())
 }
 
 fn b64url_encode(bytes: &[u8]) -> String {
@@ -81,26 +85,46 @@ pub fn verify(
     skew_secs: i64,
 ) -> Result<ProofClaims, ProofError> {
     let parts: Vec<&str> = header.split('.').collect();
-    if parts.len() != 3 { return Err(ProofError::Malformed); }
+    if parts.len() != 3 {
+        return Err(ProofError::Malformed);
+    }
     let signing_input = format!("{}.{}", parts[0], parts[1]);
     let sig_bytes = b64url_decode(parts[2]).map_err(|_| ProofError::BadSignature)?;
-    if sig_bytes.len() != 64 { return Err(ProofError::BadSignature); }
-    let mut sig_arr = [0u8; 64]; sig_arr.copy_from_slice(&sig_bytes);
+    if sig_bytes.len() != 64 {
+        return Err(ProofError::BadSignature);
+    }
+    let mut sig_arr = [0u8; 64];
+    sig_arr.copy_from_slice(&sig_bytes);
     let sig = Signature::from_bytes(&sig_arr);
 
-    if public_key_bytes.len() != 32 { return Err(ProofError::BadSignature); }
-    let mut pk_arr = [0u8; 32]; pk_arr.copy_from_slice(public_key_bytes);
+    if public_key_bytes.len() != 32 {
+        return Err(ProofError::BadSignature);
+    }
+    let mut pk_arr = [0u8; 32];
+    pk_arr.copy_from_slice(public_key_bytes);
     let pk = VerifyingKey::from_bytes(&pk_arr).map_err(|_| ProofError::BadSignature)?;
-    pk.verify(signing_input.as_bytes(), &sig).map_err(|_| ProofError::BadSignature)?;
+    pk.verify(signing_input.as_bytes(), &sig)
+        .map_err(|_| ProofError::BadSignature)?;
 
     let claims_bytes = b64url_decode(parts[1])?;
-    let claims: ProofClaims = serde_json::from_slice(&claims_bytes).map_err(|_| ProofError::BadClaims)?;
+    let claims: ProofClaims =
+        serde_json::from_slice(&claims_bytes).map_err(|_| ProofError::BadClaims)?;
 
-    if claims.htm != expected_method { return Err(ProofError::HtmMismatch); }
-    if claims.htu != expected_url    { return Err(ProofError::HtuMismatch); }
-    if claims.ath != expected_token_hash_hex { return Err(ProofError::AthMismatch); }
-    if claims.bsh != expected_body_hash_hex  { return Err(ProofError::BshMismatch); }
-    if (now_unix - claims.iat).abs() > skew_secs { return Err(ProofError::StaleIat(skew_secs)); }
+    if claims.htm != expected_method {
+        return Err(ProofError::HtmMismatch);
+    }
+    if claims.htu != expected_url {
+        return Err(ProofError::HtuMismatch);
+    }
+    if claims.ath != expected_token_hash_hex {
+        return Err(ProofError::AthMismatch);
+    }
+    if claims.bsh != expected_body_hash_hex {
+        return Err(ProofError::BshMismatch);
+    }
+    if (now_unix - claims.iat).abs() > skew_secs {
+        return Err(ProofError::StaleIat(skew_secs));
+    }
 
     Ok(claims)
 }
@@ -112,7 +136,8 @@ mod tests {
     use rand::{rngs::OsRng, RngCore};
 
     fn fresh_keypair() -> (SigningKey, Vec<u8>) {
-        let mut seed = [0u8; 32]; OsRng.fill_bytes(&mut seed);
+        let mut seed = [0u8; 32];
+        OsRng.fill_bytes(&mut seed);
         let sk = SigningKey::from_bytes(&seed);
         let pk = sk.verifying_key().to_bytes().to_vec();
         (sk, pk)
@@ -137,8 +162,17 @@ mod tests {
         let body = br#"{"x":1}"#;
         let c = happy_claims(token, body, now);
         let header = sign(&c, &sk);
-        let out = verify(&header, &pk, "POST", "https://srv/v1/ingest",
-                         &body_hash_hex(body), &token_hash_hex(token), now, 60).unwrap();
+        let out = verify(
+            &header,
+            &pk,
+            "POST",
+            "https://srv/v1/ingest",
+            &body_hash_hex(body),
+            &token_hash_hex(token),
+            now,
+            60,
+        )
+        .unwrap();
         assert_eq!(out.jti, "deadbeef0123");
     }
 
@@ -150,8 +184,17 @@ mod tests {
         let body = b"";
         let c = happy_claims("tmd_v1_X", body, now);
         let header = sign(&c, &sk);
-        let err = verify(&header, &other_pk, "POST", "https://srv/v1/ingest",
-                         &body_hash_hex(body), &token_hash_hex("tmd_v1_X"), now, 60).unwrap_err();
+        let err = verify(
+            &header,
+            &other_pk,
+            "POST",
+            "https://srv/v1/ingest",
+            &body_hash_hex(body),
+            &token_hash_hex("tmd_v1_X"),
+            now,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(err, ProofError::BadSignature);
     }
 
@@ -161,8 +204,17 @@ mod tests {
         let now = 1_700_000_000;
         let c = happy_claims("tmd_v1_X", b"", now);
         let header = sign(&c, &sk);
-        let err = verify(&header, &pk, "GET", "https://srv/v1/ingest",
-                         &body_hash_hex(b""), &token_hash_hex("tmd_v1_X"), now, 60).unwrap_err();
+        let err = verify(
+            &header,
+            &pk,
+            "GET",
+            "https://srv/v1/ingest",
+            &body_hash_hex(b""),
+            &token_hash_hex("tmd_v1_X"),
+            now,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(err, ProofError::HtmMismatch);
     }
 
@@ -172,8 +224,17 @@ mod tests {
         let now = 1_700_000_000;
         let c = happy_claims("tmd_v1_X", b"", now);
         let header = sign(&c, &sk);
-        let err = verify(&header, &pk, "POST", "https://srv/v1/rpc",
-                         &body_hash_hex(b""), &token_hash_hex("tmd_v1_X"), now, 60).unwrap_err();
+        let err = verify(
+            &header,
+            &pk,
+            "POST",
+            "https://srv/v1/rpc",
+            &body_hash_hex(b""),
+            &token_hash_hex("tmd_v1_X"),
+            now,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(err, ProofError::HtuMismatch);
     }
 
@@ -183,8 +244,17 @@ mod tests {
         let now = 1_700_000_000;
         let c = happy_claims("tmd_v1_X", b"clean", now);
         let header = sign(&c, &sk);
-        let err = verify(&header, &pk, "POST", "https://srv/v1/ingest",
-                         &body_hash_hex(b"tampered"), &token_hash_hex("tmd_v1_X"), now, 60).unwrap_err();
+        let err = verify(
+            &header,
+            &pk,
+            "POST",
+            "https://srv/v1/ingest",
+            &body_hash_hex(b"tampered"),
+            &token_hash_hex("tmd_v1_X"),
+            now,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(err, ProofError::BshMismatch);
     }
 
@@ -194,8 +264,17 @@ mod tests {
         let now = 1_700_000_000;
         let c = happy_claims("tmd_v1_X", b"", now);
         let header = sign(&c, &sk);
-        let err = verify(&header, &pk, "POST", "https://srv/v1/ingest",
-                         &body_hash_hex(b""), &token_hash_hex("tmd_v1_OTHER"), now, 60).unwrap_err();
+        let err = verify(
+            &header,
+            &pk,
+            "POST",
+            "https://srv/v1/ingest",
+            &body_hash_hex(b""),
+            &token_hash_hex("tmd_v1_OTHER"),
+            now,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(err, ProofError::AthMismatch);
     }
 
@@ -206,8 +285,17 @@ mod tests {
         let way_later = signed_at + 120;
         let c = happy_claims("tmd_v1_X", b"", signed_at);
         let header = sign(&c, &sk);
-        let err = verify(&header, &pk, "POST", "https://srv/v1/ingest",
-                         &body_hash_hex(b""), &token_hash_hex("tmd_v1_X"), way_later, 60).unwrap_err();
+        let err = verify(
+            &header,
+            &pk,
+            "POST",
+            "https://srv/v1/ingest",
+            &body_hash_hex(b""),
+            &token_hash_hex("tmd_v1_X"),
+            way_later,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(err, ProofError::StaleIat(60));
     }
 
@@ -221,8 +309,17 @@ mod tests {
         let last = header.pop().unwrap();
         let new = if last == 'A' { 'B' } else { 'A' };
         header.push(new);
-        let err = verify(&header, &pk, "POST", "https://srv/v1/ingest",
-                         &body_hash_hex(b""), &token_hash_hex("tmd_v1_X"), now, 60).unwrap_err();
+        let err = verify(
+            &header,
+            &pk,
+            "POST",
+            "https://srv/v1/ingest",
+            &body_hash_hex(b""),
+            &token_hash_hex("tmd_v1_X"),
+            now,
+            60,
+        )
+        .unwrap_err();
         assert_eq!(err, ProofError::BadSignature);
     }
 }
@@ -258,13 +355,21 @@ pub mod replay {
 
             // Drop expired entries from the front.
             while let Some((_, ts)) = q.front() {
-                if now.duration_since(*ts) > self.ttl { q.pop_front(); } else { break; }
+                if now.duration_since(*ts) > self.ttl {
+                    q.pop_front();
+                } else {
+                    break;
+                }
             }
 
-            if q.iter().any(|(j, _)| j == jti) { return false; }
+            if q.iter().any(|(j, _)| j == jti) {
+                return false;
+            }
 
             q.push_back((jti.to_string(), now));
-            while q.len() > self.max_per_device { q.pop_front(); }
+            while q.len() > self.max_per_device {
+                q.pop_front();
+            }
             true
         }
     }

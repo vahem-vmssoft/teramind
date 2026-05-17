@@ -31,24 +31,34 @@ impl DeviceToken {
 
     pub fn from_bytes(bytes: [u8; RAW_BYTES]) -> Self {
         let body = base32::encode(base32::Alphabet::Crockford, &bytes);
-        Self { canonical: format!("{PREFIX}{body}") }
+        Self {
+            canonical: format!("{PREFIX}{body}"),
+        }
     }
 
     pub fn parse(input: &str) -> Result<Self, TokenError> {
         let input = input.trim();
-        if !input.starts_with(PREFIX) { return Err(TokenError::BadPrefix); }
+        if !input.starts_with(PREFIX) {
+            return Err(TokenError::BadPrefix);
+        }
         let body = &input[PREFIX.len()..];
         // base32 of 32 bytes = ceil(32*8/5) = 52 chars.
-        if body.len() != 52 { return Err(TokenError::BadLength); }
-        let bytes = base32::decode(base32::Alphabet::Crockford, body)
-            .ok_or(TokenError::BadAlphabet)?;
-        if bytes.len() != RAW_BYTES { return Err(TokenError::BadLength); }
+        if body.len() != 52 {
+            return Err(TokenError::BadLength);
+        }
+        let bytes =
+            base32::decode(base32::Alphabet::Crockford, body).ok_or(TokenError::BadAlphabet)?;
+        if bytes.len() != RAW_BYTES {
+            return Err(TokenError::BadLength);
+        }
         let mut arr = [0u8; RAW_BYTES];
         arr.copy_from_slice(&bytes);
         Ok(Self::from_bytes(arr))
     }
 
-    pub fn as_str(&self) -> &str { &self.canonical }
+    pub fn as_str(&self) -> &str {
+        &self.canonical
+    }
 
     /// sha256 of the canonical wire form.
     pub fn hash(&self) -> Vec<u8> {
@@ -82,7 +92,9 @@ mod tests {
 
     #[test]
     fn bad_prefix_errors() {
-        assert!(matches!(DeviceToken::parse("xxx_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
-                         Err(TokenError::BadPrefix)));
+        assert!(matches!(
+            DeviceToken::parse("xxx_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+            Err(TokenError::BadPrefix)
+        ));
     }
 }

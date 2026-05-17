@@ -32,23 +32,36 @@ pub async fn redeem(
 ) -> Result<(StatusCode, Json<RedeemResponse>), (StatusCode, String)> {
     let code = InviteCode::parse(&req.invite_code)
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("bad invite: {e}")))?;
-    let pk = B64.decode(&req.device_public_key_b64)
-        .map_err(|_| (StatusCode::BAD_REQUEST, "device_public_key_b64 must be base64".into()))?;
+    let pk = B64.decode(&req.device_public_key_b64).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "device_public_key_b64 must be base64".into(),
+        )
+    })?;
     if pk.len() != 32 {
-        return Err((StatusCode::BAD_REQUEST, "device_public_key must be 32 bytes".into()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "device_public_key must be 32 bytes".into(),
+        ));
     }
     if req.device_name.is_empty() || req.device_name.len() > 200 {
         return Err((StatusCode::BAD_REQUEST, "device_name length 1..=200".into()));
     }
 
     let code_hash = code.hash();
-    let invite = match state.invites.find_redeemable(&code_hash).await
+    let invite = match state
+        .invites
+        .find_redeemable(&code_hash)
+        .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "db".into()))?
     {
         Some(inv) => inv,
         None => {
             // Distinguish "already redeemed" (409) from "missing or expired" (410).
-            let existing = state.invites.find_by_hash(&code_hash).await
+            let existing = state
+                .invites
+                .find_by_hash(&code_hash)
+                .await
                 .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "db".into()))?;
             match existing {
                 Some(inv) if inv.redeemed_at.is_some() => {
@@ -59,26 +72,36 @@ pub async fn redeem(
         }
     };
 
-    let user = state.users.upsert_by_email(&invite.invited_email, invite.display_name.as_deref())
+    let user = state
+        .users
+        .upsert_by_email(&invite.invited_email, invite.display_name.as_deref())
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "db".into()))?;
 
     let token = DeviceToken::generate(&mut OsRng);
-    let device: Device = state.devices.insert(user.id, &req.device_name, &token.hash(), &pk)
+    let device: Device = state
+        .devices
+        .insert(user.id, &req.device_name, &token.hash(), &pk)
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "db".into()))?;
 
-    let n = state.invites.mark_redeemed(&code_hash, device.id).await
+    let n = state
+        .invites
+        .mark_redeemed(&code_hash, device.id)
+        .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "db".into()))?;
     if n == 0 {
         let _ = state.devices.revoke(device.id).await;
         return Err((StatusCode::CONFLICT, "invite already redeemed".into()));
     }
 
-    Ok((StatusCode::OK, Json(RedeemResponse {
-        user_id: user.id.0.to_string(),
-        device_id: device.id.0.to_string(),
-        device_token: token.as_str().to_string(),
-        device_name: device.name,
-    })))
+    Ok((
+        StatusCode::OK,
+        Json(RedeemResponse {
+            user_id: user.id.0.to_string(),
+            device_id: device.id.0.to_string(),
+            device_token: token.as_str().to_string(),
+            device_name: device.name,
+        }),
+    ))
 }

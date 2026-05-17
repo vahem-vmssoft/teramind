@@ -54,7 +54,10 @@ pub fn check(report: &EvalReport, baseline: &Baseline) -> GateOutcome {
             report.query_latency_p95_ms, P95_LATENCY_CEILING_MS,
         ));
     }
-    GateOutcome { passed: failures.is_empty(), failures }
+    GateOutcome {
+        passed: failures.is_empty(),
+        failures,
+    }
 }
 
 pub fn compare(results_path: &Path, baseline_path: &Path, update: bool) -> anyhow::Result<()> {
@@ -70,9 +73,7 @@ pub fn compare(results_path: &Path, baseline_path: &Path, update: bool) -> anyho
     }
 
     if !baseline_path.exists() {
-        println!(
-            "teramind-search-eval: no baseline; pass --update-baseline to seed one.",
-        );
+        println!("teramind-search-eval: no baseline; pass --update-baseline to seed one.",);
         return Ok(());
     }
     let baseline: Baseline = serde_json::from_slice(&std::fs::read(baseline_path)?)?;
@@ -96,14 +97,34 @@ mod tests {
 
     fn report(ndcg: f64, mrr: f64, class_ndcg: f64) -> EvalReport {
         let mut by_class = BTreeMap::new();
-        by_class.insert(QueryClass::NaturalLanguage, MetricsRow {
-            n_queries: 20, ndcg_at_10: class_ndcg, mrr: 0.5, p_at_5: 0.5, p_at_10: 0.4, r_at_10: 0.3,
-        });
+        by_class.insert(
+            QueryClass::NaturalLanguage,
+            MetricsRow {
+                n_queries: 20,
+                ndcg_at_10: class_ndcg,
+                mrr: 0.5,
+                p_at_5: 0.5,
+                p_at_10: 0.4,
+                r_at_10: 0.3,
+            },
+        );
         EvalReport {
-            overall: MetricsRow { n_queries: 100, ndcg_at_10: ndcg, mrr, p_at_5: 0.5, p_at_10: 0.4, r_at_10: 0.3 },
+            overall: MetricsRow {
+                n_queries: 100,
+                ndcg_at_10: ndcg,
+                mrr,
+                p_at_5: 0.5,
+                p_at_10: 0.4,
+                r_at_10: 0.3,
+            },
             by_class,
             query_latency_p95_ms: 100,
-            corpus_size: CorpusSize { sessions: 500, turns: 2500, tool_calls: 5000, file_diffs: 500 },
+            corpus_size: CorpusSize {
+                sessions: 500,
+                turns: 2500,
+                tool_calls: 5000,
+                file_diffs: 500,
+            },
         }
     }
 

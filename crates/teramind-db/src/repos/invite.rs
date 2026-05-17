@@ -4,18 +4,32 @@ use teramind_core::ids::{DeviceId, InviteId};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-type InviteRow = (Uuid, String, Option<String>, Option<String>,
-                  OffsetDateTime, OffsetDateTime, Option<OffsetDateTime>);
+type InviteRow = (
+    Uuid,
+    String,
+    Option<String>,
+    Option<String>,
+    OffsetDateTime,
+    OffsetDateTime,
+    Option<OffsetDateTime>,
+);
 
 fn row_to_invite(r: InviteRow) -> Invite {
     Invite {
-        id: InviteId(r.0), invited_email: r.1, display_name: r.2,
-        created_by: r.3, created_at: r.4, expires_at: r.5, redeemed_at: r.6,
+        id: InviteId(r.0),
+        invited_email: r.1,
+        display_name: r.2,
+        created_by: r.3,
+        created_at: r.4,
+        expires_at: r.5,
+        redeemed_at: r.6,
     }
 }
 
 #[derive(Clone)]
-pub struct InviteRepo { pool: DbPool }
+pub struct InviteRepo {
+    pool: DbPool,
+}
 
 #[derive(Debug, Clone)]
 pub struct Invite {
@@ -29,7 +43,9 @@ pub struct Invite {
 }
 
 impl InviteRepo {
-    pub fn new(pool: DbPool) -> Self { Self { pool } }
+    pub fn new(pool: DbPool) -> Self {
+        Self { pool }
+    }
 
     pub async fn create(
         &self,
@@ -44,10 +60,15 @@ impl InviteRepo {
             INSERT INTO invites (code_hash, invited_email, display_name, created_by, expires_at)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id
-            "#)
-            .bind(code_hash).bind(invited_email).bind(display_name)
-            .bind(created_by).bind(expires_at)
-            .fetch_one(self.pool.pg()).await?;
+            "#,
+        )
+        .bind(code_hash)
+        .bind(invited_email)
+        .bind(display_name)
+        .bind(created_by)
+        .bind(expires_at)
+        .fetch_one(self.pool.pg())
+        .await?;
         Ok(InviteId(row.0))
     }
 
@@ -59,8 +80,11 @@ impl InviteRepo {
                    created_at, expires_at, redeemed_at
             FROM   invites
             WHERE  code_hash = $1
-            "#)
-            .bind(code_hash).fetch_optional(self.pool.pg()).await?;
+            "#,
+        )
+        .bind(code_hash)
+        .fetch_optional(self.pool.pg())
+        .await?;
         Ok(row.map(row_to_invite))
     }
 
@@ -73,8 +97,11 @@ impl InviteRepo {
             WHERE  code_hash   = $1
               AND  redeemed_at IS NULL
               AND  expires_at  > now()
-            "#)
-            .bind(code_hash).fetch_optional(self.pool.pg()).await?;
+            "#,
+        )
+        .bind(code_hash)
+        .fetch_optional(self.pool.pg())
+        .await?;
         Ok(row.map(row_to_invite))
     }
 
@@ -86,9 +113,12 @@ impl InviteRepo {
             UPDATE invites
             SET    redeemed_at = now(), redeemed_device = $2
             WHERE  code_hash = $1 AND redeemed_at IS NULL AND expires_at > now()
-            "#)
-            .bind(code_hash).bind(device_id.0)
-            .execute(self.pool.pg()).await?;
+            "#,
+        )
+        .bind(code_hash)
+        .bind(device_id.0)
+        .execute(self.pool.pg())
+        .await?;
         Ok(r.rows_affected())
     }
 
@@ -100,13 +130,18 @@ impl InviteRepo {
             FROM   invites
             WHERE  redeemed_at IS NULL AND expires_at > now()
             ORDER  BY created_at DESC
-            "#).fetch_all(self.pool.pg()).await?;
+            "#,
+        )
+        .fetch_all(self.pool.pg())
+        .await?;
         Ok(rows.into_iter().map(row_to_invite).collect())
     }
 
     pub async fn revoke(&self, id: InviteId) -> Result<()> {
         sqlx::query("UPDATE invites SET expires_at = now() WHERE id = $1 AND redeemed_at IS NULL")
-            .bind(id.0).execute(self.pool.pg()).await?;
+            .bind(id.0)
+            .execute(self.pool.pg())
+            .await?;
         Ok(())
     }
 }

@@ -42,7 +42,11 @@ impl EmbeddingRepo {
         .await?;
         Ok(rows
             .into_iter()
-            .map(|(kind, item_id, text)| ToEmbedRow { kind, item_id, text })
+            .map(|(kind, item_id, text)| ToEmbedRow {
+                kind,
+                item_id,
+                text,
+            })
             .collect())
     }
 
@@ -56,7 +60,11 @@ impl EmbeddingRepo {
         if rows.is_empty() {
             return Ok(0);
         }
-        assert_eq!(rows.len(), vectors.len(), "ToEmbedRow/vector length mismatch");
+        assert_eq!(
+            rows.len(),
+            vectors.len(),
+            "ToEmbedRow/vector length mismatch"
+        );
         let mut written = 0usize;
         let mut tx = self.pool.pg().begin().await?;
         for (row, vec) in rows.iter().zip(vectors.iter()) {

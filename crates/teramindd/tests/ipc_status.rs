@@ -23,12 +23,10 @@ async fn status_request_returns_status_report() {
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
     let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
-    let registry = std::sync::Arc::new(
-        teramindd::services::fs_watcher::WatchRegistry::new(
-            raw_tx,
-            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
-        ),
-    );
+    let registry = std::sync::Arc::new(teramindd::services::fs_watcher::WatchRegistry::new(
+        raw_tx,
+        std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+    ));
     let svc = IngestService::spawn(
         64,
         IngestDeps {
@@ -59,12 +57,18 @@ async fn status_request_returns_status_report() {
         embed_provider: Arc::new(teramindd::services::embed::NullEmbeddingProvider),
         embed_model: "null:null".into(),
         search_weights: teramindd::services::search::BlendWeights::default(),
-        embed_stats: std::sync::Arc::new(teramindd::services::embedding_worker::EmbeddingStats::default()),
+        embed_stats: std::sync::Arc::new(
+            teramindd::services::embedding_worker::EmbeddingStats::default(),
+        ),
         pool: pool.clone(),
         wiki_repo: teramind_db::repos::WikiRepo::new(pool.clone()),
-        summary_provider: std::sync::Arc::new(teramindd::services::summarize::null::NullSummaryProvider),
+        summary_provider: std::sync::Arc::new(
+            teramindd::services::summarize::null::NullSummaryProvider,
+        ),
         summary_model: "test:null".into(),
-        summarizer_stats: std::sync::Arc::new(teramindd::services::summarizer_worker::SummarizerStats::default()),
+        summarizer_stats: std::sync::Arc::new(
+            teramindd::services::summarizer_worker::SummarizerStats::default(),
+        ),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();

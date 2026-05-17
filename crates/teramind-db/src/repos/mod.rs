@@ -1,8 +1,8 @@
 pub mod agent;
 pub mod device;
-pub mod invite;
 pub mod diff;
 pub mod embedding;
+pub mod invite;
 pub mod project;
 pub mod search;
 pub mod session;
@@ -15,13 +15,13 @@ pub use search::SearchRepo;
 
 pub use agent::AgentRepo;
 pub use device::{Device, DeviceRepo};
-pub use invite::{Invite, InviteRepo};
 pub use diff::DiffRepo;
 pub use embedding::{EmbeddingRepo, ToEmbedRow};
+pub use invite::{Invite, InviteRepo};
 pub use project::ProjectRepo;
 pub use session::SessionRepo;
 pub use skill::SkillRepo;
 pub use storage_stats::StorageStatsRepo;
 pub use trace::TraceRepo;
 pub use user::{User, UserRepo};
-pub use wiki::{WikiRepo, WikiPage, SessionToSummarize};
+pub use wiki::{SessionToSummarize, WikiPage, WikiRepo};

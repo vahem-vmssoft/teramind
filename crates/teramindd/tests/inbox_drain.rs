@@ -40,12 +40,10 @@ async fn inbox_drainer_consumes_pending_files() {
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
     let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
-    let registry = std::sync::Arc::new(
-        teramindd::services::fs_watcher::WatchRegistry::new(
-            raw_tx,
-            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
-        ),
-    );
+    let registry = std::sync::Arc::new(teramindd::services::fs_watcher::WatchRegistry::new(
+        raw_tx,
+        std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+    ));
     let svc = IngestService::spawn(
         64,
         IngestDeps {
@@ -93,12 +91,10 @@ async fn dead_letter_receives_unroutable_events() {
     let stats = std::sync::Arc::new(teramindd::services::ingest::IngestStats::default());
     let dl_dir = tmp.path().join("dl");
     let (raw_tx2, _) = tokio::sync::mpsc::unbounded_channel();
-    let registry2 = std::sync::Arc::new(
-        teramindd::services::fs_watcher::WatchRegistry::new(
-            raw_tx2,
-            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
-        ),
-    );
+    let registry2 = std::sync::Arc::new(teramindd::services::fs_watcher::WatchRegistry::new(
+        raw_tx2,
+        std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+    ));
     let svc = teramindd::services::ingest::IngestService::spawn(
         64,
         teramindd::services::ingest::IngestDeps {

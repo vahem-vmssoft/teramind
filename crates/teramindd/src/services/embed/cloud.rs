@@ -13,7 +13,8 @@ impl CloudProvider {
     pub fn new(kind: ProviderKind, model: String) -> Result<Self, EmbedError> {
         if !kind.is_cloud() {
             return Err(EmbedError::Other(format!(
-                "CloudProvider built with non-cloud kind {:?}", kind,
+                "CloudProvider built with non-cloud kind {:?}",
+                kind,
             )));
         }
         Ok(Self { kind, model })
@@ -22,11 +23,21 @@ impl CloudProvider {
 
 #[async_trait]
 impl EmbeddingProvider for CloudProvider {
-    fn kind(&self) -> ProviderKind { self.kind }
-    fn model_id(&self) -> &str { &self.model }
-    fn dimension(&self) -> usize { 768 }
-    fn max_tokens(&self) -> usize { 8192 }
-    fn distance_metric(&self) -> DistanceMetric { DistanceMetric::Cosine }
+    fn kind(&self) -> ProviderKind {
+        self.kind
+    }
+    fn model_id(&self) -> &str {
+        &self.model
+    }
+    fn dimension(&self) -> usize {
+        768
+    }
+    fn max_tokens(&self) -> usize {
+        8192
+    }
+    fn distance_metric(&self) -> DistanceMetric {
+        DistanceMetric::Cosine
+    }
 
     async fn health_check(&self) -> Result<(), EmbedError> {
         Err(EmbedError::Unhealthy(

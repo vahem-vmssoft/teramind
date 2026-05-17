@@ -1,11 +1,9 @@
 //! Pure digest builder. Takes a SessionSnapshot, returns a Markdown
 //! string capped at `char_budget`. No I/O, no async.
 
-pub use teramind_core::summarize::{
-    FileDiffRow, SessionSnapshot, ToolCallRow, TurnRow,
-};
-pub use teramind_core::types::file_diff::Attribution;
 pub use teramind_core::ids::{SessionId, TurnId};
+pub use teramind_core::summarize::{FileDiffRow, SessionSnapshot, ToolCallRow, TurnRow};
+pub use teramind_core::types::file_diff::Attribution;
 pub use time::OffsetDateTime;
 
 /// Build a Markdown digest from the snapshot. Output length <= `char_budget`.
@@ -14,17 +12,29 @@ pub fn build(snapshot: &SessionSnapshot, char_budget: usize) -> String {
     let mut sections = Vec::new();
     sections.push(("header".to_string(), render_header(snapshot)));
     let tools = render_tool_usage(snapshot);
-    if !tools.is_empty() { sections.push(("tools".to_string(), tools)); }
+    if !tools.is_empty() {
+        sections.push(("tools".to_string(), tools));
+    }
     let files = render_files_changed(snapshot);
-    if !files.is_empty() { sections.push(("files".to_string(), files)); }
+    if !files.is_empty() {
+        sections.push(("files".to_string(), files));
+    }
     let prompts = render_key_prompts(snapshot);
-    if !prompts.is_empty() { sections.push(("prompts".to_string(), prompts)); }
+    if !prompts.is_empty() {
+        sections.push(("prompts".to_string(), prompts));
+    }
     let outputs = render_key_outputs(snapshot);
-    if !outputs.is_empty() { sections.push(("outputs".to_string(), outputs)); }
+    if !outputs.is_empty() {
+        sections.push(("outputs".to_string(), outputs));
+    }
     let errors = render_tool_errors(snapshot);
-    if !errors.is_empty() { sections.push(("errors".to_string(), errors)); }
+    if !errors.is_empty() {
+        sections.push(("errors".to_string(), errors));
+    }
     let diffs = render_diff_samples(snapshot);
-    if !diffs.is_empty() { sections.push(("diffs".to_string(), diffs)); }
+    if !diffs.is_empty() {
+        sections.push(("diffs".to_string(), diffs));
+    }
 
     enforce_budget(sections, char_budget)
 }
@@ -61,13 +71,21 @@ fn enforce_budget(mut sections: Vec<(String, String)>, budget: usize) -> String 
 }
 
 fn join(sections: &[(String, String)]) -> String {
-    sections.iter().map(|(_, body)| body.as_str()).collect::<Vec<_>>().join("\n\n")
+    sections
+        .iter()
+        .map(|(_, body)| body.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }
 
 fn truncate_to_char_boundary(s: &str, max: usize) -> String {
-    if s.len() <= max { return s.to_string(); }
+    if s.len() <= max {
+        return s.to_string();
+    }
     let mut end = max;
-    while end > 0 && !s.is_char_boundary(end) { end -= 1; }
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
     s[..end].to_string()
 }
 
@@ -76,7 +94,9 @@ fn truncate_bullets(s: &str, max_bullets: usize) -> String {
     let mut bullet_count = 0;
     for line in s.lines() {
         if line.trim_start().starts_with("- ") {
-            if bullet_count >= max_bullets { continue; }
+            if bullet_count >= max_bullets {
+                continue;
+            }
             bullet_count += 1;
         }
         out.push_str(line);
@@ -94,29 +114,42 @@ fn render_header(s: &SessionSnapshot) -> String {
     let dur = s.duration_secs();
     writeln!(out, "- duration: {}m {}s", dur / 60, dur % 60).unwrap();
     if let (Some(b), Some(h)) = (&s.git_branch, &s.git_head) {
-        writeln!(out, "- git branch / head: {} at {}", b, &h[..h.len().min(7)]).unwrap();
+        writeln!(
+            out,
+            "- git branch / head: {} at {}",
+            b,
+            &h[..h.len().min(7)]
+        )
+        .unwrap();
     }
     writeln!(out, "- ended: {}", s.end_reason).unwrap();
     writeln!(
         out,
         "- turns: {}    tool calls: {}    files changed: {}",
-        s.turns.len(), s.tool_calls.len(), s.file_diffs.len(),
-    ).unwrap();
+        s.turns.len(),
+        s.tool_calls.len(),
+        s.file_diffs.len(),
+    )
+    .unwrap();
     out
 }
 
 fn render_tool_usage(s: &SessionSnapshot) -> String {
     use std::collections::BTreeMap;
     use std::fmt::Write;
-    if s.tool_calls.is_empty() { return String::new(); }
+    if s.tool_calls.is_empty() {
+        return String::new();
+    }
     let mut counts: BTreeMap<&str, (u32, u32)> = BTreeMap::new();
     for tc in &s.tool_calls {
         let e = counts.entry(tc.name.as_str()).or_insert((0, 0));
         e.0 += 1;
-        if tc.is_error { e.1 += 1; }
+        if tc.is_error {
+            e.1 += 1;
+        }
     }
     let mut ranked: Vec<_> = counts.into_iter().collect();
-    ranked.sort_by_key(|b| std::cmp::Reverse(b.1.0));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1 .0));
     ranked.truncate(5);
     let mut out = String::new();
     writeln!(out, "## Tool usage (top 5 by count)\n").unwrap();
@@ -132,26 +165,48 @@ fn render_tool_usage(s: &SessionSnapshot) -> String {
 
 fn render_files_changed(s: &SessionSnapshot) -> String {
     use std::fmt::Write;
-    if s.file_diffs.is_empty() { return String::new(); }
+    if s.file_diffs.is_empty() {
+        return String::new();
+    }
     let mut out = String::new();
     writeln!(out, "## Files changed\n").unwrap();
     for d in &s.file_diffs {
-        let plus = d.unified_diff.lines().filter(|l| l.starts_with('+') && !l.starts_with("+++")).count();
-        let minus = d.unified_diff.lines().filter(|l| l.starts_with('-') && !l.starts_with("---")).count();
-        let attr = match d.attribution { Attribution::Agent => "agent", Attribution::Human => "human" };
+        let plus = d
+            .unified_diff
+            .lines()
+            .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
+            .count();
+        let minus = d
+            .unified_diff
+            .lines()
+            .filter(|l| l.starts_with('-') && !l.starts_with("---"))
+            .count();
+        let attr = match d.attribution {
+            Attribution::Agent => "agent",
+            Attribution::Human => "human",
+        };
         let lang = d.language.as_deref().unwrap_or("text");
-        writeln!(out, "- {} ({}, {}) — (+{}, -{})", d.rel_path, lang, attr, plus, minus).unwrap();
+        writeln!(
+            out,
+            "- {} ({}, {}) — (+{}, -{})",
+            d.rel_path, lang, attr, plus, minus
+        )
+        .unwrap();
     }
     out
 }
 
 fn render_key_prompts(s: &SessionSnapshot) -> String {
     use std::fmt::Write;
-    let mut prompts: Vec<&str> = s.turns.iter()
+    let mut prompts: Vec<&str> = s
+        .turns
+        .iter()
         .filter_map(|t| t.user_prompt.as_deref())
         .filter(|p| !p.trim().is_empty())
         .collect();
-    if prompts.is_empty() { return String::new(); }
+    if prompts.is_empty() {
+        return String::new();
+    }
     prompts.sort_by_key(|p| std::cmp::Reverse(p.len()));
     prompts.truncate(5);
     let mut out = String::new();
@@ -164,11 +219,15 @@ fn render_key_prompts(s: &SessionSnapshot) -> String {
 
 fn render_key_outputs(s: &SessionSnapshot) -> String {
     use std::fmt::Write;
-    let mut outs: Vec<&str> = s.turns.iter()
+    let mut outs: Vec<&str> = s
+        .turns
+        .iter()
         .filter_map(|t| t.assistant_text.as_deref())
         .filter(|p| !p.trim().is_empty())
         .collect();
-    if outs.is_empty() { return String::new(); }
+    if outs.is_empty() {
+        return String::new();
+    }
     outs.sort_by_key(|p| std::cmp::Reverse(p.len()));
     outs.truncate(5);
     let mut out = String::new();
@@ -181,8 +240,15 @@ fn render_key_outputs(s: &SessionSnapshot) -> String {
 
 fn render_tool_errors(s: &SessionSnapshot) -> String {
     use std::fmt::Write;
-    let errs: Vec<_> = s.tool_calls.iter().filter(|tc| tc.is_error).take(3).collect();
-    if errs.is_empty() { return String::new(); }
+    let errs: Vec<_> = s
+        .tool_calls
+        .iter()
+        .filter(|tc| tc.is_error)
+        .take(3)
+        .collect();
+    if errs.is_empty() {
+        return String::new();
+    }
     let mut out = String::new();
     writeln!(out, "## Notable tool errors (up to 3)\n").unwrap();
     for tc in errs {
@@ -195,16 +261,23 @@ fn render_tool_errors(s: &SessionSnapshot) -> String {
 fn render_diff_samples(s: &SessionSnapshot) -> String {
     use std::collections::BTreeMap;
     use std::fmt::Write;
-    if s.file_diffs.is_empty() { return String::new(); }
+    if s.file_diffs.is_empty() {
+        return String::new();
+    }
     let mut by_path: BTreeMap<&str, (usize, &FileDiffRow)> = BTreeMap::new();
     for d in &s.file_diffs {
         let churn = d.unified_diff.lines().count();
-        by_path.entry(d.rel_path.as_str())
-            .and_modify(|e| if churn > e.0 { *e = (churn, d); })
+        by_path
+            .entry(d.rel_path.as_str())
+            .and_modify(|e| {
+                if churn > e.0 {
+                    *e = (churn, d);
+                }
+            })
             .or_insert((churn, d));
     }
     let mut ranked: Vec<_> = by_path.into_iter().collect();
-    ranked.sort_by_key(|b| std::cmp::Reverse(b.1.0));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1 .0));
     ranked.truncate(2);
     let mut out = String::new();
     writeln!(out, "## Diff samples (one per file, top 2 by churn)\n").unwrap();
@@ -217,7 +290,9 @@ fn render_diff_samples(s: &SessionSnapshot) -> String {
         writeln!(out, "// {}", d.rel_path).unwrap();
         let snippet = truncate_to_char_boundary(&d.unified_diff, 1200);
         out.push_str(&snippet);
-        if !snippet.ends_with('\n') { out.push('\n'); }
+        if !snippet.ends_with('\n') {
+            out.push('\n');
+        }
         writeln!(out, "```\n").unwrap();
     }
     out
@@ -269,7 +344,11 @@ mod tests {
         let s = snapshot_with_turns(50);
         let d = build(&s, 1024);
         assert!(d.len() <= 1024, "len={}", d.len());
-        assert!(d.starts_with("# Session digest"), "got: {}", &d[..d.len().min(200)]);
+        assert!(
+            d.starts_with("# Session digest"),
+            "got: {}",
+            &d[..d.len().min(200)]
+        );
     }
 
     #[test]
@@ -290,18 +369,22 @@ mod tests {
             language: Some("rust".into()),
             attribution: Attribution::Agent,
             unified_diff: "--- a\n+++ b\n@@ x\n-old\n+new\n".into(),
-            pre_excerpt: "old".into(), post_excerpt: "new".into(),
+            pre_excerpt: "old".into(),
+            post_excerpt: "new".into(),
         });
         let unlimited = build(&s, 32768);
-        let limited   = build(&s, 600);
+        let limited = build(&s, 600);
         assert!(unlimited.contains("Diff samples"));
-        assert!(!limited.contains("Diff samples"),
-                "diffs should be dropped first at small budget; got:\n{}", limited);
+        assert!(
+            !limited.contains("Diff samples"),
+            "diffs should be dropped first at small budget; got:\n{}",
+            limited
+        );
     }
 
     #[test]
     fn truncate_to_char_boundary_handles_multi_byte() {
-        let s = "héllo";  // 'é' is 2 bytes
+        let s = "héllo"; // 'é' is 2 bytes
         let t = truncate_to_char_boundary(s, 2);
         assert!(s.starts_with(&t));
         assert!(t == "h" || t == "hé");

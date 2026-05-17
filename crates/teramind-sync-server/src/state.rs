@@ -2,16 +2,16 @@
 
 use crate::config::ServerConfig;
 use crate::proof::replay::ReplayCache;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
-use teramind_db::pool::DbPool;
-use teramind_db::repos::{DeviceRepo, InviteRepo, UserRepo};
+use std::sync::Arc;
 use teramind_core::ids::{DeviceId, UserId};
-use teramindd::RouteDeps;
+use teramind_db::pool::DbPool;
+use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
+use teramind_db::repos::{DeviceRepo, InviteRepo, UserRepo};
+use teramindd::services::fs_watcher::WatchRegistry;
 use teramindd::services::session_manager::SessionManager;
 use teramindd::services::write_tool_ring::WriteToolRing;
-use teramindd::services::fs_watcher::WatchRegistry;
-use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
+use teramindd::RouteDeps;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -31,7 +31,8 @@ pub struct AuthContext {
 
 impl AppState {
     pub fn route_deps(&self) -> RouteDeps {
-        let (raw_tx, _raw_rx) = tokio::sync::mpsc::unbounded_channel::<teramindd::services::fs_watcher::RawEvent>();
+        let (raw_tx, _raw_rx) =
+            tokio::sync::mpsc::unbounded_channel::<teramindd::services::fs_watcher::RawEvent>();
         let gaps = Arc::new(AtomicU64::new(0));
         RouteDeps {
             sessions: SessionManager::new(),

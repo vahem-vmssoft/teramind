@@ -21,7 +21,8 @@ fn build_release_tarball(dir: &Path, version: &str) -> std::path::PathBuf {
             header.set_mode(0o755);
             header.set_cksum();
             let path = format!("teramind-{version}/{name}");
-            tar.append_data(&mut header, &path, body.as_bytes()).unwrap();
+            tar.append_data(&mut header, &path, body.as_bytes())
+                .unwrap();
         }
         tar.finish().unwrap();
     }
@@ -50,12 +51,12 @@ async fn self_update_swaps_all_four_binaries() -> anyhow::Result<()> {
     let index_path = dir.path().join("releases.json");
     let triple = std::env::consts::ARCH.to_string() + "-" + std::env::consts::OS;
     let triple = match triple.as_str() {
-        "aarch64-macos"  => "aarch64-apple-darwin",
-        "x86_64-macos"   => "x86_64-apple-darwin",
-        "x86_64-linux"   => "x86_64-unknown-linux-gnu",
-        "aarch64-linux"  => "aarch64-unknown-linux-gnu",
+        "aarch64-macos" => "aarch64-apple-darwin",
+        "x86_64-macos" => "x86_64-apple-darwin",
+        "x86_64-linux" => "x86_64-unknown-linux-gnu",
+        "aarch64-linux" => "aarch64-unknown-linux-gnu",
         "x86_64-windows" => "x86_64-pc-windows-msvc",
-        "aarch64-windows"=> "aarch64-pc-windows-msvc",
+        "aarch64-windows" => "aarch64-pc-windows-msvc",
         _ => panic!("unsupported test target {triple}"),
     };
     let releases_json = serde_json::json!({
@@ -69,14 +70,22 @@ async fn self_update_swaps_all_four_binaries() -> anyhow::Result<()> {
     });
     std::fs::write(&index_path, serde_json::to_vec_pretty(&releases_json)?)?;
 
-    // We can't easily redirect current_exe(), so we invoke the binary via Command.
+    // Redirect the swap to a temp bin_dir so the test doesn't corrupt target/debug/.
     let exe = env!("CARGO_BIN_EXE_teramind");
     let out = std::process::Command::new(exe)
         .arg("self-update")
-        .env("TERAMIND_RELEASE_INDEX_URL", format!("file://{}", index_path.display()))
+        .env(
+            "TERAMIND_RELEASE_INDEX_URL",
+            format!("file://{}", index_path.display()),
+        )
+        .env("TERAMIND_INSTALL_ROOT", &bin_dir)
         .output()?;
-    assert!(out.status.success(),
-        "stdout={}\nstderr={}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
     Ok(())
 }
 
@@ -89,12 +98,12 @@ fn check_only_does_not_modify_files() -> anyhow::Result<()> {
     let index_path = dir.path().join("releases.json");
     let triple = std::env::consts::ARCH.to_string() + "-" + std::env::consts::OS;
     let triple = match triple.as_str() {
-        "aarch64-macos"  => "aarch64-apple-darwin",
-        "x86_64-macos"   => "x86_64-apple-darwin",
-        "x86_64-linux"   => "x86_64-unknown-linux-gnu",
-        "aarch64-linux"  => "aarch64-unknown-linux-gnu",
+        "aarch64-macos" => "aarch64-apple-darwin",
+        "x86_64-macos" => "x86_64-apple-darwin",
+        "x86_64-linux" => "x86_64-unknown-linux-gnu",
+        "aarch64-linux" => "aarch64-unknown-linux-gnu",
         "x86_64-windows" => "x86_64-pc-windows-msvc",
-        "aarch64-windows"=> "aarch64-pc-windows-msvc",
+        "aarch64-windows" => "aarch64-pc-windows-msvc",
         _ => panic!("unsupported test target {triple}"),
     };
     let releases_json = serde_json::json!({
@@ -110,8 +119,12 @@ fn check_only_does_not_modify_files() -> anyhow::Result<()> {
 
     let exe = env!("CARGO_BIN_EXE_teramind");
     let out = std::process::Command::new(exe)
-        .arg("self-update").arg("--check-only")
-        .env("TERAMIND_RELEASE_INDEX_URL", format!("file://{}", index_path.display()))
+        .arg("self-update")
+        .arg("--check-only")
+        .env(
+            "TERAMIND_RELEASE_INDEX_URL",
+            format!("file://{}", index_path.display()),
+        )
         .output()?;
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);

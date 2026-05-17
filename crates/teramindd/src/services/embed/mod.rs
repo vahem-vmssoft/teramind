@@ -1,11 +1,11 @@
 //! Embedding provider implementations. Each provider lives in its own
 //! module; the factory + config loader arrive in a later section.
 
-pub mod ollama;
-pub mod fastembed_local;
 pub mod cloud;
 pub mod factory;
+pub mod fastembed_local;
 pub mod null;
+pub mod ollama;
 
 pub use factory::build_provider;
 pub use null::NullEmbeddingProvider;
@@ -20,11 +20,26 @@ pub struct ModelMeta {
 
 pub fn model_meta(provider: ProviderKind, model: &str) -> ModelMeta {
     match (provider, model) {
-        (ProviderKind::Ollama, "nomic-embed-text-v2-moe") => ModelMeta { dimension: 768, max_tokens: 8192 },
-        (ProviderKind::Ollama, "nomic-embed-text")        => ModelMeta { dimension: 768, max_tokens: 8192 },
-        (ProviderKind::Ollama, "mxbai-embed-large")       => ModelMeta { dimension: 1024, max_tokens: 512 },
-        (ProviderKind::Fastembed, _)                       => ModelMeta { dimension: 768, max_tokens: 8192 },
-        _                                                  => ModelMeta { dimension: 768, max_tokens: 8192 },
+        (ProviderKind::Ollama, "nomic-embed-text-v2-moe") => ModelMeta {
+            dimension: 768,
+            max_tokens: 8192,
+        },
+        (ProviderKind::Ollama, "nomic-embed-text") => ModelMeta {
+            dimension: 768,
+            max_tokens: 8192,
+        },
+        (ProviderKind::Ollama, "mxbai-embed-large") => ModelMeta {
+            dimension: 1024,
+            max_tokens: 512,
+        },
+        (ProviderKind::Fastembed, _) => ModelMeta {
+            dimension: 768,
+            max_tokens: 8192,
+        },
+        _ => ModelMeta {
+            dimension: 768,
+            max_tokens: 8192,
+        },
     }
 }
 

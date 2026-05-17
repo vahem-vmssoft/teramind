@@ -41,7 +41,13 @@ impl SnapshotCache {
         let mut m = self.inner.lock().await;
         // Evict stale entries.
         m.retain(|_, e| now - e.stored_at < self.ttl);
-        m.insert((cwd, rel_path), Entry { content, stored_at: now });
+        m.insert(
+            (cwd, rel_path),
+            Entry {
+                content,
+                stored_at: now,
+            },
+        );
     }
 
     #[cfg(test)]
@@ -56,11 +62,7 @@ impl SnapshotCache {
 }
 
 /// Resolve pre-content for (cwd, rel_path) using cache -> git index -> empty string.
-pub async fn resolve_pre_content(
-    cache: &SnapshotCache,
-    cwd: &Path,
-    rel_path: &str,
-) -> String {
+pub async fn resolve_pre_content(cache: &SnapshotCache, cwd: &Path, rel_path: &str) -> String {
     if let Some(s) = cache.get(cwd, rel_path).await {
         return s;
     }

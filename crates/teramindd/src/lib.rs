@@ -6,4 +6,4 @@ pub mod paths;
 pub mod services;
 pub mod signals;
 
-pub use crate::services::ingest::{IngestAuth, RouteDeps, route_with_deps};
+pub use crate::services::ingest::{route_with_deps, IngestAuth, RouteDeps};

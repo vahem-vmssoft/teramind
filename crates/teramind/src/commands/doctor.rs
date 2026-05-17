@@ -48,7 +48,8 @@ pub async fn run() -> anyhow::Result<()> {
                     Some(u) => {
                         let now = std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
-                            .map(|d| d.as_secs()).unwrap_or(u);
+                            .map(|d| d.as_secs())
+                            .unwrap_or(u);
                         let secs = now.saturating_sub(u);
                         format!("last filled {secs}s ago")
                     }
@@ -68,7 +69,9 @@ pub async fn run() -> anyhow::Result<()> {
                 println!("  summary backlog: {backlog} sessions queued");
                 println!("  summaries written: {written} total");
             }
-            if let (Some(it), Some(ot)) = (s.summary_input_tokens_total, s.summary_output_tokens_total) {
+            if let (Some(it), Some(ot)) =
+                (s.summary_input_tokens_total, s.summary_output_tokens_total)
+            {
                 if it > 0 || ot > 0 {
                     println!("  summary tokens : in={it}  out={ot}");
                 }
@@ -80,7 +83,10 @@ pub async fn run() -> anyhow::Result<()> {
     // team mode
     let team_toml = paths.config_dir.join("team.toml");
     if team_toml.exists() {
-        println!("team mode:   configured (team.toml present at {})", team_toml.display());
+        println!(
+            "team mode:   configured (team.toml present at {})",
+            team_toml.display()
+        );
         println!("             full team-mode health rendered in Plan J");
     } else {
         println!("team mode:   not configured (run `teramind init --team --server=… --invite=…` to opt in)");
@@ -109,7 +115,10 @@ fn dir_count(p: &std::path::Path) -> anyhow::Result<usize> {
 fn load_local_baseline() -> Option<teramind_search_eval::types::Baseline> {
     let candidates = [
         std::path::PathBuf::from("benches/search-eval/baseline.json"),
-        std::env::current_exe().ok()?.parent()?.join("../../benches/search-eval/baseline.json"),
+        std::env::current_exe()
+            .ok()?
+            .parent()?
+            .join("../../benches/search-eval/baseline.json"),
     ];
     for path in &candidates {
         if let Ok(body) = std::fs::read(path) {

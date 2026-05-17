@@ -33,16 +33,20 @@ impl InviteCode {
         let alphabet = base32::Alphabet::Crockford;
         let body = base32::encode(alphabet, &bytes);
         // Group into 4-char chunks for legibility.
-        let mut chunks: Vec<String> = body.as_bytes()
+        let mut chunks: Vec<String> = body
+            .as_bytes()
             .chunks(4)
             .map(|c| String::from_utf8_lossy(c).into_owned())
             .collect();
         chunks.insert(0, PREFIX.into());
-        Self { canonical: chunks.join("-") }
+        Self {
+            canonical: chunks.join("-"),
+        }
     }
 
     pub fn parse(input: &str) -> Result<Self, InviteError> {
-        let cleaned: String = input.chars()
+        let cleaned: String = input
+            .chars()
             .filter(|c| !c.is_whitespace() && *c != '-')
             .map(|c| c.to_ascii_uppercase())
             .collect();
@@ -51,16 +55,22 @@ impl InviteCode {
         }
         let body = &cleaned[PREFIX.len()..];
         // Crockford base32 of 16 bytes = ceil(16*8/5) = 26 chars.
-        if body.len() != 26 { return Err(InviteError::BadLength); }
-        let bytes = base32::decode(base32::Alphabet::Crockford, body)
-            .ok_or(InviteError::BadAlphabet)?;
+        if body.len() != 26 {
+            return Err(InviteError::BadLength);
+        }
+        let bytes =
+            base32::decode(base32::Alphabet::Crockford, body).ok_or(InviteError::BadAlphabet)?;
         let mut arr = [0u8; RAW_BYTES];
-        if bytes.len() != RAW_BYTES { return Err(InviteError::BadLength); }
+        if bytes.len() != RAW_BYTES {
+            return Err(InviteError::BadLength);
+        }
         arr.copy_from_slice(&bytes);
         Ok(Self::from_bytes(arr))
     }
 
-    pub fn as_str(&self) -> &str { &self.canonical }
+    pub fn as_str(&self) -> &str {
+        &self.canonical
+    }
 
     pub fn hash(&self) -> Vec<u8> {
         let mut h = Sha256::new();
@@ -93,21 +103,28 @@ mod tests {
 
     #[test]
     fn bad_prefix_errors() {
-        assert!(matches!(InviteCode::parse("XX-1234-5678-9ABC-DEFG-HJKM-NPQR-STVW"),
-                         Err(InviteError::BadPrefix)));
+        assert!(matches!(
+            InviteCode::parse("XX-1234-5678-9ABC-DEFG-HJKM-NPQR-STVW"),
+            Err(InviteError::BadPrefix)
+        ));
     }
 
     #[test]
     fn bad_length_errors() {
-        assert!(matches!(InviteCode::parse("TM-1234"),
-                         Err(InviteError::BadLength)));
+        assert!(matches!(
+            InviteCode::parse("TM-1234"),
+            Err(InviteError::BadLength)
+        ));
     }
 
     #[test]
     fn bad_alphabet_errors() {
         // '@' is not in any base32 alphabet — guaranteed to fail decoding.
         let bad = "TM-@@@@-@@@@-@@@@-@@@@-@@@@-@@@@-@@";
-        assert!(matches!(InviteCode::parse(bad), Err(InviteError::BadAlphabet)));
+        assert!(matches!(
+            InviteCode::parse(bad),
+            Err(InviteError::BadAlphabet)
+        ));
     }
 
     #[test]

@@ -248,7 +248,11 @@ async fn route(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
     route_inner(&rd, env, None).await
 }
 
-async fn route_inner(d: &RouteDeps, env: EventEnvelope, auth: Option<IngestAuth>) -> anyhow::Result<()> {
+async fn route_inner(
+    d: &RouteDeps,
+    env: EventEnvelope,
+    auth: Option<IngestAuth>,
+) -> anyhow::Result<()> {
     use IngestEvent::*;
     let ts = env.ts;
     match env.event {
@@ -296,7 +300,8 @@ async fn route_inner(d: &RouteDeps, env: EventEnvelope, auth: Option<IngestAuth>
                 .await;
             // Start watching this cwd; per-cwd refcount in the registry
             // handles duplicate sessions in the same directory.
-            if let Err(e) = d.fs_registry
+            if let Err(e) = d
+                .fs_registry
                 .register(std::path::PathBuf::from(&cwd), sid)
                 .await
             {
@@ -310,23 +315,38 @@ async fn route_inner(d: &RouteDeps, env: EventEnvelope, auth: Option<IngestAuth>
             turn_id,
         } => {
             let _ = match turn_id {
-                Some(tid) => d
-                    .trace
-                    .upsert_turn_with_id(tid, session_id, turn_ordinal, ts, Some(&prompt))
-                    .await?,
-                None => d
-                    .trace
-                    .upsert_turn(session_id, turn_ordinal, ts, Some(&prompt))
-                    .await?,
+                Some(tid) => {
+                    d.trace
+                        .upsert_turn_with_id(tid, session_id, turn_ordinal, ts, Some(&prompt))
+                        .await?
+                }
+                None => {
+                    d.trace
+                        .upsert_turn(session_id, turn_ordinal, ts, Some(&prompt))
+                        .await?
+                }
             };
             d.sessions.touch(session_id, ts, None).await;
         }
-        ToolCallStart { turn_id, tool_call_id, ordinal, name, input } => {
-            match tool_call_id {
-                Some(id) => { d.trace.insert_tool_call_start_with_id(id, turn_id, ordinal, &name, &input, ts).await?; }
-                None     => { let _ = d.trace.insert_tool_call_start(turn_id, ordinal, &name, &input, ts).await?; }
+        ToolCallStart {
+            turn_id,
+            tool_call_id,
+            ordinal,
+            name,
+            input,
+        } => match tool_call_id {
+            Some(id) => {
+                d.trace
+                    .insert_tool_call_start_with_id(id, turn_id, ordinal, &name, &input, ts)
+                    .await?;
             }
-        }
+            None => {
+                let _ = d
+                    .trace
+                    .insert_tool_call_start(turn_id, ordinal, &name, &input, ts)
+                    .await?;
+            }
+        },
         ToolCallEnd {
             tool_call_id,
             output,
@@ -339,7 +359,8 @@ async fn route_inner(d: &RouteDeps, env: EventEnvelope, auth: Option<IngestAuth>
             d.trace
                 .finalize_tool_call(tool_call_id, &output, is_error, duration_ms)
                 .await?;
-            if let (Some(sid), Some(tid), Some(name)) = (session_id, turn_id, tool_name.as_deref()) {
+            if let (Some(sid), Some(tid), Some(name)) = (session_id, turn_id, tool_name.as_deref())
+            {
                 if crate::services::write_tool_ring::is_write_tool(name) {
                     d.write_tool_ring
                         .push(crate::services::write_tool_ring::WriteCompletion {

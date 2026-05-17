@@ -27,7 +27,9 @@ pub async fn run() -> anyhow::Result<()> {
             continue;
         }
         if entry.file_name().and_then(|n| n.to_str()) == Some(".gitkeep") {
-            if let Some(parent) = dst.parent() { std::fs::create_dir_all(parent)?; }
+            if let Some(parent) = dst.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
             continue;
         }
         let bytes = std::fs::read(&entry)?;
@@ -35,7 +37,9 @@ pub async fn run() -> anyhow::Result<()> {
             .replace("@TERAMIND_PLUGIN_DIR@", &plugin_dir_str)
             .replace("@TERAMIND_HOOK_BIN@", &hook_bin_str)
             .replace("@TERAMIND_MCP_BIN@", &mcp_bin_str);
-        if let Some(parent) = dst.parent() { std::fs::create_dir_all(parent)?; }
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         std::fs::write(&dst, text.as_bytes())
             .with_context(|| format!("write {}", dst.display()))?;
         #[cfg(unix)]
@@ -53,7 +57,9 @@ pub async fn run() -> anyhow::Result<()> {
     println!("Teramind plugin installed at {}", plugin_dir.display());
 
     // Post-install self-test of the hook binary.
-    let status = std::process::Command::new(&teramind_hook_bin).arg("--selftest").status();
+    let status = std::process::Command::new(&teramind_hook_bin)
+        .arg("--selftest")
+        .status();
     match status {
         Ok(s) if s.success() => println!("teramind-hook self-test passed."),
         _ => println!("WARNING: teramind-hook self-test failed; hooks may not fire correctly."),
@@ -76,12 +82,20 @@ fn claude_home() -> anyhow::Result<PathBuf> {
 fn which_teramind_hook() -> anyhow::Result<PathBuf> {
     if let Ok(me) = std::env::current_exe() {
         if let Some(dir) = me.parent() {
-            let cand = dir.join(if cfg!(windows) { "teramind-hook.exe" } else { "teramind-hook" });
-            if cand.exists() { return Ok(cand); }
+            let cand = dir.join(if cfg!(windows) {
+                "teramind-hook.exe"
+            } else {
+                "teramind-hook"
+            });
+            if cand.exists() {
+                return Ok(cand);
+            }
         }
     }
     if let Ok(out) = std::process::Command::new(if cfg!(windows) { "where" } else { "which" })
-        .arg("teramind-hook").output() {
+        .arg("teramind-hook")
+        .output()
+    {
         if out.status.success() {
             if let Some(line) = String::from_utf8_lossy(&out.stdout).lines().next() {
                 return Ok(PathBuf::from(line.trim()));
@@ -94,12 +108,20 @@ fn which_teramind_hook() -> anyhow::Result<PathBuf> {
 fn which_teramind_mcp() -> anyhow::Result<std::path::PathBuf> {
     if let Ok(me) = std::env::current_exe() {
         if let Some(dir) = me.parent() {
-            let cand = dir.join(if cfg!(windows) { "teramind-mcp.exe" } else { "teramind-mcp" });
-            if cand.exists() { return Ok(cand); }
+            let cand = dir.join(if cfg!(windows) {
+                "teramind-mcp.exe"
+            } else {
+                "teramind-mcp"
+            });
+            if cand.exists() {
+                return Ok(cand);
+            }
         }
     }
     if let Ok(out) = std::process::Command::new(if cfg!(windows) { "where" } else { "which" })
-        .arg("teramind-mcp").output() {
+        .arg("teramind-mcp")
+        .output()
+    {
         if out.status.success() {
             if let Some(line) = String::from_utf8_lossy(&out.stdout).lines().next() {
                 return Ok(std::path::PathBuf::from(line.trim()));
@@ -113,14 +135,18 @@ fn locate_template_dir() -> anyhow::Result<PathBuf> {
     if let Ok(me) = std::env::current_exe() {
         if let Some(dir) = me.parent() {
             let cand = dir.join("plugins").join("claude");
-            if cand.join("plugin.json").exists() { return Ok(cand); }
+            if cand.join("plugin.json").exists() {
+                return Ok(cand);
+            }
         }
     }
     if let Ok(cwd) = std::env::current_dir() {
         let mut p = cwd.clone();
         for _ in 0..6 {
             let cand = p.join("plugins").join("claude");
-            if cand.join("plugin.json").exists() { return Ok(cand); }
+            if cand.join("plugin.json").exists() {
+                return Ok(cand);
+            }
             match p.parent() {
                 Some(parent) => p = parent.to_path_buf(),
                 None => break,
@@ -129,10 +155,14 @@ fn locate_template_dir() -> anyhow::Result<PathBuf> {
     }
     if let Ok(d) = std::env::var("TERAMIND_PLUGIN_TEMPLATE_DIR") {
         let p = PathBuf::from(d);
-        if p.join("plugin.json").exists() { return Ok(p); }
+        if p.join("plugin.json").exists() {
+            return Ok(p);
+        }
     }
-    anyhow::bail!("Could not locate the Claude plugin template directory; \
-                   set TERAMIND_PLUGIN_TEMPLATE_DIR to the path containing plugin.json")
+    anyhow::bail!(
+        "Could not locate the Claude plugin template directory; \
+                   set TERAMIND_PLUGIN_TEMPLATE_DIR to the path containing plugin.json"
+    )
 }
 
 fn walk_template(root: &std::path::Path) -> Vec<PathBuf> {
@@ -140,7 +170,9 @@ fn walk_template(root: &std::path::Path) -> Vec<PathBuf> {
     fn walk(p: &std::path::Path, out: &mut Vec<PathBuf>) {
         if p.is_dir() {
             if let Ok(rd) = std::fs::read_dir(p) {
-                for entry in rd.flatten() { walk(&entry.path(), out); }
+                for entry in rd.flatten() {
+                    walk(&entry.path(), out);
+                }
             }
         } else {
             out.push(p.to_path_buf());

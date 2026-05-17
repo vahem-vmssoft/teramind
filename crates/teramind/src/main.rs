@@ -20,17 +20,23 @@ async fn main() -> anyhow::Result<()> {
         Command::Doctor => commands::doctor::run().await,
         Command::Reset { purge, confirm } => commands::reset::run(purge, confirm).await,
         Command::Claude { action } => match action {
-            cli::ClaudeAction::Install   => commands::claude::install().await,
+            cli::ClaudeAction::Install => commands::claude::install().await,
             cli::ClaudeAction::Uninstall => commands::claude::uninstall().await,
         },
-        Command::Search { query, limit, json, grep } =>
-            commands::search::run(query, limit, json, grep).await,
+        Command::Search {
+            query,
+            limit,
+            json,
+            grep,
+        } => commands::search::run(query, limit, json, grep).await,
         Command::Uninstall { purge, confirm } => commands::uninstall::run(purge, confirm).await,
-        Command::SelfUpdate { check_only, force } =>
-            commands::self_update::run(check_only, force).await,
+        Command::SelfUpdate { check_only, force } => {
+            commands::self_update::run(check_only, force).await
+        }
         Command::Sessions { action } => match action {
-            cli::SessionsAction::Show { session_id, json } =>
-                commands::sessions::show(session_id, json).await,
+            cli::SessionsAction::Show { session_id, json } => {
+                commands::sessions::show(session_id, json).await
+            }
         },
     }
 }

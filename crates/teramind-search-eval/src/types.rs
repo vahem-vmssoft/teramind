@@ -17,7 +17,13 @@ pub enum QueryClass {
 impl QueryClass {
     pub fn all() -> &'static [QueryClass] {
         use QueryClass::*;
-        &[NaturalLanguage, StackTrace, CodeSnippet, ToolTyped, SymbolicPath]
+        &[
+            NaturalLanguage,
+            StackTrace,
+            CodeSnippet,
+            ToolTyped,
+            SymbolicPath,
+        ]
     }
 }
 
@@ -102,7 +108,10 @@ mod tests {
         let mut judgments = BTreeMap::new();
         judgments.insert(
             "nl-1".into(),
-            vec![Judgment { item: "turn:abc".into(), grade: 2 }],
+            vec![Judgment {
+                item: "turn:abc".into(),
+                grade: 2,
+            }],
         );
         let qrels = QrelsFile { judgments };
         let s = toml::to_string(&qrels).unwrap();
@@ -113,16 +122,34 @@ mod tests {
     #[test]
     fn eval_report_roundtrips_through_json() {
         let mut by_class = BTreeMap::new();
-        by_class.insert(QueryClass::NaturalLanguage, MetricsRow {
-            n_queries: 20, ndcg_at_10: 0.8, mrr: 0.7, p_at_5: 0.6, p_at_10: 0.5, r_at_10: 0.4,
-        });
+        by_class.insert(
+            QueryClass::NaturalLanguage,
+            MetricsRow {
+                n_queries: 20,
+                ndcg_at_10: 0.8,
+                mrr: 0.7,
+                p_at_5: 0.6,
+                p_at_10: 0.5,
+                r_at_10: 0.4,
+            },
+        );
         let report = EvalReport {
             overall: MetricsRow {
-                n_queries: 100, ndcg_at_10: 0.75, mrr: 0.6, p_at_5: 0.55, p_at_10: 0.5, r_at_10: 0.45,
+                n_queries: 100,
+                ndcg_at_10: 0.75,
+                mrr: 0.6,
+                p_at_5: 0.55,
+                p_at_10: 0.5,
+                r_at_10: 0.45,
             },
             by_class,
             query_latency_p95_ms: 250,
-            corpus_size: CorpusSize { sessions: 500, turns: 2500, tool_calls: 5000, file_diffs: 500 },
+            corpus_size: CorpusSize {
+                sessions: 500,
+                turns: 2500,
+                tool_calls: 5000,
+                file_diffs: 500,
+            },
         };
         let j = serde_json::to_string(&report).unwrap();
         let back: EvalReport = serde_json::from_str(&j).unwrap();

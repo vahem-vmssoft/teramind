@@ -7,8 +7,14 @@ pub async fn run(query: String, limit: u32, json: bool, _grep: bool) -> anyhow::
     let resp = ipc::request(Request::Search(SearchRequest { query, limit }), 10_000).await?;
     let results = match resp {
         Response::SearchResults(s) => s,
-        Response::Error(e) => { eprintln!("error: {e}"); return Ok(()); }
-        other => { eprintln!("unexpected: {other:?}"); return Ok(()); }
+        Response::Error(e) => {
+            eprintln!("error: {e}");
+            return Ok(());
+        }
+        other => {
+            eprintln!("unexpected: {other:?}");
+            return Ok(());
+        }
     };
     if json {
         println!("{}", serde_json::to_string_pretty(&results)?);

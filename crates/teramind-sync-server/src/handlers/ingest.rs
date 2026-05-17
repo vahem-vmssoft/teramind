@@ -5,7 +5,7 @@ use crate::state::{AppState, AuthContext};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use serde::{Deserialize, Serialize};
 use teramind_core::types::ingest_event::EventEnvelope;
-use teramindd::{IngestAuth, route_with_deps};
+use teramindd::{route_with_deps, IngestAuth};
 
 #[derive(Deserialize)]
 pub struct IngestBatch {
@@ -31,10 +31,17 @@ pub async fn ingest(
     Json(batch): Json<IngestBatch>,
 ) -> impl IntoResponse {
     if batch.events.len() > state.cfg.ingest.max_batch_size {
-        return (StatusCode::PAYLOAD_TOO_LARGE, Json(IngestSummary::default())).into_response();
+        return (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(IngestSummary::default()),
+        )
+            .into_response();
     }
     let rd = state.route_deps();
-    let ia = IngestAuth { user_id: auth.user_id.0, device_id: auth.device_id.0 };
+    let ia = IngestAuth {
+        user_id: auth.user_id.0,
+        device_id: auth.device_id.0,
+    };
 
     let mut summary = IngestSummary::default();
     for env in batch.events {
@@ -46,7 +53,10 @@ pub async fn ingest(
                 if s.contains("duplicate key") || s.contains("unique constraint") {
                     summary.duplicates += 1;
                 } else {
-                    summary.rejected.push(RejectedEvent { client_event_id: cid, reason: s });
+                    summary.rejected.push(RejectedEvent {
+                        client_event_id: cid,
+                        reason: s,
+                    });
                 }
             }
         }

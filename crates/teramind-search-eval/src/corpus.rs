@@ -68,21 +68,25 @@ pub struct Corpus {
 pub fn load(root: &Path) -> anyhow::Result<Corpus> {
     let dir = root.join("corpus");
     Ok(Corpus {
-        sessions:   load_jsonl(&dir.join("sessions.jsonl"))?,
-        turns:      load_jsonl(&dir.join("turns.jsonl"))?,
+        sessions: load_jsonl(&dir.join("sessions.jsonl"))?,
+        turns: load_jsonl(&dir.join("turns.jsonl"))?,
         tool_calls: load_jsonl(&dir.join("tool_calls.jsonl"))?,
         file_diffs: load_jsonl(&dir.join("file_diffs.jsonl"))?,
     })
 }
 
 fn load_jsonl<T: serde::de::DeserializeOwned>(path: &Path) -> anyhow::Result<Vec<T>> {
-    if !path.exists() { return Ok(Vec::new()); }
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
     let f = std::fs::File::open(path)?;
     let reader = std::io::BufReader::new(f);
     let mut out = Vec::new();
     for line in reader.lines() {
         let line = line?;
-        if line.trim().is_empty() { continue; }
+        if line.trim().is_empty() {
+            continue;
+        }
         out.push(serde_json::from_str::<T>(&line)?);
     }
     Ok(out)
@@ -103,65 +107,87 @@ pub async fn ingest(pool: &DbPool, c: &Corpus) -> anyhow::Result<()> {
     let claude_agent = agents.upsert("claude_code", None).await?;
 
     for s in &c.sessions {
-        let _ = sessions.insert_with_id(SessionId(s.id), NewSession {
-            agent_id: claude_agent.id,
-            agent_session_id: None,
-            cwd: &s.cwd,
-            project_id: None,
-            parent_session_id: None,
-            git_head: None,
-            git_branch: None,
-            os: "linux",
-            hostname: "eval",
-            user_login: "eval",
-            started_at: s.started_at,
-            user_id: None,
-            device_id: None,
-        }).await?;
+        let _ = sessions
+            .insert_with_id(
+                SessionId(s.id),
+                NewSession {
+                    agent_id: claude_agent.id,
+                    agent_session_id: None,
+                    cwd: &s.cwd,
+                    project_id: None,
+                    parent_session_id: None,
+                    git_head: None,
+                    git_branch: None,
+                    os: "linux",
+                    hostname: "eval",
+                    user_login: "eval",
+                    started_at: s.started_at,
+                    user_id: None,
+                    device_id: None,
+                },
+            )
+            .await?;
     }
     for t in &c.turns {
-        let tid = trace.upsert_turn_with_id(
-            TurnId(t.id),
-            SessionId(t.session_id),
-            t.ordinal,
-            t.started_at,
-            t.user_prompt.as_deref(),
-        ).await?;
-        trace.finalize_turn(
-            tid, t.started_at,
-            t.assistant_text.as_deref(),
-            t.thinking.as_deref(),
-            Some("eval-model"), None, None,
-        ).await?;
+        let tid = trace
+            .upsert_turn_with_id(
+                TurnId(t.id),
+                SessionId(t.session_id),
+                t.ordinal,
+                t.started_at,
+                t.user_prompt.as_deref(),
+            )
+            .await?;
+        trace
+            .finalize_turn(
+                tid,
+                t.started_at,
+                t.assistant_text.as_deref(),
+                t.thinking.as_deref(),
+                Some("eval-model"),
+                None,
+                None,
+            )
+            .await?;
     }
     for tc in &c.tool_calls {
-        let _ = trace.insert_tool_call_start_with_id(
-            ToolCallId(tc.id),
-            TurnId(tc.turn_id),
-            tc.ordinal, &tc.name, &tc.input, tc.started_at,
-        ).await?;
-        trace.finalize_tool_call(ToolCallId(tc.id), &tc.output, false, 0).await?;
+        let _ = trace
+            .insert_tool_call_start_with_id(
+                ToolCallId(tc.id),
+                TurnId(tc.turn_id),
+                tc.ordinal,
+                &tc.name,
+                &tc.input,
+                tc.started_at,
+            )
+            .await?;
+        trace
+            .finalize_tool_call(ToolCallId(tc.id), &tc.output, false, 0)
+            .await?;
     }
     for d in &c.file_diffs {
-        let _: FileDiffId = diffs.insert(NewFileDiff {
-            turn_id: d.turn_id.map(TurnId),
-            session_id: SessionId(d.session_id),
-            file_path: &d.file_path,
-            rel_path: &d.rel_path,
-            attribution: d.attribution,
-            language: d.language.as_deref(),
-            pre_excerpt: &d.pre_excerpt,
-            post_excerpt: &d.post_excerpt,
-            unified_diff: &d.unified_diff,
-            pre_hash: [0u8; 32],
-            post_hash: [1u8; 32],
-            byte_size: d.post_excerpt.len() as i32,
-            captured_at: d.captured_at,
-        }).await?;
+        let _: FileDiffId = diffs
+            .insert(NewFileDiff {
+                turn_id: d.turn_id.map(TurnId),
+                session_id: SessionId(d.session_id),
+                file_path: &d.file_path,
+                rel_path: &d.rel_path,
+                attribution: d.attribution,
+                language: d.language.as_deref(),
+                pre_excerpt: &d.pre_excerpt,
+                post_excerpt: &d.post_excerpt,
+                unified_diff: &d.unified_diff,
+                pre_hash: [0u8; 32],
+                post_hash: [1u8; 32],
+                byte_size: d.post_excerpt.len() as i32,
+                captured_at: d.captured_at,
+            })
+            .await?;
     }
 
     sqlx::query("REFRESH MATERIALIZED VIEW traces_fts")
-        .execute(pool.pg()).await?;
+        .execute(pool.pg())
+        .await?;
 
     Ok(())
 }
@@ -220,12 +246,15 @@ mod tests {
                 project_tag: "rust-web".into(),
                 started_at: OffsetDateTime::from_unix_timestamp(1_700_000_000).unwrap(),
             }],
-            turns: vec![], tool_calls: vec![], file_diffs: vec![],
+            turns: vec![],
+            tool_calls: vec![],
+            file_diffs: vec![],
         };
         ingest(&pool, &c).await?;
 
         let (n,): (i64,) = sqlx::query_as("SELECT count(*) FROM sessions")
-            .fetch_one(pool.pg()).await?;
+            .fetch_one(pool.pg())
+            .await?;
         assert_eq!(n, 1);
 
         sup.shutdown().await?;

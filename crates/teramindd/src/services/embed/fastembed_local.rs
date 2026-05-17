@@ -32,18 +32,30 @@ impl FastEmbedProvider {
 
 #[async_trait]
 impl EmbeddingProvider for FastEmbedProvider {
-    fn kind(&self) -> ProviderKind { ProviderKind::Fastembed }
-    fn model_id(&self) -> &str { &self.model_name }
-    fn dimension(&self) -> usize { self.dimension }
-    fn max_tokens(&self) -> usize { self.max_tokens }
-    fn distance_metric(&self) -> DistanceMetric { DistanceMetric::Cosine }
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::Fastembed
+    }
+    fn model_id(&self) -> &str {
+        &self.model_name
+    }
+    fn dimension(&self) -> usize {
+        self.dimension
+    }
+    fn max_tokens(&self) -> usize {
+        self.max_tokens
+    }
+    fn distance_metric(&self) -> DistanceMetric {
+        DistanceMetric::Cosine
+    }
 
     async fn health_check(&self) -> Result<(), EmbedError> {
         self.embed(&["ok".to_string()]).await.map(|_| ())
     }
 
     async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbedError> {
-        if texts.is_empty() { return Ok(vec![]); }
+        if texts.is_empty() {
+            return Ok(vec![]);
+        }
         let model = self.model.clone();
         let texts: Vec<String> = texts.to_vec();
         tokio::task::spawn_blocking(move || {

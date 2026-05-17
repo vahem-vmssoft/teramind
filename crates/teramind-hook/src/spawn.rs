@@ -13,7 +13,10 @@ pub async fn ensure_daemon_connected(socket: &Path) -> std::io::Result<()> {
         return Ok(());
     }
     if std::env::var("TERAMIND_HOOK_NO_SPAWN").is_ok() {
-        return Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "spawn disabled"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "spawn disabled",
+        ));
     }
     spawn_daemon_detached()?;
     tokio::time::sleep(Duration::from_millis(250)).await;
@@ -24,8 +27,14 @@ async fn try_connect(socket: &Path, deadline: Duration) -> std::io::Result<()> {
     let r = tokio::time::timeout(deadline, teramind_ipc::transport::connect(socket)).await;
     match r {
         Ok(Ok(_stream)) => Ok(()),
-        Ok(Err(e)) => Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, e.to_string())),
-        Err(_) => Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "connect deadline")),
+        Ok(Err(e)) => Err(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            e.to_string(),
+        )),
+        Err(_) => Err(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "connect deadline",
+        )),
     }
 }
 
@@ -33,8 +42,8 @@ fn spawn_daemon_detached() -> std::io::Result<()> {
     let exe = which_teramindd()?;
     let mut cmd = std::process::Command::new(&exe);
     cmd.stdin(std::process::Stdio::null())
-       .stdout(std::process::Stdio::null())
-       .stderr(std::process::Stdio::null());
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -52,17 +61,28 @@ fn spawn_daemon_detached() -> std::io::Result<()> {
 fn which_teramindd() -> std::io::Result<PathBuf> {
     if let Ok(me) = std::env::current_exe() {
         if let Some(dir) = me.parent() {
-            let cand = dir.join(if cfg!(windows) { "teramindd.exe" } else { "teramindd" });
-            if cand.exists() { return Ok(cand); }
+            let cand = dir.join(if cfg!(windows) {
+                "teramindd.exe"
+            } else {
+                "teramindd"
+            });
+            if cand.exists() {
+                return Ok(cand);
+            }
         }
     }
     if let Ok(out) = std::process::Command::new(if cfg!(windows) { "where" } else { "which" })
-        .arg("teramindd").output() {
+        .arg("teramindd")
+        .output()
+    {
         if out.status.success() {
             if let Some(line) = String::from_utf8_lossy(&out.stdout).lines().next() {
                 return Ok(PathBuf::from(line.trim()));
             }
         }
     }
-    Err(std::io::Error::new(std::io::ErrorKind::NotFound, "teramindd not found"))
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "teramindd not found",
+    ))
 }

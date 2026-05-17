@@ -1,8 +1,8 @@
 //! Daily sweep of orphan embeddings (rows whose parent turn/file_diff
 //! was cascade-deleted). Runs in the background; never blocks anything.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use teramind_db::repos::EmbeddingRepo;
 use tracing::{info, warn};
@@ -21,7 +21,9 @@ impl OrphanSweeper {
                 tokio::time::sleep(interval).await;
                 match repo.sweep_orphans().await {
                     Ok(n) => {
-                        if n > 0 { info!(deleted = n, "orphan_sweeper removed embeddings"); }
+                        if n > 0 {
+                            info!(deleted = n, "orphan_sweeper removed embeddings");
+                        }
                         d.fetch_add(n, Ordering::Relaxed);
                     }
                     Err(e) => warn!(error = %e, "orphan_sweeper sweep failed"),
@@ -31,7 +33,9 @@ impl OrphanSweeper {
         Self { deleted, handle }
     }
 
-    pub fn abort(&self) { self.handle.abort(); }
+    pub fn abort(&self) {
+        self.handle.abort();
+    }
 }
 
 #[cfg(test)]

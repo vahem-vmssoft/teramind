@@ -66,7 +66,9 @@ pub fn current_is_older(current: &str, latest: &str) -> bool {
     // Strip leading "v" if present (releases tagged as "v1.2.3").
     let c = current.strip_prefix('v').unwrap_or(current);
     let l = latest.strip_prefix('v').unwrap_or(latest);
-    parse_semver(c).map(|cv| Some(cv) < parse_semver(l)).unwrap_or(false)
+    parse_semver(c)
+        .map(|cv| Some(cv) < parse_semver(l))
+        .unwrap_or(false)
 }
 
 fn parse_semver(s: &str) -> Option<(u64, u64, u64)> {
@@ -84,10 +86,19 @@ mod tests {
 
     fn index_with_latest(v: &str) -> ReleaseIndex {
         let mut artifacts = HashMap::new();
-        artifacts.insert("x86_64-unknown-linux-gnu".into(), Artifact { url: "u".into(), sha256: "s".into() });
+        artifacts.insert(
+            "x86_64-unknown-linux-gnu".into(),
+            Artifact {
+                url: "u".into(),
+                sha256: "s".into(),
+            },
+        );
         ReleaseIndex {
             latest: v.into(),
-            releases: vec![Release { version: v.into(), artifacts }],
+            releases: vec![Release {
+                version: v.into(),
+                artifacts,
+            }],
         }
     }
 

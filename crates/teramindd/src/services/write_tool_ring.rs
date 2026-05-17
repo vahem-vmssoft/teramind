@@ -76,8 +76,12 @@ mod tests {
         let sid = SessionId::new();
         let tid = TurnId::new();
         ring.push(WriteCompletion {
-            session_id: sid, turn_id: tid, tool_name: "Edit".into(), at: t(100),
-        }).await;
+            session_id: sid,
+            turn_id: tid,
+            tool_name: "Edit".into(),
+            at: t(100),
+        })
+        .await;
         let got = ring.most_recent_for(sid, t(103)).await;
         assert!(got.is_some());
         assert_eq!(got.unwrap().turn_id, tid);
@@ -88,8 +92,12 @@ mod tests {
         let ring = WriteToolRing::new(8, time::Duration::seconds(5));
         let sid = SessionId::new();
         ring.push(WriteCompletion {
-            session_id: sid, turn_id: TurnId::new(), tool_name: "Edit".into(), at: t(100),
-        }).await;
+            session_id: sid,
+            turn_id: TurnId::new(),
+            tool_name: "Edit".into(),
+            at: t(100),
+        })
+        .await;
         assert!(ring.most_recent_for(sid, t(200)).await.is_none());
     }
 
@@ -103,7 +111,8 @@ mod tests {
                 turn_id: TurnId::new(),
                 tool_name: "Edit".into(),
                 at: t(100 + i),
-            }).await;
+            })
+            .await;
         }
         // Only the newest two survive; oldest at t(100) should be gone.
         let got = ring.most_recent_for(sid, t(105)).await.unwrap();

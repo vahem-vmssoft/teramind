@@ -9,7 +9,12 @@ mod tests {
 
     #[test]
     fn system_prompt_contains_all_four_section_headers() {
-        for header in ["# Summary", "# Files changed", "# Decisions & gotchas", "# Follow-ups"] {
+        for header in [
+            "# Summary",
+            "# Files changed",
+            "# Decisions & gotchas",
+            "# Follow-ups",
+        ] {
             assert!(SYSTEM_PROMPT.contains(header), "missing {header}");
         }
     }
@@ -22,6 +27,10 @@ mod tests {
     #[test]
     fn system_prompt_length_under_limit() {
         // Keep the prompt small so it doesn't eat token budget at run time.
-        assert!(SYSTEM_PROMPT.len() < 2048, "prompt grew to {}", SYSTEM_PROMPT.len());
+        assert!(
+            SYSTEM_PROMPT.len() < 2048,
+            "prompt grew to {}",
+            SYSTEM_PROMPT.len()
+        );
     }
 }

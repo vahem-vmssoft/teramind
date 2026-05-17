@@ -109,14 +109,30 @@ pub struct FastembedConfig {
     pub cache_dir: Option<String>,
 }
 
-fn default_provider() -> ProviderKind { ProviderKind::Ollama }
-fn default_model() -> String { "nomic-embed-text-v2-moe".into() }
-fn default_poll_interval() -> u64 { 5 }
-fn default_batch_size() -> u32 { 32 }
-fn default_max_throughput() -> u32 { 1000 }
-fn default_orphan_sweep() -> u32 { 24 }
-fn default_ollama_url() -> String { "http://localhost:11434".into() }
-fn default_ollama_timeout_ms() -> u64 { 10_000 }
+fn default_provider() -> ProviderKind {
+    ProviderKind::Ollama
+}
+fn default_model() -> String {
+    "nomic-embed-text-v2-moe".into()
+}
+fn default_poll_interval() -> u64 {
+    5
+}
+fn default_batch_size() -> u32 {
+    32
+}
+fn default_max_throughput() -> u32 {
+    1000
+}
+fn default_orphan_sweep() -> u32 {
+    24
+}
+fn default_ollama_url() -> String {
+    "http://localhost:11434".into()
+}
+fn default_ollama_timeout_ms() -> u64 {
+    10_000
+}
 
 impl Default for EmbedConfig {
     fn default() -> Self {
@@ -171,8 +187,10 @@ mod embed_config_tests {
 
     #[test]
     fn cloud_provider_requires_network_egress() {
-        let mut c = EmbedConfig::default();
-        c.provider = ProviderKind::Anthropic;
+        let mut c = EmbedConfig {
+            provider: ProviderKind::Anthropic,
+            ..EmbedConfig::default()
+        };
         assert!(c.validate().is_err());
         c.network_egress = true;
         c.validate().expect("should pass with egress=true");
@@ -181,9 +199,11 @@ mod embed_config_tests {
     #[test]
     fn local_providers_dont_require_egress() {
         for p in [ProviderKind::Ollama, ProviderKind::Fastembed] {
-            let mut c = EmbedConfig::default();
-            c.provider = p;
-            c.network_egress = false;
+            let c = EmbedConfig {
+                provider: p,
+                network_egress: false,
+                ..EmbedConfig::default()
+            };
             c.validate().expect("local provider should pass");
         }
     }
@@ -223,11 +243,11 @@ pub fn load_search_weights(path: &std::path::Path) -> anyhow::Result<BlendWeight
     let f: SearchFile = toml::from_str(&body)?;
     let d = BlendWeights::default();
     Ok(BlendWeights {
-        fts:      f.blend.fts.unwrap_or(d.fts),
-        trgm:     f.blend.trgm.unwrap_or(d.trgm),
+        fts: f.blend.fts.unwrap_or(d.fts),
+        trgm: f.blend.trgm.unwrap_or(d.trgm),
         semantic: f.blend.semantic.unwrap_or(d.semantic),
-        recency:  f.blend.recency.unwrap_or(d.recency),
-        project:  f.blend.project.unwrap_or(d.project),
+        recency: f.blend.recency.unwrap_or(d.recency),
+        project: f.blend.project.unwrap_or(d.project),
     })
 }
 
@@ -328,16 +348,36 @@ pub struct SummarizeAnthropic {
 fn default_summarize_provider() -> teramind_core::embed::ProviderKind {
     teramind_core::embed::ProviderKind::Ollama
 }
-fn default_summarize_model() -> String { "qwen3.6:latest".into() }
-fn default_summarize_poll() -> u64 { 30 }
-fn default_summarize_min_turns() -> u32 { 3 }
-fn default_summarize_min_duration() -> u64 { 60 }
-fn default_summarize_input_chars() -> u32 { 16000 }
-fn default_summarize_output_tokens() -> u32 { 1500 }
-fn default_summarize_ollama_url() -> String { "http://localhost:11434".into() }
-fn default_summarize_ollama_timeout() -> u64 { 60_000 }
-fn default_anthropic_key_field() -> String { "anthropic_api_key".into() }
-fn default_anthropic_timeout() -> u64 { 30_000 }
+fn default_summarize_model() -> String {
+    "qwen3.6:latest".into()
+}
+fn default_summarize_poll() -> u64 {
+    30
+}
+fn default_summarize_min_turns() -> u32 {
+    3
+}
+fn default_summarize_min_duration() -> u64 {
+    60
+}
+fn default_summarize_input_chars() -> u32 {
+    16000
+}
+fn default_summarize_output_tokens() -> u32 {
+    1500
+}
+fn default_summarize_ollama_url() -> String {
+    "http://localhost:11434".into()
+}
+fn default_summarize_ollama_timeout() -> u64 {
+    60_000
+}
+fn default_anthropic_key_field() -> String {
+    "anthropic_api_key".into()
+}
+fn default_anthropic_timeout() -> u64 {
+    30_000
+}
 
 impl Default for SummarizeConfig {
     fn default() -> Self {
@@ -358,7 +398,9 @@ impl Default for SummarizeConfig {
 
 impl SummarizeConfig {
     pub fn load_or_default(path: &std::path::Path) -> anyhow::Result<Self> {
-        if !path.exists() { return Ok(Self::default()); }
+        if !path.exists() {
+            return Ok(Self::default());
+        }
         let body = std::fs::read_to_string(path)?;
         let c: Self = toml::from_str(&body)?;
         c.validate()?;
@@ -393,8 +435,10 @@ mod summarize_config_tests {
 
     #[test]
     fn cloud_provider_requires_network_egress() {
-        let mut c = SummarizeConfig::default();
-        c.provider = ProviderKind::Anthropic;
+        let mut c = SummarizeConfig {
+            provider: ProviderKind::Anthropic,
+            ..SummarizeConfig::default()
+        };
         assert!(c.validate().is_err());
         c.network_egress = true;
         c.validate().expect("ok with egress=true");
@@ -402,9 +446,11 @@ mod summarize_config_tests {
 
     #[test]
     fn local_providers_dont_require_egress() {
-        let mut c = SummarizeConfig::default();
-        c.provider = ProviderKind::Ollama;
-        c.network_egress = false;
+        let c = SummarizeConfig {
+            provider: ProviderKind::Ollama,
+            network_egress: false,
+            ..SummarizeConfig::default()
+        };
         c.validate().expect("ollama ok");
     }
 }

@@ -55,10 +55,21 @@ pub struct RankedWiki {
 }
 
 impl SearchRepo {
-    pub fn new(pool: DbPool) -> Self { Self { pool } }
+    pub fn new(pool: DbPool) -> Self {
+        Self { pool }
+    }
 
     pub async fn fts_turns(&self, query: &str, limit: u32) -> Result<Vec<RankedTurn>> {
-        let rows: Vec<(Uuid, Uuid, i32, OffsetDateTime, Option<Uuid>, f32, Option<String>, Option<String>)> = sqlx::query_as(
+        let rows: Vec<(
+            Uuid,
+            Uuid,
+            i32,
+            OffsetDateTime,
+            Option<Uuid>,
+            f32,
+            Option<String>,
+            Option<String>,
+        )> = sqlx::query_as(
             r#"
             SELECT
                 f.turn_id, f.session_id, f.ordinal, f.ts,
@@ -75,12 +86,26 @@ impl SearchRepo {
         )
         .bind(query)
         .bind(limit as i64)
-        .fetch_all(self.pool.pg()).await?;
+        .fetch_all(self.pool.pg())
+        .await?;
 
-        Ok(rows.into_iter().map(|(turn_id, session_id, ordinal, ts, project_id, fts, prompt, text)| {
-            RankedTurn { turn_id, session_id, ordinal, ts, project_id, fts_score: fts, trgm_score: 0.0, semantic_score: 0.0,
-                         user_prompt: prompt, assistant_text: text }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(turn_id, session_id, ordinal, ts, project_id, fts, prompt, text)| RankedTurn {
+                    turn_id,
+                    session_id,
+                    ordinal,
+                    ts,
+                    project_id,
+                    fts_score: fts,
+                    trgm_score: 0.0,
+                    semantic_score: 0.0,
+                    user_prompt: prompt,
+                    assistant_text: text,
+                },
+            )
+            .collect())
     }
 
     pub async fn trgm_diffs(&self, query: &str, limit: u32) -> Result<Vec<RankedDiff>> {
@@ -102,9 +127,22 @@ impl SearchRepo {
         .bind(limit as i64)
         .fetch_all(self.pool.pg()).await?;
 
-        Ok(rows.into_iter().map(|(diff_id, session_id, rel_path, ts, project_id, trgm, pre, post)| {
-            RankedDiff { diff_id, session_id, rel_path, ts, project_id, trgm_score: trgm, semantic_score: 0.0, pre_excerpt: pre, post_excerpt: post }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(diff_id, session_id, rel_path, ts, project_id, trgm, pre, post)| RankedDiff {
+                    diff_id,
+                    session_id,
+                    rel_path,
+                    ts,
+                    project_id,
+                    trgm_score: trgm,
+                    semantic_score: 0.0,
+                    pre_excerpt: pre,
+                    post_excerpt: post,
+                },
+            )
+            .collect())
     }
 
     pub async fn trgm_skills(&self, query: &str, limit: u32) -> Result<Vec<RankedSkill>> {
@@ -120,14 +158,26 @@ impl SearchRepo {
         )
         .bind(query)
         .bind(limit as i64)
-        .fetch_all(self.pool.pg()).await?;
+        .fetch_all(self.pool.pg())
+        .await?;
 
-        Ok(rows.into_iter().map(|(skill_id, name, body, trgm)| {
-            RankedSkill { skill_id, name, body, trgm_score: trgm }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(skill_id, name, body, trgm)| RankedSkill {
+                skill_id,
+                name,
+                body,
+                trgm_score: trgm,
+            })
+            .collect())
     }
 
-    pub async fn recent_turns_in_project(&self, project_id: Option<Uuid>, cwd: &str, limit: u32) -> Result<Vec<RankedTurn>> {
+    pub async fn recent_turns_in_project(
+        &self,
+        project_id: Option<Uuid>,
+        cwd: &str,
+        limit: u32,
+    ) -> Result<Vec<RankedTurn>> {
         let rows: Vec<(Uuid, Uuid, i32, OffsetDateTime, Option<Uuid>, Option<String>, Option<String>)> = match project_id {
             Some(pid) => sqlx::query_as(
                 r#"
@@ -150,10 +200,23 @@ impl SearchRepo {
                 "#,
             ).bind(cwd).bind(limit as i64).fetch_all(self.pool.pg()).await?,
         };
-        Ok(rows.into_iter().map(|(turn_id, session_id, ordinal, ts, project_id, prompt, text)| {
-            RankedTurn { turn_id, session_id, ordinal, ts, project_id, fts_score: 0.0, trgm_score: 0.0, semantic_score: 0.0,
-                         user_prompt: prompt, assistant_text: text }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(turn_id, session_id, ordinal, ts, project_id, prompt, text)| RankedTurn {
+                    turn_id,
+                    session_id,
+                    ordinal,
+                    ts,
+                    project_id,
+                    fts_score: 0.0,
+                    trgm_score: 0.0,
+                    semantic_score: 0.0,
+                    user_prompt: prompt,
+                    assistant_text: text,
+                },
+            )
+            .collect())
     }
 
     /// Return the most recent diff excerpts whose `rel_path` is in `paths`.
@@ -167,7 +230,15 @@ impl SearchRepo {
             return Ok(Vec::new());
         }
         let paths_vec: Vec<String> = paths.to_vec();
-        let rows: Vec<(Uuid, Uuid, String, OffsetDateTime, Option<Uuid>, String, String)> = sqlx::query_as(
+        let rows: Vec<(
+            Uuid,
+            Uuid,
+            String,
+            OffsetDateTime,
+            Option<Uuid>,
+            String,
+            String,
+        )> = sqlx::query_as(
             r#"
             SELECT
                 fd.id, fd.session_id, fd.rel_path, fd.captured_at,
@@ -182,14 +253,25 @@ impl SearchRepo {
         )
         .bind(paths_vec)
         .bind(limit as i64)
-        .fetch_all(self.pool.pg()).await?;
+        .fetch_all(self.pool.pg())
+        .await?;
 
-        Ok(rows.into_iter().map(|(diff_id, session_id, rel_path, ts, project_id, pre, post)| {
-            RankedDiff {
-                diff_id, session_id, rel_path, ts, project_id,
-                trgm_score: 0.0, semantic_score: 0.0, pre_excerpt: pre, post_excerpt: post,
-            }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(diff_id, session_id, rel_path, ts, project_id, pre, post)| RankedDiff {
+                    diff_id,
+                    session_id,
+                    rel_path,
+                    ts,
+                    project_id,
+                    trgm_score: 0.0,
+                    semantic_score: 0.0,
+                    pre_excerpt: pre,
+                    post_excerpt: post,
+                },
+            )
+            .collect())
     }
 
     pub async fn vector_search_turns(
@@ -199,7 +281,16 @@ impl SearchRepo {
         limit: u32,
     ) -> Result<Vec<RankedTurn>> {
         let v = pgvector::Vector::from(query_embedding.to_vec());
-        let rows: Vec<(Uuid, Uuid, i32, OffsetDateTime, Option<Uuid>, f32, Option<String>, Option<String>)> = sqlx::query_as(
+        let rows: Vec<(
+            Uuid,
+            Uuid,
+            i32,
+            OffsetDateTime,
+            Option<Uuid>,
+            f32,
+            Option<String>,
+            Option<String>,
+        )> = sqlx::query_as(
             r#"
             SELECT t.id, t.session_id, t.ordinal, t.started_at,
                    s.project_id,
@@ -216,15 +307,26 @@ impl SearchRepo {
         .bind(v)
         .bind(model)
         .bind(limit as i64)
-        .fetch_all(self.pool.pg()).await?;
+        .fetch_all(self.pool.pg())
+        .await?;
 
-        Ok(rows.into_iter().map(|(turn_id, session_id, ordinal, ts, project_id, sem, prompt, text)| {
-            RankedTurn {
-                turn_id, session_id, ordinal, ts, project_id,
-                fts_score: 0.0, trgm_score: 0.0, semantic_score: sem,
-                user_prompt: prompt, assistant_text: text,
-            }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(turn_id, session_id, ordinal, ts, project_id, sem, prompt, text)| RankedTurn {
+                    turn_id,
+                    session_id,
+                    ordinal,
+                    ts,
+                    project_id,
+                    fts_score: 0.0,
+                    trgm_score: 0.0,
+                    semantic_score: sem,
+                    user_prompt: prompt,
+                    assistant_text: text,
+                },
+            )
+            .collect())
     }
 
     pub async fn vector_search_diffs(
@@ -234,7 +336,16 @@ impl SearchRepo {
         limit: u32,
     ) -> Result<Vec<RankedDiff>> {
         let v = pgvector::Vector::from(query_embedding.to_vec());
-        let rows: Vec<(Uuid, Uuid, String, OffsetDateTime, Option<Uuid>, f32, String, String)> = sqlx::query_as(
+        let rows: Vec<(
+            Uuid,
+            Uuid,
+            String,
+            OffsetDateTime,
+            Option<Uuid>,
+            f32,
+            String,
+            String,
+        )> = sqlx::query_as(
             r#"
             SELECT fd.id, fd.session_id, fd.rel_path, fd.captured_at,
                    s.project_id,
@@ -251,15 +362,25 @@ impl SearchRepo {
         .bind(v)
         .bind(model)
         .bind(limit as i64)
-        .fetch_all(self.pool.pg()).await?;
+        .fetch_all(self.pool.pg())
+        .await?;
 
-        Ok(rows.into_iter().map(|(diff_id, session_id, rel_path, ts, project_id, sem, pre, post)| {
-            RankedDiff {
-                diff_id, session_id, rel_path, ts, project_id,
-                trgm_score: 0.0, semantic_score: sem,
-                pre_excerpt: pre, post_excerpt: post,
-            }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(diff_id, session_id, rel_path, ts, project_id, sem, pre, post)| RankedDiff {
+                    diff_id,
+                    session_id,
+                    rel_path,
+                    ts,
+                    project_id,
+                    trgm_score: 0.0,
+                    semantic_score: sem,
+                    pre_excerpt: pre,
+                    post_excerpt: post,
+                },
+            )
+            .collect())
     }
 
     pub async fn fts_wiki_pages(&self, query: &str, limit: u32) -> Result<Vec<RankedWiki>> {
@@ -277,19 +398,35 @@ impl SearchRepo {
         )
         .bind(query)
         .bind(limit as i64)
-        .fetch_all(self.pool.pg()).await?;
+        .fetch_all(self.pool.pg())
+        .await?;
 
-        Ok(rows.into_iter().map(|(id, sid, content, ts, score)| {
-            let title = content.lines().find(|l| l.starts_with("# "))
-                .map(|s| s.trim_start_matches("# ").to_string())
-                .unwrap_or_else(|| "(untitled)".to_string());
-            let snippet = content.lines().take(3).collect::<Vec<_>>().join(" ");
-            let snippet: String = snippet.chars().take(200).collect();
-            RankedWiki { page_id: id, session_id: sid, title, snippet, fts_score: score, ts }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(id, sid, content, ts, score)| {
+                let title = content
+                    .lines()
+                    .find(|l| l.starts_with("# "))
+                    .map(|s| s.trim_start_matches("# ").to_string())
+                    .unwrap_or_else(|| "(untitled)".to_string());
+                let snippet = content.lines().take(3).collect::<Vec<_>>().join(" ");
+                let snippet: String = snippet.chars().take(200).collect();
+                RankedWiki {
+                    page_id: id,
+                    session_id: sid,
+                    title,
+                    snippet,
+                    fts_score: score,
+                    ts,
+                }
+            })
+            .collect())
     }
 
-    pub async fn upsert_skill(&self, req: &teramind_core::types::SaveSkillRequest) -> Result<teramind_core::types::SkillRef> {
+    pub async fn upsert_skill(
+        &self,
+        req: &teramind_core::types::SaveSkillRequest,
+    ) -> Result<teramind_core::types::SkillRef> {
         let row: (Uuid, String) = sqlx::query_as(
             r#"
             INSERT INTO skills (name, description, body, source, source_session_ids)
@@ -305,8 +442,14 @@ impl SearchRepo {
         .bind(&req.name)
         .bind(&req.description)
         .bind(&req.body)
-        .bind(req.source_session_ids.iter().map(|s| s.0).collect::<Vec<Uuid>>())
-        .fetch_one(self.pool.pg()).await?;
+        .bind(
+            req.source_session_ids
+                .iter()
+                .map(|s| s.0)
+                .collect::<Vec<Uuid>>(),
+        )
+        .fetch_one(self.pool.pg())
+        .await?;
         Ok(teramind_core::types::SkillRef {
             id: teramind_core::ids::SkillId(row.0),
             name: row.1,

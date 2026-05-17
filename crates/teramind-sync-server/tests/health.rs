@@ -25,15 +25,19 @@ async fn health_returns_ok_when_db_up() -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind::<SocketAddr>("127.0.0.1:0".parse()?).await?;
     let addr = listener.local_addr()?;
-    tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); });
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
 
     let resp = reqwest::get(format!("http://{addr}/v1/health")).await?;
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await?;
     assert_eq!(body["status"], "ok");
 
-    let ver = reqwest::get(format!("http://{addr}/v1/version")).await?
-        .json::<serde_json::Value>().await?;
+    let ver = reqwest::get(format!("http://{addr}/v1/version"))
+        .await?
+        .json::<serde_json::Value>()
+        .await?;
     assert_eq!(ver["version"], env!("CARGO_PKG_VERSION"));
 
     sup.shutdown().await?;

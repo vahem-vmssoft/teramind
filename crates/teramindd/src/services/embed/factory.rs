@@ -1,7 +1,9 @@
 //! Provider factory. Reads EmbedConfig, constructs the matching impl.
 
 use crate::config::EmbedConfig;
-use crate::services::embed::{model_meta, cloud::CloudProvider, fastembed_local::FastEmbedProvider, ollama::OllamaProvider};
+use crate::services::embed::{
+    cloud::CloudProvider, fastembed_local::FastEmbedProvider, model_meta, ollama::OllamaProvider,
+};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,7 +24,10 @@ pub fn build_provider(cfg: &EmbedConfig) -> anyhow::Result<Arc<dyn EmbeddingProv
             )))
         }
         ProviderKind::Fastembed => {
-            let cache_dir = cfg.fastembed.cache_dir.clone()
+            let cache_dir = cfg
+                .fastembed
+                .cache_dir
+                .clone()
                 .map(PathBuf::from)
                 .unwrap_or_else(default_fastembed_cache_dir);
             std::fs::create_dir_all(&cache_dir).ok();
@@ -39,12 +44,18 @@ pub fn build_provider(cfg: &EmbedConfig) -> anyhow::Result<Arc<dyn EmbeddingProv
 }
 
 fn default_fastembed_cache_dir() -> PathBuf {
-    #[cfg(unix)] {
-        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    #[cfg(unix)]
+    {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default();
         home.join(".local/share/teramind/embed-models")
     }
-    #[cfg(windows)] {
-        let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_default();
+    #[cfg(windows)]
+    {
+        let local = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_default();
         local.join("teramind").join("embed-models")
     }
 }
@@ -63,19 +74,26 @@ mod tests {
 
     #[test]
     fn build_cloud_without_egress_fails() {
-        let mut cfg = EmbedConfig::default();
-        cfg.provider = ProviderKind::Anthropic;
-        cfg.network_egress = false;
+        let cfg = EmbedConfig {
+            provider: ProviderKind::Anthropic,
+            network_egress: false,
+            ..EmbedConfig::default()
+        };
         assert!(build_provider(&cfg).is_err());
     }
 
     #[test]
     fn build_cloud_with_egress_succeeds_but_health_fails() {
-        let mut cfg = EmbedConfig::default();
-        cfg.provider = ProviderKind::Anthropic;
-        cfg.network_egress = true;
+        let cfg = EmbedConfig {
+            provider: ProviderKind::Anthropic,
+            network_egress: true,
+            ..EmbedConfig::default()
+        };
         let p = build_provider(&cfg).expect("config validates");
-        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         let r = rt.block_on(p.health_check());
         assert!(r.is_err());
     }
