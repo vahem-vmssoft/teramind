@@ -192,6 +192,33 @@ impl App {
         let summarizer_stats = summarizer.stats.clone();
         let _summarizer_guard = summarizer; // hold for App::run lifetime
 
+        // Codifier worker.
+        let codify_cfg_path = paths.config_dir.join("codify.toml");
+        let codify_cfg = crate::config::CodifyConfig::load_or_default(&codify_cfg_path);
+        let codify_provider: std::sync::Arc<dyn teramind_core::codify::CodifyProvider> =
+            match codify_cfg.provider.as_str() {
+                "null" => std::sync::Arc::new(crate::services::codify::null::NullCodifyProvider),
+                "ollama" => std::sync::Arc::new(
+                    crate::services::codify::ollama::OllamaCodifyProvider::new(codify_cfg.model.clone())
+                ),
+                // anthropic is added in §18; for v1 of the implementation, fall through to null.
+                _ => std::sync::Arc::new(crate::services::codify::null::NullCodifyProvider),
+            };
+        let _codifier = crate::services::codifier_worker::CodifierWorker::spawn(
+            crate::services::codifier_worker::CodifierDeps {
+                pool: pool.clone(),
+                obs: teramind_db::repos::SkillObservationRepo::new(pool.clone()),
+                cand: teramind_db::repos::SkillCandidateRepo::new(pool.clone()),
+                skills: teramind_db::repos::SkillRepo::new(pool.clone()),
+                provider: codify_provider.clone(),
+                redactor: std::sync::Arc::new(teramind_core::redact::Redactor::with_default_rules()),
+                cfg: codify_cfg.clone(),
+                run_detectors: true,
+                model_label: format!("{}:{}", codify_cfg.provider, codify_cfg.model),
+                poll_interval: std::time::Duration::from_secs(codify_cfg.poll_interval_secs),
+            },
+        );
+
         let orphan_interval =
             std::time::Duration::from_secs(embed_cfg.orphan_sweep_interval_hr as u64 * 3600);
         let _orphan_guard = crate::services::orphan_sweeper::OrphanSweeper::spawn(

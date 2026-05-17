@@ -7,7 +7,7 @@ use std::sync::Arc;
 use teramind_core::embed::EmbeddingProvider;
 use teramind_core::summarize::SummaryProvider;
 use teramind_db::pool::DbPool;
-use teramind_db::repos::{SearchRepo, SkillCandidateRepo, SkillObservationRepo, WikiRepo};
+use teramind_db::repos::{SearchRepo, SkillCandidateRepo, SkillObservationRepo, SkillRepo, WikiRepo};
 use teramind_ipc::proto::{Request, Response};
 
 #[derive(Clone)]
@@ -24,6 +24,7 @@ pub struct RpcDeps {
     pub event_bus: Option<tokio::sync::broadcast::Sender<teramind_core::team_event::TeamEvent>>,
     pub skill_obs: SkillObservationRepo,
     pub skill_cand: SkillCandidateRepo,
+    pub skill_repo: SkillRepo,
     pub min_observation_frequency: i32,
 }
 
@@ -68,7 +69,7 @@ pub async fn dispatch(deps: &RpcDeps, req: Request, auth: Option<AuthContext>) -
             }
         }
         Request::AutoRecall(r) => {
-            match crate::services::search::do_auto_recall(&deps.search_repo, &deps.wiki_repo, &r)
+            match crate::services::search::do_auto_recall(&deps.search_repo, &deps.wiki_repo, &deps.skill_repo, &r)
                 .await
             {
                 Ok(md) => Response::AutoRecallDigest {

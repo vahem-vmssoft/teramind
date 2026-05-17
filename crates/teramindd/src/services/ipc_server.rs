@@ -56,6 +56,7 @@ impl DaemonIpcHandler {
             event_bus: None,
             skill_obs: teramind_db::repos::SkillObservationRepo::new(self.pool.clone()),
             skill_cand: teramind_db::repos::SkillCandidateRepo::new(self.pool.clone()),
+            skill_repo: teramind_db::repos::SkillRepo::new(self.pool.clone()),
             min_observation_frequency: 3,
         }
     }
