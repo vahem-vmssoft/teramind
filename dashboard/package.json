@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "tsc --noEmit",
-    "playwright": "playwright test"
+    "playwright": "playwright test",
+    "size-check": "test \"$(du -k dist/assets/index-*.js dist/assets/index-*.css 2>/dev/null | awk '{s+=$1} END {print s}')\" -lt 250 || (echo 'main entry exceeds 250K' && exit 1)"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.0",
