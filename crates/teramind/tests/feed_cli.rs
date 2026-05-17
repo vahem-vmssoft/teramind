@@ -28,6 +28,8 @@ async fn feed_prints_one_event_then_exits() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let server_bus = state.bus.clone();

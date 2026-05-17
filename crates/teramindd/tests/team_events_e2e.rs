@@ -29,6 +29,8 @@ async fn ws_subscriber_receives_server_bus_event() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let server_bus = state.bus.clone();

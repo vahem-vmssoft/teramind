@@ -32,6 +32,8 @@ async fn boot_server() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, Socke
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);

@@ -26,6 +26,10 @@ pub struct AppState {
     pub summary_provider: Arc<dyn teramind_core::summarize::SummaryProvider>,
     pub summary_model: String,
     pub bus: tokio::sync::broadcast::Sender<teramind_core::team_event::TeamEvent>,
+    pub admin: Option<std::sync::Arc<crate::config::AdminConfig>>,
+    pub login_throttle: std::sync::Arc<crate::admin_api::rate_limit::LoginThrottle>,
+    pub event_log: teramind_db::repos::TeamEventLogRepo,
+    pub quality: teramind_db::repos::QualityRunRepo,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -77,6 +81,10 @@ impl AppState {
         );
         let (bus, _rx) =
             tokio::sync::broadcast::channel::<teramind_core::team_event::TeamEvent>(256);
+        let admin = cfg.admin.clone().map(std::sync::Arc::new);
+        let login_throttle = crate::admin_api::rate_limit::LoginThrottle::new();
+        let event_log = teramind_db::repos::TeamEventLogRepo::new(pool.clone());
+        let quality = teramind_db::repos::QualityRunRepo::new(pool.clone());
         Self {
             users: UserRepo::new(pool.clone()),
             devices: DeviceRepo::new(pool.clone()),
@@ -89,6 +97,10 @@ impl AppState {
             summary_provider: Arc::new(teramindd::services::summarize::null::NullSummaryProvider),
             summary_model: "null".into(),
             bus,
+            admin,
+            login_throttle,
+            event_log,
+            quality,
         }
     }
 }
