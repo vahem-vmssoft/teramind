@@ -109,6 +109,15 @@ pub struct SaveSkillArgs {
     pub body: String,
 }
 
+/// Arguments to the `team_share_set` MCP tool.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TeamShareSetArgs {
+    /// Sharing scope: `"project"` or `"global"`.
+    pub scope: String,
+    /// `true` to enable team sharing, `false` to disable it.
+    pub share: bool,
+}
+
 #[tool_router]
 impl TeramindMcpServer {
     /// Search prior Claude sessions and skills by free text.
@@ -213,6 +222,39 @@ impl TeramindMcpServer {
                 None,
             )),
         }
+    }
+
+    /// Enable or disable team sharing for the current project.
+    #[tool(
+        description = "Enable or disable Teramind team sharing for the current project or globally. \
+        Pass scope='project' or scope='global' and share=true|false."
+    )]
+    async fn team_share_set(
+        &self,
+        Parameters(args): Parameters<TeamShareSetArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let cwd = std::env::current_dir()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let session_id = std::env::var("TERAMIND_SESSION_ID").ok();
+        let req = Request::TeamShareSet {
+            session_id,
+            cwd,
+            scope: args.scope,
+            share: args.share,
+        };
+        let resp = self.ipc_request(req).await?;
+        let body = match resp {
+            Response::Ok => serde_json::json!({ "ok": true }).to_string(),
+            Response::Error(e) => serde_json::json!({ "ok": false, "error": e }).to_string(),
+            other => {
+                return Err(McpError::internal_error(
+                    format!("unexpected daemon response: {other:?}"),
+                    None,
+                ));
+            }
+        };
+        Ok(CallToolResult::success(vec![Content::text(body)]))
     }
 
     /// Persist a user-authored skill into Teramind for future recall.
