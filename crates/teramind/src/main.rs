@@ -40,5 +40,6 @@ async fn main() -> anyhow::Result<()> {
                 commands::sessions::show(session_id, json).await
             }
         },
+        Command::Feed { follow, backlog } => commands::feed::run(follow, backlog).await,
     }
 }
