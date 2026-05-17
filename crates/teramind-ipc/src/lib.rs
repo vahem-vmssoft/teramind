@@ -3,11 +3,14 @@
 pub mod client;
 pub mod codec;
 pub mod error;
+pub mod grep_fallback_client;
 pub mod proto;
+pub mod rpc_transport;
 pub mod server;
 pub mod transport;
 
 pub use client::IpcClient;
 pub use error::IpcError;
 pub use proto::{Notify, Request, Response};
+pub use rpc_transport::{RpcError, RpcTransport};
 pub use server::IpcServer;

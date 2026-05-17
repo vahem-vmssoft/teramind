@@ -7,3 +7,4 @@ pub mod services;
 pub mod signals;
 
 pub use crate::services::ingest::{route_with_deps, IngestAuth, RouteDeps};
+pub use crate::services::rpc_dispatch::{dispatch, AuthContext, RpcDeps};

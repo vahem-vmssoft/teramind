@@ -17,6 +17,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/auth/redeem", post(handlers::redeem::redeem));
     let authed = Router::new()
         .route("/v1/ingest", post(handlers::ingest::ingest))
+        .route("/v1/rpc", post(handlers::rpc::rpc))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::auth::auth_middleware,

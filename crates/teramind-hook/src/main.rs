@@ -1,8 +1,10 @@
 use std::io::Read;
+use std::sync::Arc;
 use teramind_hook::{hook_input::HookInput, inbox, spawn, translate};
 use teramind_ipc::{
     client::{IpcClient, StreamClient},
     proto::Notify,
+    rpc_transport::RpcTransport,
     transport::{connect, default_socket_path},
 };
 
@@ -59,9 +61,14 @@ async fn main() {
 
     if is_session_start {
         if let Some(cwd) = session_cwd {
+            // Build the RPC transport (local IPC in local-first mode, HTTPS+GrepFallback in team mode).
+            let transport = match build_transport() {
+                Ok(t) => t,
+                Err(_) => std::process::exit(0),
+            };
             // Best-effort auto-recall — cap at 2s so we don't block Claude.
             let _ = teramind_hook::auto_recall::run(
-                &socket,
+                transport,
                 cwd.clone(),
                 std::time::Duration::from_secs(2),
             )
@@ -76,4 +83,45 @@ async fn main() {
     }
 
     std::process::exit(0);
+}
+
+/// Select the RPC transport at startup:
+/// - If `team.toml` exists in the config directory: use HTTPS with DPoP
+///   signing, wrapped in `GrepFallback` for offline read resilience.
+/// - Otherwise: use the local Unix-domain socket (daemon must be running).
+fn build_transport() -> anyhow::Result<Arc<dyn RpcTransport>> {
+    let config_dir = teramind_core::team::default_config_dir();
+    let team_toml = config_dir.join("team.toml");
+
+    if team_toml.exists() {
+        let cfg = teramind_core::team::TeamConfig::load(&team_toml)?;
+        let key = teramind_core::team::load_signing_key(&config_dir.join("team-key"))?;
+        let https = Arc::new(teramind_mcp::transport_https::HttpsTransport::new(
+            Arc::new(cfg),
+            Arc::new(key),
+        )) as Arc<dyn RpcTransport>;
+
+        // Resolve raw_dir for GrepFallback using the same XDG logic as teramindd.
+        let raw_dir = {
+            let home = std::env::var_os("HOME")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
+            std::env::var_os("XDG_DATA_HOME")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| home.join(".local/share"))
+                .join("teramind")
+                .join("raw")
+        };
+
+        let transport = Arc::new(teramind_ipc::grep_fallback_client::GrepFallback::new(
+            https, raw_dir,
+        )) as Arc<dyn RpcTransport>;
+        Ok(transport)
+    } else {
+        let sock = teramind_ipc::transport::default_socket_path();
+        Ok(
+            Arc::new(teramind_mcp::transport_local::LocalIpcTransport::new(sock))
+                as Arc<dyn RpcTransport>,
+        )
+    }
 }
