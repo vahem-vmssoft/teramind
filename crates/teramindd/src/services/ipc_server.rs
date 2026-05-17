@@ -54,6 +54,10 @@ impl DaemonIpcHandler {
             summary_model: self.summary_model.clone(),
             jsonl_dir: self.jsonl_dir.clone(),
             event_bus: None,
+            skill_obs: teramind_db::repos::SkillObservationRepo::new(self.pool.clone()),
+            skill_cand: teramind_db::repos::SkillCandidateRepo::new(self.pool.clone()),
+            skill_repo: teramind_db::repos::SkillRepo::new(self.pool.clone()),
+            min_observation_frequency: 3,
         }
     }
 }
@@ -118,7 +122,11 @@ impl IpcServer for DaemonIpcHandler {
             | Request::Recall(_)
             | Request::AutoRecall(_)
             | Request::SaveSkill(_)
-            | Request::WikiLookup { .. }) => {
+            | Request::WikiLookup { .. }
+            | Request::CodifyNow { .. }
+            | Request::SkillsList { .. }
+            | Request::SkillsShow { .. }
+            | Request::SkillsObservations { .. }) => {
                 crate::services::rpc_dispatch::dispatch(&self.rpc_deps(), req, None).await
             }
             Request::TeamShareSet {

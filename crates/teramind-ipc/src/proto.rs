@@ -22,6 +22,23 @@ pub enum Request {
         scope: String,
         share: bool,
     },
+    CodifyNow {
+        seed_session_ids: Vec<String>,
+        hint: Option<String>,
+    },
+    SkillsList {
+        filter: Option<String>, // "all" | "pending" | "rejected" | "approved" | "codified" | "authored"
+        limit: u32,
+    },
+    SkillsShow {
+        name_or_id: String,
+    },
+    SkillsObservations {
+        kind: Option<String>,
+        min_freq: i32,
+        status: Option<String>,
+        limit: u32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -46,6 +63,22 @@ pub enum Response {
         generated_at: time::OffsetDateTime,
     },
     WikiNotFound,
+    CodifyQueued {
+        observation_id: String,
+    },
+    SkillsList {
+        rows: Vec<SkillRow>,
+    },
+    SkillShow {
+        name: String,
+        description: String,
+        body: String,
+        source: String,
+        applies_to_cwds: Vec<String>,
+    },
+    SkillsObservations {
+        rows: Vec<ObservationRow>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -98,6 +131,26 @@ pub enum Payload {
     Request(Request),
     Response(Response),
     Notify(Notify),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SkillRow {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub source: String,         // "authored" | "codified" | "imported"
+    pub status: Option<String>, // None for live skills, Some("pending"|...) for candidates
+    pub applies_to_cwds: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ObservationRow {
+    pub id: String,
+    pub kind: String,
+    pub signature: String,
+    pub frequency: i32,
+    pub status: String,
+    pub last_seen_at: String,
 }
 
 #[cfg(test)]

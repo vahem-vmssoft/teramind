@@ -63,6 +63,10 @@ impl AppState {
             summary_model: self.summary_model.clone(),
             jsonl_dir: std::path::PathBuf::new(),
             event_bus: Some(self.bus.clone()),
+            skill_obs: teramind_db::repos::SkillObservationRepo::new(self.pool.clone()),
+            skill_cand: teramind_db::repos::SkillCandidateRepo::new(self.pool.clone()),
+            skill_repo: teramind_db::repos::SkillRepo::new(self.pool.clone()),
+            min_observation_frequency: 3,
         }
     }
 

@@ -408,9 +408,41 @@ pub fn render_auto_recall_md(
     out
 }
 
+/// Returns the "Relevant codified skills" section of the SessionStart digest
+/// (or empty string if no skills match the cwd).
+pub async fn relevant_codified_skills(
+    skills: &teramind_db::repos::SkillRepo,
+    cwd: &str,
+    top_k: usize,
+) -> String {
+    let rows = match skills.list_codified_for_cwd(cwd, 50).await {
+        Ok(rs) => rs,
+        Err(_) => return String::new(),
+    };
+    let matched: Vec<_> = rows
+        .into_iter()
+        .filter(|(_, _, _, applies, _)| crate::services::codify::glob::matches_any(applies, cwd))
+        .take(top_k)
+        .collect();
+    if matched.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from("\n## Relevant codified skills\n\n");
+    for (_id, name, desc, _, seeded_from) in &matched {
+        out.push_str(&format!(
+            "- **{name}** — {desc} _(seeded from {seeded_from} sessions)_\n"
+        ));
+    }
+    out.push_str(
+        "\nTo recall the full body of any skill: `mcp__teramind__search` with the skill name.\n",
+    );
+    out
+}
+
 pub async fn do_auto_recall(
     repo: &SearchRepo,
     wiki_repo: &teramind_db::repos::WikiRepo,
+    skills_repo: &teramind_db::repos::SkillRepo,
     req: &AutoRecallRequest,
 ) -> Result<String, teramind_db::DbError> {
     let (recent, diffs) = tokio::try_join!(
@@ -421,7 +453,13 @@ pub async fn do_auto_recall(
     if recent.is_empty() && diffs.is_empty() && latest_wiki.is_none() {
         return Ok(String::new());
     }
-    Ok(render_auto_recall_md(&recent, &diffs, latest_wiki.as_ref()))
+    let mut out = relevant_codified_skills(skills_repo, &req.cwd, 5).await;
+    out.push_str(&render_auto_recall_md(
+        &recent,
+        &diffs,
+        latest_wiki.as_ref(),
+    ));
+    Ok(out)
 }
 
 #[cfg(test)]

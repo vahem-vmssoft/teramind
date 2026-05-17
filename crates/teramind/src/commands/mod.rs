@@ -10,6 +10,7 @@ pub mod restart;
 pub mod search;
 pub mod self_update;
 pub mod sessions;
+pub mod skills;
 pub mod start;
 pub mod status;
 pub mod stop;
