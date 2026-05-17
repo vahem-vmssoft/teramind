@@ -25,6 +25,10 @@ tokio       = { workspace = true }
 tracing     = { workspace = true }
 tracing-subscriber = { workspace = true }
 async-trait = { workspace = true }
+ed25519-dalek = { workspace = true }
+reqwest     = { workspace = true }
+time        = { workspace = true }
+uuid        = { workspace = true }
 
 [dev-dependencies]
 tempfile    = { workspace = true }

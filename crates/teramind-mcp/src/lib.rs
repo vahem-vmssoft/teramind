@@ -4,3 +4,5 @@
 //! requests to the local Teramind daemon over IPC.
 
 pub mod server;
+pub mod transport_https;
+pub mod transport_local;
