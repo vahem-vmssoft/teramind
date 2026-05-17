@@ -97,6 +97,11 @@ pub enum Command {
         #[arg(long, default_value = "0")]
         backlog: u32,
     },
+    /// Inspect skills and codifier observations.
+    Skills {
+        #[command(subcommand)]
+        action: SkillsAction,
+    },
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -108,6 +113,39 @@ pub enum SessionsAction {
         /// Output JSON instead of Markdown.
         #[arg(long)]
         json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SkillsAction {
+    /// List skills.
+    List {
+        /// Filter: all | pending | approved | rejected | codified | authored.
+        #[arg(long, default_value = "all")]
+        filter: String,
+        /// Maximum rows to return.
+        #[arg(long, default_value = "50")]
+        limit: u32,
+    },
+    /// Print one skill's full body.
+    Show {
+        /// Skill name or UUID.
+        name_or_id: String,
+    },
+    /// List codifier observations (for debugging).
+    Observations {
+        /// Detector kind filter (tool_chain | problem_fix | llm_proposal).
+        #[arg(long)]
+        kind: Option<String>,
+        /// Minimum frequency threshold.
+        #[arg(long, default_value = "0")]
+        min_freq: i32,
+        /// Status filter (new | promoted | rejected).
+        #[arg(long)]
+        status: Option<String>,
+        /// Maximum rows to return.
+        #[arg(long, default_value = "50")]
+        limit: u32,
     },
 }
 
