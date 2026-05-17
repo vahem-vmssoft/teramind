@@ -4337,7 +4337,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "ed25519-dalek",
  "ignore",
+ "rand 0.8.6",
  "serde",
  "serde_json",
  "sqlx",
