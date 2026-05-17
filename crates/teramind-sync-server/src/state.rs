@@ -25,6 +25,7 @@ pub struct AppState {
     pub embed_model: String,
     pub summary_provider: Arc<dyn teramind_core::summarize::SummaryProvider>,
     pub summary_model: String,
+    pub bus: tokio::sync::broadcast::Sender<teramind_core::team_event::TeamEvent>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -61,6 +62,7 @@ impl AppState {
             summary_provider: self.summary_provider.clone(),
             summary_model: self.summary_model.clone(),
             jsonl_dir: std::path::PathBuf::new(),
+            event_bus: Some(self.bus.clone()),
         }
     }
 
@@ -69,6 +71,7 @@ impl AppState {
             cfg.auth.proof_replay_cache_size,
             cfg.auth.proof_replay_window_secs as u64,
         );
+        let (bus, _rx) = tokio::sync::broadcast::channel::<teramind_core::team_event::TeamEvent>(256);
         Self {
             users: UserRepo::new(pool.clone()),
             devices: DeviceRepo::new(pool.clone()),
@@ -80,6 +83,7 @@ impl AppState {
             embed_model: "null".into(),
             summary_provider: Arc::new(teramindd::services::summarize::null::NullSummaryProvider),
             summary_model: "null".into(),
+            bus,
         }
     }
 }

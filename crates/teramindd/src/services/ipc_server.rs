@@ -53,6 +53,7 @@ impl DaemonIpcHandler {
             summary_provider: self.summary_provider.clone(),
             summary_model: self.summary_model.clone(),
             jsonl_dir: self.jsonl_dir.clone(),
+            event_bus: None,
         }
     }
 }

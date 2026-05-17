@@ -4,7 +4,7 @@
 use crate::state::{AppState, AuthContext};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use serde::{Deserialize, Serialize};
-use teramind_core::types::ingest_event::EventEnvelope;
+use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
 use teramindd::{route_with_deps, IngestAuth};
 
 #[derive(Deserialize)]
@@ -46,8 +46,12 @@ pub async fn ingest(
     let mut summary = IngestSummary::default();
     for env in batch.events {
         let cid = env.client_event_id.0.to_string();
+        let event_for_publish = env.event.clone();
         match route_with_deps(&rd, env, Some(ia)).await {
-            Ok(()) => summary.accepted += 1,
+            Ok(()) => {
+                summary.accepted += 1;
+                publish_on_success(&state, &event_for_publish, ia.user_id).await;
+            }
             Err(e) => {
                 let s = e.to_string();
                 if s.contains("duplicate key") || s.contains("unique constraint") {
@@ -62,4 +66,22 @@ pub async fn ingest(
         }
     }
     (StatusCode::OK, Json(summary)).into_response()
+}
+
+async fn publish_on_success(state: &AppState, event: &IngestEvent, user_id: uuid::Uuid) {
+    if let IngestEvent::SessionEnd { session_id, .. } = event {
+        let cwd: String = sqlx::query_scalar("SELECT cwd FROM sessions WHERE id = $1")
+            .bind(session_id.0)
+            .fetch_optional(state.pool.pg())
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let _ = state.bus.send(teramind_core::team_event::TeamEvent::SessionEnded {
+            session_id: session_id.0,
+            user_id,
+            cwd,
+            ts: time::OffsetDateTime::now_utc(),
+        });
+    }
 }
