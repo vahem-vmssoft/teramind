@@ -102,6 +102,7 @@ async fn main() -> anyhow::Result<()> {
             }
             let pool = teramind_db::pool::DbPool::connect_url(&cfg.database_url).await?;
             teramind_db::migrate::run(&pool).await?;
+            teramind_sync_server::fts_refresh::spawn(pool.clone(), std::time::Duration::from_secs(30));
             let addr: SocketAddr = cfg.listen_addr.parse()?;
             let state = teramind_sync_server::state::AppState::new(pool, cfg.clone());
             if let Some(tls) = cfg.tls.as_ref() {

@@ -3,6 +3,7 @@
 pub mod admin;
 pub mod auth;
 pub mod config;
+pub mod fts_refresh;
 pub mod handlers;
 pub mod invite;
 pub mod proof;
