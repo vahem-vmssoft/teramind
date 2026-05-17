@@ -237,6 +237,18 @@ impl App {
             })
         });
 
+        let (local_event_bus_tx, _local_event_bus_rx) =
+            tokio::sync::broadcast::channel::<teramind_core::team_event::TeamEvent>(256);
+        let _team_events_subscriber = team_mode.as_ref().map(|(cfg, sk)| {
+            crate::services::team_events::TeamEvents::spawn(
+                crate::services::team_events::TeamEventsDeps {
+                    team_cfg: cfg.clone(),
+                    signing_key: sk.clone(),
+                    local_bus: local_event_bus_tx.clone(),
+                }
+            )
+        });
+
         // Build the team-share writer used by the IPC handler.
         let team_share_writer: Option<
             std::sync::Arc<dyn crate::services::ipc_server::TeamShareSetter>,
