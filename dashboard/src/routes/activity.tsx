@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { useEventStream, TeamEvent } from '../lib/event_stream';
+import { useEventStream } from '../lib/event_stream';
 
 interface ActivityRow {
   id: string;

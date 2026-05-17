@@ -94,8 +94,12 @@ pub struct AdminConfig {
 }
 
 impl AdminConfig {
-    fn default_ttl() -> u64 { 12 }
-    fn default_retention() -> i64 { 90 }
+    fn default_ttl() -> u64 {
+        12
+    }
+    fn default_retention() -> i64 {
+        90
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -110,7 +114,9 @@ pub struct QualityConfig {
 }
 
 impl QualityConfig {
-    fn default_binary() -> String { "teramind-search-eval".into() }
+    fn default_binary() -> String {
+        "teramind-search-eval".into()
+    }
 }
 
 impl ServerConfig {

@@ -12,7 +12,6 @@ export function Toast({ message, onClose }: { message: string; onClose: () => vo
   );
 }
 
-const [_, setMsg] = (() => { let m: any = null; return [m, (v: any) => m = v]; })();
 let _setter: ((s: string | null) => void) | null = null;
 export function ToastHost() {
   const [msg, setMsgState] = useState<string | null>(null);

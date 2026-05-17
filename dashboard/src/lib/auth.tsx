@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useRouter } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { api, DashboardError } from './api';
 
 export interface AuthState { authenticated: boolean; loading: boolean; expiresAt?: string }

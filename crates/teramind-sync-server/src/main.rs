@@ -169,8 +169,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Cmd::AdminPassword => {
-            use argon2::{Argon2, PasswordHasher};
             use argon2::password_hash::{rand_core::OsRng, SaltString};
+            use argon2::{Argon2, PasswordHasher};
             let p1 = rpassword::prompt_password("Enter new admin password: ")?;
             let p2 = rpassword::prompt_password("Confirm: ")?;
             if p1 != p2 {
@@ -181,7 +181,8 @@ async fn main() -> anyhow::Result<()> {
             }
             let salt = SaltString::generate(&mut OsRng);
             let argon = Argon2::default();
-            let hash = argon.hash_password(p1.as_bytes(), &salt)
+            let hash = argon
+                .hash_password(p1.as_bytes(), &salt)
                 .map_err(|e| anyhow::anyhow!("hash: {e}"))?
                 .to_string();
             let mut secret_bytes = [0u8; 32];

@@ -1,6 +1,10 @@
 //! Stable error JSON shape for /admin/*.
 
-use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -20,7 +24,14 @@ pub struct ErrorBody {
 
 impl DashboardError {
     pub fn new(status: StatusCode, code: &str, message: impl Into<String>) -> Self {
-        Self { status, error: ErrorBody { code: code.into(), message: message.into(), details: None } }
+        Self {
+            status,
+            error: ErrorBody {
+                code: code.into(),
+                message: message.into(),
+                details: None,
+            },
+        }
     }
 }
 

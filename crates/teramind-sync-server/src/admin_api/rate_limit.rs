@@ -22,7 +22,9 @@ pub struct LoginThrottle {
 
 impl LoginThrottle {
     pub fn new() -> Arc<Self> {
-        Arc::new(Self { inner: Mutex::new(HashMap::new()) })
+        Arc::new(Self {
+            inner: Mutex::new(HashMap::new()),
+        })
     }
 
     pub fn check(&self, ip: IpAddr) -> Result<(), Duration> {
@@ -30,7 +32,9 @@ impl LoginThrottle {
         let mut map = self.inner.lock();
         if let Some(e) = map.get_mut(&ip) {
             if let Some(until) = e.locked_until {
-                if until > now { return Err(until - now); }
+                if until > now {
+                    return Err(until - now);
+                }
                 e.locked_until = None;
                 e.failures.clear();
             }
@@ -67,7 +71,10 @@ mod tests {
     fn five_failures_lock_out() {
         let t = LoginThrottle::new();
         let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
-        for _ in 0..4 { t.check(ip).unwrap(); t.record_failure(ip); }
+        for _ in 0..4 {
+            t.check(ip).unwrap();
+            t.record_failure(ip);
+        }
         // 5th failure trips the lockout.
         t.check(ip).unwrap();
         t.record_failure(ip);
@@ -78,9 +85,13 @@ mod tests {
     fn success_resets_failures() {
         let t = LoginThrottle::new();
         let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
-        for _ in 0..4 { t.record_failure(ip); }
+        for _ in 0..4 {
+            t.record_failure(ip);
+        }
         t.record_success(ip);
-        for _ in 0..4 { t.record_failure(ip); }
+        for _ in 0..4 {
+            t.record_failure(ip);
+        }
         assert!(t.check(ip).is_ok());
     }
 
@@ -89,7 +100,9 @@ mod tests {
         let t = LoginThrottle::new();
         let a = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
         let b = IpAddr::V4(Ipv4Addr::new(5, 6, 7, 8));
-        for _ in 0..6 { t.record_failure(a); }
+        for _ in 0..6 {
+            t.record_failure(a);
+        }
         assert!(t.check(a).is_err());
         assert!(t.check(b).is_ok());
     }

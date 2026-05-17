@@ -38,7 +38,7 @@ export function Skills() {
         : `/admin/skills?source=${source === 'all' ? 'all' : source}&limit=100`),
   });
 
-  const detail = useQuery({
+  const detail = useQuery<Candidate | SkillDetail | null>({
     queryKey: ['skill-detail', source, selectedId],
     queryFn: () => {
       if (!selectedId) return Promise.resolve(null);

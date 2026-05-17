@@ -3,7 +3,11 @@
 use crate::admin_api::cookie::AdminSession;
 use crate::admin_api::error::{DashboardError, DashboardResult};
 use crate::state::AppState;
-use axum::{extract::{Extension, Query, State}, http::StatusCode, Json};
+use axum::{
+    extract::{Extension, Query, State},
+    http::StatusCode,
+    Json,
+};
 use serde::Deserialize;
 use teramind_core::quality::QualityRunOutput;
 
@@ -11,18 +15,26 @@ use teramind_core::quality::QualityRunOutput;
 pub struct QualityQuery {
     pub since: Option<String>,
     pub baseline: Option<String>,
-    #[serde(default = "default_limit")] pub limit: i64,
+    #[serde(default = "default_limit")]
+    pub limit: i64,
 }
-fn default_limit() -> i64 { 60 }
+fn default_limit() -> i64 {
+    60
+}
 
 pub async fn list(
     State(state): State<AppState>,
     Extension(_): Extension<AdminSession>,
     Query(q): Query<QualityQuery>,
 ) -> DashboardResult<Json<serde_json::Value>> {
-    let rows = state.quality.list_recent(q.baseline.as_deref(), q.limit).await
-        .map_err(|e| DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string()))?;
-    let _ = q.since;  // v1: client paginates by limit only
+    let rows = state
+        .quality
+        .list_recent(q.baseline.as_deref(), q.limit)
+        .await
+        .map_err(|e| {
+            DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
+        })?;
+    let _ = q.since; // v1: client paginates by limit only
     Ok(Json(serde_json::json!({
         "runs": rows.into_iter().map(|r| serde_json::json!({
             "id": r.id, "baseline_label": r.baseline_label, "model": r.model,
@@ -43,8 +55,9 @@ pub async fn latest(
     Query(q): Query<QualityQuery>,
 ) -> DashboardResult<Json<serde_json::Value>> {
     let baseline = q.baseline.clone().unwrap_or_else(|| "lexical".into());
-    let row = state.quality.latest(&baseline).await
-        .map_err(|e| DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string()))?;
+    let row = state.quality.latest(&baseline).await.map_err(|e| {
+        DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
+    })?;
     Ok(Json(serde_json::json!({
         "run": row.map(|r| serde_json::json!({
             "id": r.id, "baseline_label": r.baseline_label, "model": r.model,
@@ -60,19 +73,40 @@ pub async fn upload(
     Extension(_): Extension<AdminSession>,
     Json(q): Json<QualityRunOutput>,
 ) -> DashboardResult<(StatusCode, Json<serde_json::Value>)> {
-    if !q.ndcg10.is_finite() || !q.mrr.is_finite()
-        || !(0.0..=1.0).contains(&q.ndcg10) || !(0.0..=1.0).contains(&q.mrr) {
-        return Err(DashboardError::new(StatusCode::BAD_REQUEST, "validation_failed", "metrics out of range"));
+    if !q.ndcg10.is_finite()
+        || !q.mrr.is_finite()
+        || !(0.0..=1.0).contains(&q.ndcg10)
+        || !(0.0..=1.0).contains(&q.mrr)
+    {
+        return Err(DashboardError::new(
+            StatusCode::BAD_REQUEST,
+            "validation_failed",
+            "metrics out of range",
+        ));
     }
     let raw = serde_json::to_value(&q).unwrap_or_default();
-    let id = state.quality.insert(
-        &q.baseline_label, q.model.clone(),
-        q.ndcg10, q.mrr, q.precision_5, q.precision_10, q.recall_10,
-        q.p50_latency_ms, q.p95_latency_ms,
-        q.query_count as i32, q.corpus_size as i32,
-        q.per_class.clone(), raw, "manual",
-    ).await
-        .map_err(|e| DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string()))?;
+    let id = state
+        .quality
+        .insert(
+            &q.baseline_label,
+            q.model.clone(),
+            q.ndcg10,
+            q.mrr,
+            q.precision_5,
+            q.precision_10,
+            q.recall_10,
+            q.p50_latency_ms,
+            q.p95_latency_ms,
+            q.query_count as i32,
+            q.corpus_size as i32,
+            q.per_class.clone(),
+            raw,
+            "manual",
+        )
+        .await
+        .map_err(|e| {
+            DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
+        })?;
     Ok((StatusCode::CREATED, Json(serde_json::json!({ "id": id }))))
 }
 

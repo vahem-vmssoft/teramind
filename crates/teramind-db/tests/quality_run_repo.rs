@@ -9,12 +9,40 @@ async fn insert_and_list_latest() -> anyhow::Result<()> {
     migrate::run(&pool).await?;
     let repo = QualityRunRepo::new(pool.clone());
 
-    repo.insert("lexical", None, 0.142, 0.301, 0.230, 0.180, 0.420,
-                42.0, 380.0, 100, 500,
-                serde_json::json!({}), serde_json::json!({"k":"v"}), "scheduled").await?;
-    repo.insert("semantic", Some("ollama:nomic-embed-text-v2-moe".into()),
-                0.537, 0.412, 0.480, 0.410, 0.620, 50.0, 410.0, 100, 500,
-                serde_json::json!({}), serde_json::json!({}), "scheduled").await?;
+    repo.insert(
+        "lexical",
+        None,
+        0.142,
+        0.301,
+        0.230,
+        0.180,
+        0.420,
+        42.0,
+        380.0,
+        100,
+        500,
+        serde_json::json!({}),
+        serde_json::json!({"k":"v"}),
+        "scheduled",
+    )
+    .await?;
+    repo.insert(
+        "semantic",
+        Some("ollama:nomic-embed-text-v2-moe".into()),
+        0.537,
+        0.412,
+        0.480,
+        0.410,
+        0.620,
+        50.0,
+        410.0,
+        100,
+        500,
+        serde_json::json!({}),
+        serde_json::json!({}),
+        "scheduled",
+    )
+    .await?;
 
     let runs = repo.list_recent(None, 10).await?;
     assert_eq!(runs.len(), 2);

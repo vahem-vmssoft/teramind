@@ -20,15 +20,22 @@ pub async fn admin_middleware(
         // Dashboard not configured — 404 to avoid signalling existence.
         return Err(StatusCode::NOT_FOUND);
     };
-    let cookie_header = request.headers().get(header::COOKIE)
-        .and_then(|v| v.to_str().ok()).unwrap_or("");
+    let cookie_header = request
+        .headers()
+        .get(header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
     let token = cookie_header
         .split(';')
         .map(|s| s.trim())
         .find_map(|kv| kv.strip_prefix("tmd_admin="))
         .ok_or(StatusCode::UNAUTHORIZED)?;
-    let session: AdminSession = decode(token, &admin_cfg.admin_session_secret, OffsetDateTime::now_utc())
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let session: AdminSession = decode(
+        token,
+        &admin_cfg.admin_session_secret,
+        OffsetDateTime::now_utc(),
+    )
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
     let mut req = request;
     req.extensions_mut().insert(session);
     Ok(next.run(req).await)

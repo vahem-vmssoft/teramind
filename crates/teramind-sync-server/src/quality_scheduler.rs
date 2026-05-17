@@ -11,16 +11,23 @@ use tokio::process::Command;
 use tracing::{info, warn};
 
 pub fn spawn(pool: DbPool, cfg: QualityConfig) -> Option<tokio::task::JoinHandle<()>> {
-    if !cfg.enabled { return None; }
+    if !cfg.enabled {
+        return None;
+    }
     let cron = cfg.cron.clone().unwrap_or_else(|| "0 2 * * *".into());
     let schedule = match Schedule::from_str(&format!("0 {cron}")) {
         // cron crate expects 6-field (sec, min, hr, dom, mon, dow).
         // We prepend "0" so users can supply 5-field "min hr dom mon dow".
         Ok(s) => s,
-        Err(e) => { warn!(error = %e, "invalid cron in [quality]; disabling scheduler"); return None; }
+        Err(e) => {
+            warn!(error = %e, "invalid cron in [quality]; disabling scheduler");
+            return None;
+        }
     };
     let repo = QualityRunRepo::new(pool);
-    Some(tokio::spawn(async move { run_loop(repo, cfg, schedule).await }))
+    Some(tokio::spawn(
+        async move { run_loop(repo, cfg, schedule).await },
+    ))
 }
 
 async fn run_loop(repo: QualityRunRepo, cfg: QualityConfig, schedule: Schedule) {
@@ -34,7 +41,9 @@ async fn run_loop(repo: QualityRunRepo, cfg: QualityConfig, schedule: Schedule) 
         for baseline in &cfg.baselines {
             // Single-flight per baseline.
             if let Some(t) = last_for.get(baseline) {
-                if t.elapsed() < StdDuration::from_secs(60) { continue; }
+                if t.elapsed() < StdDuration::from_secs(60) {
+                    continue;
+                }
             }
             last_for.insert(baseline.clone(), std::time::Instant::now());
             run_one(&repo, &cfg.eval_binary, baseline).await;
@@ -58,22 +67,49 @@ async fn run_one(repo: &QualityRunRepo, binary: &str, baseline: &str) {
             match serde_json::from_str::<QualityRunOutput>(&stdout) {
                 Ok(q) => {
                     let raw = serde_json::to_value(&q).unwrap_or(serde_json::json!({}));
-                    let res = repo.insert(
-                        &q.baseline_label, q.model.clone(),
-                        q.ndcg10, q.mrr, q.precision_5, q.precision_10, q.recall_10,
-                        q.p50_latency_ms, q.p95_latency_ms,
-                        q.query_count as i32, q.corpus_size as i32,
-                        q.per_class.clone(), raw, "scheduled",
-                    ).await;
-                    if let Err(e) = res { warn!(error = %e, "quality_runs insert failed"); }
+                    let res = repo
+                        .insert(
+                            &q.baseline_label,
+                            q.model.clone(),
+                            q.ndcg10,
+                            q.mrr,
+                            q.precision_5,
+                            q.precision_10,
+                            q.recall_10,
+                            q.p50_latency_ms,
+                            q.p95_latency_ms,
+                            q.query_count as i32,
+                            q.corpus_size as i32,
+                            q.per_class.clone(),
+                            raw,
+                            "scheduled",
+                        )
+                        .await;
+                    if let Err(e) = res {
+                        warn!(error = %e, "quality_runs insert failed");
+                    }
                 }
                 Err(e) => {
                     warn!(error = %e, "failed to parse eval output");
                     let raw = serde_json::json!({ "error": e.to_string(), "stdout": stdout });
-                    let _ = repo.insert(baseline, None,
-                        f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN,
-                        f64::NAN, f64::NAN, 0, 0,
-                        serde_json::json!({}), raw, "scheduled").await;
+                    let _ = repo
+                        .insert(
+                            baseline,
+                            None,
+                            f64::NAN,
+                            f64::NAN,
+                            f64::NAN,
+                            f64::NAN,
+                            f64::NAN,
+                            f64::NAN,
+                            f64::NAN,
+                            0,
+                            0,
+                            serde_json::json!({}),
+                            raw,
+                            "scheduled",
+                        )
+                        .await;
                 }
             }
         }
