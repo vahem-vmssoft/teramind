@@ -29,8 +29,13 @@ pub async fn serve(state: AppState, addr: SocketAddr) -> anyhow::Result<()> {
 pub async fn serve_tls(
     state: AppState,
     addr: SocketAddr,
-    _tls: &crate::config::TlsConfig,
+    tls: &crate::config::TlsConfig,
 ) -> anyhow::Result<()> {
-    // Replaced with real rustls/axum-server wiring in §20.
-    serve(state, addr).await
+    let app = build_router(state);
+    let cfg = crate::tls::rustls_config(tls)?;
+    let acceptor = axum_server::tls_rustls::RustlsConfig::from_config(cfg);
+    info!(%addr, "teramind-sync-server listening (HTTPS)");
+    axum_server::bind_rustls(addr, acceptor)
+        .serve(app.into_make_service()).await?;
+    Ok(())
 }
