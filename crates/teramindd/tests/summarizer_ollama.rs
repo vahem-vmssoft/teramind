@@ -48,6 +48,7 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: started,
+        user_id: None, device_id: None,
     }).await?;
     for i in 0..5 {
         let tid = trace.upsert_turn_with_id(

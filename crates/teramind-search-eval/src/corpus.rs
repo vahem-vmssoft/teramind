@@ -115,6 +115,8 @@ pub async fn ingest(pool: &DbPool, c: &Corpus) -> anyhow::Result<()> {
             hostname: "eval",
             user_login: "eval",
             started_at: s.started_at,
+            user_id: None,
+            device_id: None,
         }).await?;
     }
     for t in &c.turns {

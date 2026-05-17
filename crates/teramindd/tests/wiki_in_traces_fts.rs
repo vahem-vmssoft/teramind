@@ -27,6 +27,7 @@ async fn search_finds_wiki_via_traces_fts() -> anyhow::Result<()> {
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: OffsetDateTime::now_utc(),
+        user_id: None, device_id: None,
     }).await?;
     let _tid = trace.upsert_turn_with_id(
         TurnId(uuid::Uuid::new_v4()), sid, 0,

@@ -23,6 +23,7 @@ async fn diff_excerpts_for_cwd_files_filters_by_rel_path() -> anyhow::Result<()>
         project_id: None, parent_session_id: None, git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: OffsetDateTime::now_utc(),
+        user_id: None, device_id: None,
     }).await?;
 
     let now = OffsetDateTime::now_utc();
@@ -80,6 +81,7 @@ async fn vector_search_turns_returns_nearest_by_cosine() -> anyhow::Result<()> {
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: OffsetDateTime::now_utc(),
+        user_id: None, device_id: None,
     }).await?;
 
     let t_near = trace.upsert_turn_with_id(

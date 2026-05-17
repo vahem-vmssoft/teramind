@@ -58,6 +58,7 @@ async fn worker_writes_wiki_for_ended_session_within_10s() -> anyhow::Result<()>
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: started,
+        user_id: None, device_id: None,
     }).await?;
     // Three turns (over min_turns=3).
     for i in 0..3 {
@@ -118,6 +119,7 @@ async fn short_session_is_skipped() -> anyhow::Result<()> {
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: started,
+        user_id: None, device_id: None,
     }).await?;
     let tid = trace.upsert_turn_with_id(
         TurnId(uuid::Uuid::new_v4()), sid, 0, started, Some("hi"),

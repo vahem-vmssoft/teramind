@@ -22,6 +22,7 @@ async fn wiki_repo_backlog_and_upsert() -> anyhow::Result<()> {
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: OffsetDateTime::now_utc(),
+        user_id: None, device_id: None,
     }).await?;
 
     // Session not ended yet -> backlog 0.
@@ -59,6 +60,7 @@ async fn wiki_repo_backlog_and_upsert() -> anyhow::Result<()> {
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: OffsetDateTime::now_utc(),
+        user_id: None, device_id: None,
     }).await?;
     sessions.end(sid2, OffsetDateTime::now_utc(), "stop_hook").await?;
     wiki.mark_skipped(sid2, "ollama:test").await?;

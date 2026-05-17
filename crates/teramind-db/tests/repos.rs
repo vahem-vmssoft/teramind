@@ -94,6 +94,8 @@ async fn session_repo_inserts_and_ends() {
             hostname: "h",
             user_login: "u",
             started_at: now,
+            user_id: None,
+            device_id: None,
         })
         .await
         .unwrap();
@@ -134,6 +136,8 @@ async fn trace_repo_full_turn_lifecycle() {
             hostname: "h",
             user_login: "u",
             started_at: now,
+            user_id: None,
+            device_id: None,
         })
         .await
         .unwrap();
@@ -197,6 +201,8 @@ async fn diff_repo_inserts_a_file_diff() {
             hostname: "h",
             user_login: "u",
             started_at: now,
+            user_id: None,
+            device_id: None,
         })
         .await
         .unwrap();
@@ -272,6 +278,7 @@ async fn trace_repo_accepts_caller_provided_tool_call_id() {
         agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
         parent_session_id: None, git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u", started_at: now,
+        user_id: None, device_id: None,
     }).await.unwrap();
     let trace = teramind_db::repos::TraceRepo::new(f.pool.clone());
     let turn = trace.upsert_turn(session_id, 0, now, None).await.unwrap();
@@ -298,6 +305,7 @@ async fn search_repo_fts_finds_matching_turn() {
         agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
         parent_session_id: None, git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u", started_at: now,
+        user_id: None, device_id: None,
     }).await.unwrap();
     let trace = teramind_db::repos::TraceRepo::new(f.pool.clone());
     let turn = trace.upsert_turn(sid, 0, now, Some("how to debug redis cluster failover")).await.unwrap();
@@ -324,6 +332,7 @@ async fn search_repo_trgm_finds_matching_diff() {
         agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
         parent_session_id: None, git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u", started_at: now,
+        user_id: None, device_id: None,
     }).await.unwrap();
     let diffs = teramind_db::repos::DiffRepo::new(f.pool.clone());
     diffs.insert(teramind_db::repos::diff::NewFileDiff {

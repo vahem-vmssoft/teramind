@@ -19,6 +19,7 @@ async fn do_search_finds_seeded_turn_via_fts() {
         agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
         parent_session_id: None, git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u", started_at: now,
+        user_id: None, device_id: None,
     }).await.unwrap();
     let trace = TraceRepo::new(pool.clone());
     let turn = trace.upsert_turn(sid, 0, now, Some("how to debug postgres replication lag")).await.unwrap();
@@ -96,6 +97,7 @@ async fn ipc_search_request_returns_search_results() {
         agent_id: agent.id, agent_session_id: None, cwd: "/w", project_id: None,
         parent_session_id: None, git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u", started_at: now,
+        user_id: None, device_id: None,
     }).await.unwrap();
     let trace = TraceRepo::new(pool.clone());
     let turn = trace.upsert_turn(sid, 0, now, Some("kafka consumer lag")).await.unwrap();

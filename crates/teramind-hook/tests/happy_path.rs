@@ -212,6 +212,7 @@ async fn hook_session_start_emits_auto_recall_digest() {
         agent_id: agent.id, agent_session_id: None, cwd: "/work-cwd", project_id: None,
         parent_session_id: None, git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u", started_at: now,
+        user_id: None, device_id: None,
     }).await.unwrap();
     let trace = TraceRepo::new(pool.clone());
     let prior_turn = trace.upsert_turn(prior_sid, 0, now, Some("yesterday's bug fix")).await.unwrap();

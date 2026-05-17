@@ -128,6 +128,7 @@ async fn wiki_pages_migration_applies_and_traces_fts_rebuilt() -> anyhow::Result
         git_head: None, git_branch: None,
         os: "linux", hostname: "h", user_login: "u",
         started_at: OffsetDateTime::now_utc(),
+        user_id: None, device_id: None,
     }).await?;
     sqlx::query("INSERT INTO wiki_pages (session_id, model, content, input_tokens, output_tokens) VALUES ($1, 'm', 'x', 1, 1)")
         .bind(sid.0).execute(pool.pg()).await?;
