@@ -59,6 +59,7 @@ async fn synthesis_then_approval_promotes() -> anyhow::Result<()> {
         run_detectors: false,
         model_label: "mock".into(),
         poll_interval: Duration::from_millis(100),
+        cache: None,
     });
 
     // Wait for synthesis.

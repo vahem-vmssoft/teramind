@@ -4,6 +4,7 @@ use crate::config::CodifyConfig;
 use crate::services::codify::detectors::{llm_proposal, problem_fix, tool_chain};
 use crate::services::codify::promote::promote_approved_batch;
 use crate::services::codify::synthesis::{synthesize_one, SynthesisDeps};
+use crate::services::decision_cache::DecisionCache;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,6 +34,9 @@ pub struct CodifierDeps {
     pub run_detectors: bool,
     pub model_label: String,
     pub poll_interval: Duration,
+    /// Optional privacy filter: sessions with `DeniedKeepLocal` are excluded
+    /// from all detector observation seed sets.
+    pub cache: Option<Arc<DecisionCache>>,
 }
 
 pub struct CodifierWorker {
@@ -77,6 +81,7 @@ impl CodifierDeps {
             obs: self.obs.clone(),
             provider: self.provider.clone(),
             cfg: self.cfg.clone(),
+            cache: self.cache.clone(),
         }
     }
 }
@@ -137,22 +142,23 @@ struct DetectorLoop {
     obs: SkillObservationRepo,
     provider: Arc<dyn CodifyProvider>,
     cfg: CodifyConfig,
+    cache: Option<Arc<DecisionCache>>,
 }
 
 async fn detector_loop(d: DetectorLoop) {
     loop {
         if d.cfg.detectors.tool_chain {
-            if let Err(e) = tool_chain::run(&d.pool, &d.obs, time::Duration::days(30)).await {
+            if let Err(e) = tool_chain::run(&d.pool, &d.obs, time::Duration::days(30), d.cache.clone()).await {
                 warn!(error = %e, "tool_chain detector error");
             }
         }
         if d.cfg.detectors.problem_fix {
-            if let Err(e) = problem_fix::run(&d.pool, &d.obs, time::Duration::days(30)).await {
+            if let Err(e) = problem_fix::run(&d.pool, &d.obs, time::Duration::days(30), d.cache.clone()).await {
                 warn!(error = %e, "problem_fix detector error");
             }
         }
         if d.cfg.detectors.llm_proposal {
-            if let Err(e) = llm_proposal::run(&d.pool, &d.obs, d.provider.as_ref()).await {
+            if let Err(e) = llm_proposal::run(&d.pool, &d.obs, d.provider.as_ref(), d.cache.clone()).await {
                 warn!(error = %e, "llm_proposal detector error");
             }
         }

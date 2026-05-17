@@ -1,8 +1,11 @@
 //! Detector A — repeated tool-call sequences.
 
+use crate::services::codify::detectors::is_denied;
 use crate::services::codify::heuristics::{bash_head_verb, file_kind};
+use crate::services::decision_cache::DecisionCache;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::sync::Arc;
 use teramind_core::ids::SessionId;
 use teramind_db::pool::DbPool;
 use teramind_db::repos::SkillObservationRepo;
@@ -21,6 +24,7 @@ pub async fn run(
     pool: &DbPool,
     obs: &SkillObservationRepo,
     window: time::Duration,
+    cache: Option<Arc<DecisionCache>>,
 ) -> anyhow::Result<()> {
     let cutoff = time::OffsetDateTime::now_utc() - window;
 
@@ -36,6 +40,7 @@ pub async fn run(
 
     let mut per_session: HashMap<uuid::Uuid, Vec<CallRow>> = HashMap::new();
     for (sid, name, input, ts) in rows {
+        if is_denied(&cache, sid) { continue; }
         per_session.entry(sid).or_default().push(CallRow {
             session_id: sid, tool_name: name, input, started_at: ts,
         });

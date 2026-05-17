@@ -45,7 +45,7 @@ async fn five_identical_chains_produce_one_observation() -> anyhow::Result<()> {
     }
 
     let obs_repo = SkillObservationRepo::new(pool.clone());
-    tool_chain::run(&pool, &obs_repo, time::Duration::days(30)).await?;
+    tool_chain::run(&pool, &obs_repo, time::Duration::days(30), None).await?;
 
     let above = obs_repo.list_open(3, 10).await?;
     assert_eq!(above.len(), 1, "exactly one observation above threshold");

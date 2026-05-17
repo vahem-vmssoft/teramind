@@ -1,8 +1,11 @@
 //! Detector B — repeated (error → fix) shapes.
 
+use crate::services::codify::detectors::is_denied;
 use crate::services::codify::heuristics::{classify_diff, looks_like_error, normalize_error};
+use crate::services::decision_cache::DecisionCache;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::sync::Arc;
 use teramind_core::ids::SessionId;
 use teramind_db::pool::DbPool;
 use teramind_db::repos::SkillObservationRepo;
@@ -11,6 +14,7 @@ pub async fn run(
     pool: &DbPool,
     obs: &SkillObservationRepo,
     window: time::Duration,
+    cache: Option<Arc<DecisionCache>>,
 ) -> anyhow::Result<()> {
     let cutoff = time::OffsetDateTime::now_utc() - window;
 
@@ -29,6 +33,7 @@ pub async fn run(
     let mut sig_to_context: HashMap<String, (String, String)> = HashMap::new();
 
     for (sid, _tid, prompt_opt, diff_opt) in rows {
+        if is_denied(&cache, sid) { continue; }
         let Some(prompt) = prompt_opt else { continue; };
         let Some(diff) = diff_opt else { continue; };
         if !looks_like_error(&prompt) { continue; }

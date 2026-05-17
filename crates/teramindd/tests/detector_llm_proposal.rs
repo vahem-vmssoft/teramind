@@ -39,7 +39,7 @@ async fn null_provider_yields_no_observation() -> anyhow::Result<()> {
 
     let obs = SkillObservationRepo::new(pool.clone());
     let provider: Arc<dyn teramind_core::codify::CodifyProvider> = Arc::new(NullCodifyProvider);
-    llm_proposal::run(&pool, &obs, provider.as_ref()).await?;
+    llm_proposal::run(&pool, &obs, provider.as_ref(), None).await?;
 
     assert!(obs.list_recent(Some("llm_proposal"), None, 10).await?.is_empty());
 

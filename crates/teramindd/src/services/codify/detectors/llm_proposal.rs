@@ -1,6 +1,9 @@
 //! Detector C — periodic LLM pass over recent sessions, no rule-based key.
 
+use crate::services::codify::detectors::is_denied;
+use crate::services::decision_cache::DecisionCache;
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 use teramind_core::codify::{CodifyDecision, CodifyProvider, CodifyRequest};
 use teramind_core::ids::SessionId;
 use teramind_db::pool::DbPool;
@@ -10,8 +13,9 @@ pub async fn run(
     pool: &DbPool,
     obs: &SkillObservationRepo,
     provider: &dyn CodifyProvider,
+    cache: Option<Arc<DecisionCache>>,
 ) -> anyhow::Result<()> {
-    // Pick the 5 newest ended sessions.
+    // Pick the 5 newest ended sessions, filtering denied ones.
     let rows: Vec<(uuid::Uuid, String, Option<time::OffsetDateTime>)> = sqlx::query_as(
         r#"SELECT id, cwd, ended_at
            FROM sessions
@@ -19,6 +23,9 @@ pub async fn run(
            ORDER BY ended_at DESC
            LIMIT 5"#)
         .fetch_all(pool.pg()).await?;
+    if rows.is_empty() { return Ok(()); }
+
+    let rows: Vec<_> = rows.into_iter().filter(|(sid, _, _)| !is_denied(&cache, *sid)).collect();
     if rows.is_empty() { return Ok(()); }
 
     // Bundle: wiki excerpts if any, else fall back to last few turns.

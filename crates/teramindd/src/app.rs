@@ -225,6 +225,7 @@ impl App {
                 run_detectors: true,
                 model_label: format!("{}:{}", codify_cfg.provider, codify_cfg.model),
                 poll_interval: std::time::Duration::from_secs(codify_cfg.poll_interval_secs),
+                cache: Some(decision_cache.clone()),
             },
         );
 
