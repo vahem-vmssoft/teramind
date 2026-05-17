@@ -32,6 +32,16 @@ pub fn build_router(state: AppState) -> Router {
         .route("/admin/me", get(crate::admin_api::handlers::session::me))
         .route("/admin/activity", axum::routing::get(crate::admin_api::handlers::activity::activity))
         .route("/admin/events",   axum::routing::get(crate::admin_api::handlers::activity::events_ws))
+        .route("/admin/skills",      axum::routing::get(crate::admin_api::handlers::skills::list))
+        .route("/admin/skills/:id", axum::routing::get(crate::admin_api::handlers::skills::show)
+                                              .delete(crate::admin_api::handlers::skills::delete))
+        .route("/admin/candidates",       axum::routing::get(crate::admin_api::handlers::candidates::list))
+        .route("/admin/candidates/:id",  axum::routing::get(crate::admin_api::handlers::candidates::show)
+                                               .patch(crate::admin_api::handlers::candidates::patch))
+        .route("/admin/candidates/:id/approve", axum::routing::post(crate::admin_api::handlers::candidates::approve))
+        .route("/admin/candidates/:id/reject",  axum::routing::post(crate::admin_api::handlers::candidates::reject))
+        .route("/admin/observations",       axum::routing::get(crate::admin_api::handlers::observations::list))
+        .route("/admin/observations/:id",  axum::routing::get(crate::admin_api::handlers::observations::show))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::admin_api::auth::admin_middleware,
