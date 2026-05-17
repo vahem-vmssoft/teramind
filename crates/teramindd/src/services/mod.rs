@@ -16,5 +16,6 @@ pub mod snapshot_cache;
 pub mod storage_stats;
 pub mod sync_offset;
 pub mod summarize;
+pub mod team_sync;
 pub mod summarizer_worker;
 pub mod write_tool_ring;
