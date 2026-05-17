@@ -99,6 +99,16 @@ pub struct SaveSkillArgs {
     pub body: String,
 }
 
+/// Arguments to the `codify` MCP tool.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CodifyArgs {
+    /// Sessions to seed the proposal. Empty = let the daemon pick recent.
+    #[serde(default)]
+    pub seed_session_ids: Vec<String>,
+    /// Optional one-line hint about the pattern.
+    pub hint: Option<String>,
+}
+
 /// Arguments to the `team_share_set` MCP tool.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct TeamShareSetArgs {
@@ -245,6 +255,39 @@ impl TeramindMcpServer {
             }
         };
         Ok(CallToolResult::success(vec![Content::text(body)]))
+    }
+
+    /// Queue a codifier proposal for an observed pattern. Returns immediately;
+    /// the candidate appears later in `mcp__teramind__search` after admin approval.
+    #[tool(
+        description = "Queue a codifier proposal for an observed pattern. Returns \
+        immediately with an observation_id; the candidate appears after admin approval."
+    )]
+    async fn codify(
+        &self,
+        Parameters(args): Parameters<CodifyArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let req = Request::CodifyNow {
+            seed_session_ids: args.seed_session_ids,
+            hint: args.hint,
+        };
+        let resp = self.ipc_request(req).await?;
+        let body = match resp {
+            Response::CodifyQueued { observation_id } => serde_json::json!({
+                "queued": true,
+                "observation_id": observation_id,
+            }),
+            Response::Error(e) => return Err(McpError::internal_error(e, None)),
+            other => {
+                return Err(McpError::internal_error(
+                    format!("unexpected daemon response: {other:?}"),
+                    None,
+                ));
+            }
+        };
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&body).unwrap_or_default(),
+        )]))
     }
 
     /// Persist a user-authored skill into Teramind for future recall.
