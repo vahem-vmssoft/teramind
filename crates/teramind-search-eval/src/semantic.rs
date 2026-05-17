@@ -17,6 +17,8 @@ pub async fn run_with_semantic(
     corpus_root: &Path,
     out_dir: &Path,
     semantic_weight: f32,
+    json: bool,
+    baseline_label: Option<String>,
 ) -> anyhow::Result<()> {
     let tmp = tempfile::tempdir()?;
     let sup = PgSupervisor::start(tmp.path().join("pgdata"), "teramind").await?;
@@ -108,8 +110,37 @@ pub async fn run_with_semantic(
     sup.shutdown().await?;
 
     latencies.sort();
+    let p50_ms = crate::harness::percentile_u32(&latencies, 50);
     let p95_ms = crate::harness::percentile_u32(&latencies, 95);
     let report = reporter::aggregate(&per_query, size, p95_ms);
+
+    let _ = semantic_weight; // wire to blend in v1.0.1 (paraphrase corpus)
+
+    if json {
+        let label = baseline_label.unwrap_or_else(|| "semantic".into());
+        let per_class_value =
+            serde_json::to_value(&report.by_class).unwrap_or(serde_json::json!({}));
+        let corpus_total = report.corpus_size.sessions
+            + report.corpus_size.turns
+            + report.corpus_size.tool_calls
+            + report.corpus_size.file_diffs;
+        let out = teramind_core::quality::QualityRunOutput {
+            baseline_label: label,
+            model: Some(model.clone()),
+            ndcg10: report.overall.ndcg_at_10,
+            mrr: report.overall.mrr,
+            precision_5: report.overall.p_at_5,
+            precision_10: report.overall.p_at_10,
+            recall_10: report.overall.r_at_10,
+            p50_latency_ms: p50_ms as f64,
+            p95_latency_ms: p95_ms as f64,
+            query_count: report.overall.n_queries as u32,
+            corpus_size: corpus_total,
+            per_class: per_class_value,
+        };
+        println!("{}", serde_json::to_string(&out).unwrap());
+        return Ok(());
+    }
 
     std::fs::create_dir_all(out_dir)?;
     std::fs::write(
@@ -120,8 +151,6 @@ pub async fn run_with_semantic(
         out_dir.join("eval-scorecard-semantic.md"),
         reporter::render_markdown(&report),
     )?;
-
-    let _ = semantic_weight; // wire to blend in v1.0.1 (paraphrase corpus)
 
     println!(
         "teramind-search-eval (semantic): nDCG@10={:.3} MRR={:.3} p95={}ms ({} queries)",

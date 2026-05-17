@@ -15,15 +15,29 @@ pub async fn run(
     out_dir: &Path,
     semantic: bool,
     semantic_weight: f32,
+    json: bool,
+    baseline_label: Option<String>,
 ) -> anyhow::Result<()> {
     if semantic {
-        crate::semantic::run_with_semantic(corpus_root, out_dir, semantic_weight).await
+        crate::semantic::run_with_semantic(
+            corpus_root,
+            out_dir,
+            semantic_weight,
+            json,
+            baseline_label,
+        )
+        .await
     } else {
-        run_lexical(corpus_root, out_dir).await
+        run_lexical(corpus_root, out_dir, json, baseline_label).await
     }
 }
 
-async fn run_lexical(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
+async fn run_lexical(
+    corpus_root: &Path,
+    out_dir: &Path,
+    json: bool,
+    baseline_label: Option<String>,
+) -> anyhow::Result<()> {
     let tmp = tempfile::tempdir()?;
     let sup = PgSupervisor::start(tmp.path().join("pgdata"), "teramind").await?;
     let pool = DbPool::connect(sup.connect_options()).await?;
@@ -75,9 +89,37 @@ async fn run_lexical(corpus_root: &Path, out_dir: &Path) -> anyhow::Result<()> {
     sup.shutdown().await?;
 
     latencies.sort();
+    let p50_ms = percentile_u32(&latencies, 50);
     let p95_ms = percentile_u32(&latencies, 95);
 
     let report = reporter::aggregate(&per_query, size, p95_ms);
+
+    if json {
+        let label = baseline_label.unwrap_or_else(|| "lexical".into());
+        let per_class_value =
+            serde_json::to_value(&report.by_class).unwrap_or(serde_json::json!({}));
+        let corpus_total = report.corpus_size.sessions
+            + report.corpus_size.turns
+            + report.corpus_size.tool_calls
+            + report.corpus_size.file_diffs;
+        let out = teramind_core::quality::QualityRunOutput {
+            baseline_label: label,
+            model: None,
+            ndcg10: report.overall.ndcg_at_10,
+            mrr: report.overall.mrr,
+            precision_5: report.overall.p_at_5,
+            precision_10: report.overall.p_at_10,
+            recall_10: report.overall.r_at_10,
+            p50_latency_ms: p50_ms as f64,
+            p95_latency_ms: p95_ms as f64,
+            query_count: report.overall.n_queries as u32,
+            corpus_size: corpus_total,
+            per_class: per_class_value,
+        };
+        println!("{}", serde_json::to_string(&out).unwrap());
+        return Ok(());
+    }
+
     reporter::write_results(out_dir, &report)?;
     println!(
         "teramind-search-eval: nDCG@10={:.3}  MRR={:.3}  p95={}ms  ({} queries)",
