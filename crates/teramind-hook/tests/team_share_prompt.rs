@@ -3,10 +3,17 @@
 
 use ed25519_dalek::SigningKey;
 use rand::RngExt;
+use std::sync::Mutex;
 use teramind_core::team::{save_signing_key, TeamConfig};
+
+// All three tests mutate the process-wide XDG_CONFIG_HOME env var. Rust
+// `#[test]`s run in parallel within a binary; without this lock the tests
+// race on the env var and clobber each other.
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn session_start_with_team_mode_and_no_marker_emits_prompt() {
+    let _guard = ENV_LOCK.lock().unwrap();
     let cfg_dir = tempfile::tempdir().unwrap();
     std::env::set_var("XDG_CONFIG_HOME", cfg_dir.path());
 
@@ -43,6 +50,7 @@ fn session_start_with_team_mode_and_no_marker_emits_prompt() {
 
 #[test]
 fn no_prompt_when_team_not_configured() {
+    let _guard = ENV_LOCK.lock().unwrap();
     let cfg_dir = tempfile::tempdir().unwrap();
     std::env::set_var("XDG_CONFIG_HOME", cfg_dir.path());
     // No team.toml.
@@ -52,6 +60,7 @@ fn no_prompt_when_team_not_configured() {
 
 #[test]
 fn no_prompt_when_marker_already_set() {
+    let _guard = ENV_LOCK.lock().unwrap();
     let cfg_dir = tempfile::tempdir().unwrap();
     std::env::set_var("XDG_CONFIG_HOME", cfg_dir.path());
 

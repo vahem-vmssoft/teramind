@@ -113,13 +113,38 @@ pub async fn fresh_pool() -> anyhow::Result<DbPool> {
     let pid = std::process::id();
     let db_name = format!("teramind_test_db_{pid}_{n}");
 
-    let admin_pool = DbPool::connect(pg.admin_opts()).await?;
+    let admin_pool = connect_with_retry(pg.admin_opts()).await?;
     sqlx::query(&format!("CREATE DATABASE \"{db_name}\""))
         .execute(admin_pool.pg())
         .await?;
     drop(admin_pool);
 
-    let pool = DbPool::connect(pg.db_opts(&db_name)).await?;
+    let pool = connect_with_retry(pg.db_opts(&db_name)).await?;
     migrate::run(&pool).await?;
     Ok(pool)
+}
+
+/// Postgres.app on macOS pops a permission dialog the first time an unrecognized
+/// binary connects, rejecting that initial attempt with a fatal XX000 error
+/// ("Postgres.app rejected \"trust\" authentication"). The user clicks Allow
+/// and subsequent connections succeed. Absorb that one-shot rejection by
+/// retrying with backoff.
+async fn connect_with_retry(opts: PgConnectOptions) -> anyhow::Result<DbPool> {
+    let mut last_err: Option<anyhow::Error> = None;
+    for attempt in 0..5 {
+        match DbPool::connect(opts.clone()).await {
+            Ok(p) => return Ok(p),
+            Err(e) => {
+                let msg = e.to_string();
+                let transient = msg.contains("Postgres.app rejected")
+                    || msg.contains("auth_permission_dialog");
+                last_err = Some(e.into());
+                if !transient {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(500 * (attempt + 1))).await;
+            }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| anyhow::anyhow!("connect_with_retry exhausted")))
 }

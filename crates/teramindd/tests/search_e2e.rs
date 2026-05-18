@@ -96,44 +96,12 @@ async fn do_search_falls_back_to_grep_when_pg_dies() {
     f.write_all(&body).unwrap();
     writeln!(f).unwrap();
 
-    // Use a pool that points at a non-listening port to simulate DB unavailability.
-    let dead_pool = teramind_db::pool::DbPool::connect(
-        sqlx::postgres::PgConnectOptions::new()
-            .host("127.0.0.1")
-            .port(1) // nothing listening here
-            .database("ghost"),
-    )
-    .await;
-    // If the pool itself fails to connect, we still want to test the fallback path.
-    // Wrap a valid pool and expect degraded results from JSONL grep.
+    // Start with a working pool, then close it so any query errors with
+    // PoolClosed — that's what trips do_search_with_fallback into grep mode.
     let pool = teramind_db::testing::fresh_pool().await.unwrap();
+    pool.pg().close().await;
 
-    // Exhaust all connections by issuing an unreachable query to a dead pool.
-    // Instead, just pass the live pool but kill its underlying connections via
-    // pg_terminate_backend so queries fail. That approach is invasive. Instead,
-    // simulate the scenario by providing a repo whose underlying pool points to a
-    // disconnected database via invalid credentials.
-    let _ = dead_pool; // drop
-
-    // Actually, we use the do_search_with_fallback which gracefully handles
-    // SqlxErrors. We point it at a working pool but pass a jsonl_dir that has data.
-    // The function first tries PG (which succeeds), so hits.degraded=false.
-    // To actually test degradation here without killing the shared PG, we use a
-    // pool that can't connect. Since pool::connect() may succeed (lazy), we accept
-    // that this test verifies the fallback path via the dead pool.
-    let broken_pool = teramind_db::pool::DbPool::connect(
-        sqlx::postgres::PgConnectOptions::new()
-            .host("127.0.0.1")
-            .port(1)
-            .database("ghost")
-            .username("nobody"),
-    )
-    .await
-    .unwrap_or_else(|_| pool.clone()); // if can't even build pool, reuse working one
-
-    // Shut down the pool's underlying connections by replacing with a disconnected one.
-    // Simplest: just use the broken pool directly in the repo.
-    let repo = SearchRepo::new(broken_pool.clone());
+    let repo = SearchRepo::new(pool.clone());
     let out = teramindd::services::search::do_search_with_fallback(
         &repo,
         &jsonl_dir,

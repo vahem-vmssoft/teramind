@@ -94,10 +94,17 @@ async fn storage_stats_sampler_records_a_row() {
     let repo = teramind_db::repos::StorageStatsRepo::new(pool.clone());
     let raw = tmp.path().join("raw");
     std::fs::create_dir_all(&raw).unwrap();
+    // The test fixture gives each test a uniquely-named database, so the
+    // sampler must use that actual name — passing a literal would make
+    // pg_database_size() error out and no row would be inserted.
+    let (db_name,): (String,) = sqlx::query_as("SELECT current_database()")
+        .fetch_one(pool.pg())
+        .await
+        .unwrap();
     teramindd::services::storage_stats::spawn(
         repo.clone(),
         raw,
-        "teramind_test".into(),
+        db_name,
         std::time::Duration::from_millis(50),
     );
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;

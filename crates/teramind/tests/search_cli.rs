@@ -41,7 +41,7 @@ fn teramind_search_returns_seeded_hit() {
         std::env::var("PATH").unwrap_or_default()
     );
 
-    let env = [
+    let mut env: Vec<(&'static str, String)> = vec![
         ("HOME", tmp.path().to_string_lossy().into_owned()),
         (
             "XDG_DATA_HOME",
@@ -58,6 +58,12 @@ fn teramind_search_returns_seeded_hit() {
         ("TERAMIND_LOG", "warn".to_string()),
         ("PATH", path_with_target),
     ];
+    // If the test fixture is pointing at an external Postgres, let the
+    // daemon use it too — embedded PG bootstrap blows past the start
+    // deadline on first boot and makes this test flake.
+    if let Ok(url) = std::env::var("TERAMIND_TEST_PG_URL") {
+        env.push(("TERAMIND_PG_URL", url));
+    }
 
     let teramind = cargo_bin("teramind");
     let hook = cargo_bin("teramind-hook");
