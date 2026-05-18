@@ -45,7 +45,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/events", get(handlers::events::events))
         .route("/dashboard", axum::routing::get(serve_dashboard_index))
         .route(
-            "/dashboard/*path",
+            "/dashboard/{*path}",
             axum::routing::get(serve_dashboard_asset),
         );
     let authed = Router::new()
@@ -84,7 +84,7 @@ pub fn build_router(state: AppState) -> Router {
             axum::routing::get(crate::admin_api::handlers::skills::list),
         )
         .route(
-            "/admin/skills/:id",
+            "/admin/skills/{id}",
             axum::routing::get(crate::admin_api::handlers::skills::show)
                 .delete(crate::admin_api::handlers::skills::delete),
         )
@@ -93,16 +93,16 @@ pub fn build_router(state: AppState) -> Router {
             axum::routing::get(crate::admin_api::handlers::candidates::list),
         )
         .route(
-            "/admin/candidates/:id",
+            "/admin/candidates/{id}",
             axum::routing::get(crate::admin_api::handlers::candidates::show)
                 .patch(crate::admin_api::handlers::candidates::patch),
         )
         .route(
-            "/admin/candidates/:id/approve",
+            "/admin/candidates/{id}/approve",
             axum::routing::post(crate::admin_api::handlers::candidates::approve),
         )
         .route(
-            "/admin/candidates/:id/reject",
+            "/admin/candidates/{id}/reject",
             axum::routing::post(crate::admin_api::handlers::candidates::reject),
         )
         .route(
@@ -110,7 +110,7 @@ pub fn build_router(state: AppState) -> Router {
             axum::routing::get(crate::admin_api::handlers::observations::list),
         )
         .route(
-            "/admin/observations/:id",
+            "/admin/observations/{id}",
             axum::routing::get(crate::admin_api::handlers::observations::show),
         )
         .route(
@@ -118,15 +118,15 @@ pub fn build_router(state: AppState) -> Router {
             axum::routing::get(crate::admin_api::handlers::members::members),
         )
         .route(
-            "/admin/members/:user_id/revoke",
+            "/admin/members/{user_id}/revoke",
             axum::routing::post(crate::admin_api::handlers::members::revoke_user),
         )
         .route(
-            "/admin/members/:user_id/devices",
+            "/admin/members/{user_id}/devices",
             axum::routing::get(crate::admin_api::handlers::members::user_devices),
         )
         .route(
-            "/admin/devices/:device_id/revoke",
+            "/admin/devices/{device_id}/revoke",
             axum::routing::post(crate::admin_api::handlers::members::revoke_device),
         )
         .route(
@@ -135,7 +135,7 @@ pub fn build_router(state: AppState) -> Router {
                 .post(crate::admin_api::handlers::members::create_invite),
         )
         .route(
-            "/admin/invites/:id/revoke",
+            "/admin/invites/{id}/revoke",
             axum::routing::post(crate::admin_api::handlers::members::revoke_invite),
         )
         .route(
