@@ -1,12 +1,8 @@
 use teramind_db::repos::QualityRunRepo;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn insert_and_list_latest() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let repo = QualityRunRepo::new(pool.clone());
 
     repo.insert(
@@ -50,6 +46,5 @@ async fn insert_and_list_latest() -> anyhow::Result<()> {
     assert!(latest_semantic.is_some());
     assert_eq!(latest_semantic.unwrap().ndcg10, 0.537);
 
-    sup.shutdown().await?;
     Ok(())
 }

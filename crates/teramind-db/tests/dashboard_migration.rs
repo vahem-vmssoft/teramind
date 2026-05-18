@@ -1,11 +1,6 @@
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn migration_creates_tables() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     for t in ["team_event_log", "quality_runs"] {
         let (exists,): (bool,) = sqlx::query_as(
@@ -17,6 +12,5 @@ async fn migration_creates_tables() -> anyhow::Result<()> {
         assert!(exists, "table `{t}` must exist after migration");
     }
 
-    sup.shutdown().await?;
     Ok(())
 }

@@ -1,23 +1,10 @@
 use teramind_core::ids::SessionId;
 use teramind_db::repos::SkillObservationRepo;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use uuid::Uuid;
-
-async fn pool_with_migrations() -> anyhow::Result<(
-    tempfile::TempDir,
-    teramind_db::pg_supervisor::PgSupervisor,
-    DbPool,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
-    Ok((dir, sup, pool))
-}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn upsert_merges_session_ids_and_bumps_frequency() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = pool_with_migrations().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let r = SkillObservationRepo::new(pool.clone());
 
     let sa = SessionId(Uuid::new_v4());
@@ -43,13 +30,12 @@ async fn upsert_merges_session_ids_and_bumps_frequency() -> anyhow::Result<()> {
         "duplicate session must not increment frequency"
     );
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn list_open_filters_by_threshold() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = pool_with_migrations().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let r = SkillObservationRepo::new(pool.clone());
 
     for i in 0..3 {
@@ -82,13 +68,12 @@ async fn list_open_filters_by_threshold() -> anyhow::Result<()> {
     assert_eq!(above.len(), 1);
     assert_eq!(above[0].signature, "sig0");
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn mark_status_transitions() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = pool_with_migrations().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let r = SkillObservationRepo::new(pool.clone());
 
     r.upsert(
@@ -103,6 +88,5 @@ async fn mark_status_transitions() -> anyhow::Result<()> {
     let after = r.find_by_sig("tool_chain", "sigX").await?.unwrap();
     assert_eq!(after.status, "synthesized");
 
-    sup.shutdown().await?;
     Ok(())
 }

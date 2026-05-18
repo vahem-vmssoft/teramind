@@ -1,23 +1,10 @@
 use teramind_core::ids::SessionId;
 use teramind_db::repos::{SkillCandidateRepo, SkillObservationRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use uuid::Uuid;
-
-async fn pool_with_migrations() -> anyhow::Result<(
-    tempfile::TempDir,
-    teramind_db::pg_supervisor::PgSupervisor,
-    DbPool,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
-    Ok((dir, sup, pool))
-}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn insert_then_list_pending() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = pool_with_migrations().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let obs = SkillObservationRepo::new(pool.clone());
     let cand = SkillCandidateRepo::new(pool.clone());
 
@@ -47,13 +34,12 @@ async fn insert_then_list_pending() -> anyhow::Result<()> {
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].name, "rust-pr-prep");
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn approve_then_list_approved() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = pool_with_migrations().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let obs = SkillObservationRepo::new(pool.clone());
     let cand = SkillCandidateRepo::new(pool.clone());
 
@@ -78,13 +64,12 @@ async fn approve_then_list_approved() -> anyhow::Result<()> {
     assert_eq!(approved.len(), 1);
     assert_eq!(approved[0].id, id);
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn unique_pending_name_constraint() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = pool_with_migrations().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let obs = SkillObservationRepo::new(pool.clone());
     let cand = SkillCandidateRepo::new(pool.clone());
 
@@ -115,6 +100,5 @@ async fn unique_pending_name_constraint() -> anyhow::Result<()> {
         "second pending with same name must fail unique constraint"
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

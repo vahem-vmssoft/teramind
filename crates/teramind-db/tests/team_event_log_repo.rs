@@ -1,21 +1,8 @@
 use teramind_db::repos::{TeamEventLogRepo, UserRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
-
-async fn fresh_pool() -> anyhow::Result<(
-    tempfile::TempDir,
-    teramind_db::pg_supervisor::PgSupervisor,
-    DbPool,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
-    Ok((dir, sup, pool))
-}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn insert_and_list_recent_roundtrips() -> anyhow::Result<()> {
-    let (_d, sup, pool) = fresh_pool().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let users = UserRepo::new(pool.clone());
     let log = TeamEventLogRepo::new(pool.clone());
     let u = users.upsert_by_email("alice@acme.dev", None).await?;
@@ -40,13 +27,12 @@ async fn insert_and_list_recent_roundtrips() -> anyhow::Result<()> {
     assert_eq!(rows[0].kind, "skill_saved"); // newest first
     assert_eq!(rows[1].kind, "session_ended");
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn list_recent_filters_by_kind_and_user() -> anyhow::Result<()> {
-    let (_d, sup, pool) = fresh_pool().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let users = UserRepo::new(pool.clone());
     let log = TeamEventLogRepo::new(pool.clone());
     let alice = users.upsert_by_email("a@x.dev", None).await?;
@@ -66,13 +52,12 @@ async fn list_recent_filters_by_kind_and_user() -> anyhow::Result<()> {
         .await?;
     assert_eq!(alice_ended.len(), 1);
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn prune_deletes_old_rows() -> anyhow::Result<()> {
-    let (_d, sup, pool) = fresh_pool().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let log = TeamEventLogRepo::new(pool.clone());
 
     log.insert("session_ended", None, None, serde_json::json!({}))
@@ -86,6 +71,5 @@ async fn prune_deletes_old_rows() -> anyhow::Result<()> {
     assert_eq!(deleted, 1);
     assert!(log.list_recent(None, None, None, 10).await?.is_empty());
 
-    sup.shutdown().await?;
     Ok(())
 }

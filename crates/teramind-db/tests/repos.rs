@@ -1,48 +1,23 @@
-use tempfile::TempDir;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
+use teramind_db::pool::DbPool;
 
-pub struct Fixture {
-    pub sup: Option<PgSupervisor>,
-    pub pool: DbPool,
-    _tmp: TempDir,
-}
-
-impl Fixture {
-    pub async fn new() -> Self {
-        let tmp = tempfile::tempdir().unwrap();
-        let sup = PgSupervisor::start(tmp.path().to_path_buf(), "teramind_test")
-            .await
-            .unwrap();
-        let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-        migrate::run(&pool).await.unwrap();
-        Self {
-            sup: Some(sup),
-            pool,
-            _tmp: tmp,
-        }
-    }
-    pub async fn shutdown(mut self) {
-        if let Some(s) = self.sup.take() {
-            let _ = s.shutdown().await;
-        }
-    }
+async fn fresh_pool() -> DbPool {
+    teramind_db::testing::fresh_pool().await.unwrap()
 }
 
 #[tokio::test]
 async fn fixture_initializes() {
-    let f = Fixture::new().await;
+    let pool = fresh_pool().await;
     let one: (i32,) = sqlx::query_as("SELECT 1")
-        .fetch_one(f.pool.pg())
+        .fetch_one(pool.pg())
         .await
         .unwrap();
     assert_eq!(one.0, 1);
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn agent_repo_upserts_and_finds() {
-    let f = Fixture::new().await;
-    let repo = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let repo = teramind_db::repos::AgentRepo::new(pool.clone());
     let a1 = repo.upsert("claude_code", Some("0.1.0")).await.unwrap();
     let a2 = repo.upsert("claude_code", Some("0.1.0")).await.unwrap();
     assert_eq!(a1.id, a2.id);
@@ -52,13 +27,12 @@ async fn agent_repo_upserts_and_finds() {
         .unwrap()
         .unwrap();
     assert_eq!(found.id, a1.id);
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn project_repo_upserts_by_root_path() {
-    let f = Fixture::new().await;
-    let repo = teramind_db::repos::ProjectRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let repo = teramind_db::repos::ProjectRepo::new(pool.clone());
     let p1 = repo
         .upsert_by_root("/home/dev/x", Some("git@github.com:org/x.git"), None)
         .await
@@ -70,15 +44,14 @@ async fn project_repo_upserts_by_root_path() {
     assert_eq!(p1.id, p2.id);
     assert_eq!(p2.git_remote.as_deref(), Some("git@github.com:org/x.git"));
     assert_eq!(p2.display_name.as_deref(), Some("X"));
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn session_repo_inserts_and_ends() {
-    let f = Fixture::new().await;
-    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let agents = teramind_db::repos::AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", Some("0.1.0")).await.unwrap();
-    let repo = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let repo = teramind_db::repos::SessionRepo::new(pool.clone());
 
     let now = time::OffsetDateTime::now_utc();
     let id = repo
@@ -107,21 +80,19 @@ async fn session_repo_inserts_and_ends() {
     let (ended_at, end_reason): (Option<time::OffsetDateTime>, Option<String>) =
         sqlx::query_as("SELECT ended_at, end_reason FROM sessions WHERE id=$1")
             .bind(id.0)
-            .fetch_one(f.pool.pg())
+            .fetch_one(pool.pg())
             .await
             .unwrap();
     assert!(ended_at.is_some());
     assert_eq!(end_reason.as_deref(), Some("stop_hook"));
-
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn trace_repo_full_turn_lifecycle() {
-    let f = Fixture::new().await;
-    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let agents = teramind_db::repos::AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await.unwrap();
-    let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let sessions = teramind_db::repos::SessionRepo::new(pool.clone());
     let now = time::OffsetDateTime::now_utc();
     let session_id = sessions
         .insert(teramind_db::repos::session::NewSession {
@@ -142,7 +113,7 @@ async fn trace_repo_full_turn_lifecycle() {
         .await
         .unwrap();
 
-    let traces = teramind_db::repos::TraceRepo::new(f.pool.clone());
+    let traces = teramind_db::repos::TraceRepo::new(pool.clone());
     let turn = traces
         .upsert_turn(session_id, 0, now, Some("hi"))
         .await
@@ -171,22 +142,20 @@ async fn trace_repo_full_turn_lifecycle() {
     let row: (Option<String>, Option<String>, Option<i32>) =
         sqlx::query_as("SELECT assistant_text, model, output_tokens FROM turns WHERE id=$1")
             .bind(turn.0)
-            .fetch_one(f.pool.pg())
+            .fetch_one(pool.pg())
             .await
             .unwrap();
     assert_eq!(row.0.as_deref(), Some("done"));
     assert_eq!(row.1.as_deref(), Some("claude-opus-4-7"));
     assert_eq!(row.2, Some(5));
-
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn diff_repo_inserts_a_file_diff() {
-    let f = Fixture::new().await;
-    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let agents = teramind_db::repos::AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await.unwrap();
-    let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let sessions = teramind_db::repos::SessionRepo::new(pool.clone());
     let now = time::OffsetDateTime::now_utc();
     let session_id = sessions
         .insert(teramind_db::repos::session::NewSession {
@@ -206,7 +175,7 @@ async fn diff_repo_inserts_a_file_diff() {
         })
         .await
         .unwrap();
-    let diffs = teramind_db::repos::DiffRepo::new(f.pool.clone());
+    let diffs = teramind_db::repos::DiffRepo::new(pool.clone());
     let id = diffs
         .insert(teramind_db::repos::diff::NewFileDiff {
             turn_id: None,
@@ -227,33 +196,31 @@ async fn diff_repo_inserts_a_file_diff() {
         .unwrap();
     let row: (i32,) = sqlx::query_as("SELECT byte_size FROM file_diffs WHERE id=$1")
         .bind(id.0)
-        .fetch_one(f.pool.pg())
+        .fetch_one(pool.pg())
         .await
         .unwrap();
     assert_eq!(row.0, 1);
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn skill_repo_upserts_authored() {
-    let f = Fixture::new().await;
-    let r = teramind_db::repos::SkillRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let r = teramind_db::repos::SkillRepo::new(pool.clone());
     let id1 = r.upsert_authored("k", "d", "b1").await.unwrap();
     let id2 = r.upsert_authored("k", "d", "b2").await.unwrap();
     assert_eq!(id1, id2);
     let (body,): (String,) = sqlx::query_as("SELECT body FROM skills WHERE id=$1")
         .bind(id1.0)
-        .fetch_one(f.pool.pg())
+        .fetch_one(pool.pg())
         .await
         .unwrap();
     assert_eq!(body, "b2");
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn storage_stats_repo_inserts_and_counts() {
-    let f = Fixture::new().await;
-    let r = teramind_db::repos::StorageStatsRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let r = teramind_db::repos::StorageStatsRepo::new(pool.clone());
     r.insert(teramind_db::repos::storage_stats::Sample {
         pg_bytes: 100,
         jsonl_bytes: 200,
@@ -264,15 +231,14 @@ async fn storage_stats_repo_inserts_and_counts() {
     .await
     .unwrap();
     assert_eq!(r.count_sessions().await.unwrap(), 0);
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn trace_repo_accepts_caller_provided_tool_call_id() {
-    let f = Fixture::new().await;
-    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let agents = teramind_db::repos::AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await.unwrap();
-    let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let sessions = teramind_db::repos::SessionRepo::new(pool.clone());
     let now = time::OffsetDateTime::now_utc();
     let session_id = sessions
         .insert(teramind_db::repos::session::NewSession {
@@ -292,7 +258,7 @@ async fn trace_repo_accepts_caller_provided_tool_call_id() {
         })
         .await
         .unwrap();
-    let trace = teramind_db::repos::TraceRepo::new(f.pool.clone());
+    let trace = teramind_db::repos::TraceRepo::new(pool.clone());
     let turn = trace.upsert_turn(session_id, 0, now, None).await.unwrap();
 
     let chosen_id = teramind_core::ids::ToolCallId::new();
@@ -305,20 +271,18 @@ async fn trace_repo_accepts_caller_provided_tool_call_id() {
     let (db_id,): (uuid::Uuid,) =
         sqlx::query_as("SELECT id FROM tool_calls WHERE turn_id=$1 AND ordinal=0")
             .bind(turn.0)
-            .fetch_one(f.pool.pg())
+            .fetch_one(pool.pg())
             .await
             .unwrap();
     assert_eq!(db_id, chosen_id.0);
-
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn search_repo_fts_finds_matching_turn() {
-    let f = Fixture::new().await;
-    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let agents = teramind_db::repos::AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await.unwrap();
-    let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let sessions = teramind_db::repos::SessionRepo::new(pool.clone());
     let now = time::OffsetDateTime::now_utc();
     let sid = sessions
         .insert(teramind_db::repos::session::NewSession {
@@ -338,7 +302,7 @@ async fn search_repo_fts_finds_matching_turn() {
         })
         .await
         .unwrap();
-    let trace = teramind_db::repos::TraceRepo::new(f.pool.clone());
+    let trace = teramind_db::repos::TraceRepo::new(pool.clone());
     let turn = trace
         .upsert_turn(sid, 0, now, Some("how to debug redis cluster failover"))
         .await
@@ -356,25 +320,23 @@ async fn search_repo_fts_finds_matching_turn() {
         .await
         .unwrap();
     sqlx::query("REFRESH MATERIALIZED VIEW traces_fts")
-        .execute(f.pool.pg())
+        .execute(pool.pg())
         .await
         .unwrap();
 
-    let repo = teramind_db::repos::SearchRepo::new(f.pool.clone());
+    let repo = teramind_db::repos::SearchRepo::new(pool.clone());
     let hits = repo.fts_turns("redis cluster", 10).await.unwrap();
     assert_eq!(hits.len(), 1, "expected exactly one fts hit");
     assert_eq!(hits[0].turn_id, turn.0);
     assert!(hits[0].fts_score > 0.0);
-
-    f.shutdown().await;
 }
 
 #[tokio::test]
 async fn search_repo_trgm_finds_matching_diff() {
-    let f = Fixture::new().await;
-    let agents = teramind_db::repos::AgentRepo::new(f.pool.clone());
+    let pool = fresh_pool().await;
+    let agents = teramind_db::repos::AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await.unwrap();
-    let sessions = teramind_db::repos::SessionRepo::new(f.pool.clone());
+    let sessions = teramind_db::repos::SessionRepo::new(pool.clone());
     let now = time::OffsetDateTime::now_utc();
     let sid = sessions
         .insert(teramind_db::repos::session::NewSession {
@@ -394,7 +356,7 @@ async fn search_repo_trgm_finds_matching_diff() {
         })
         .await
         .unwrap();
-    let diffs = teramind_db::repos::DiffRepo::new(f.pool.clone());
+    let diffs = teramind_db::repos::DiffRepo::new(pool.clone());
     diffs
         .insert(teramind_db::repos::diff::NewFileDiff {
             turn_id: None,
@@ -414,10 +376,8 @@ async fn search_repo_trgm_finds_matching_diff() {
         .await
         .unwrap();
 
-    let repo = teramind_db::repos::SearchRepo::new(f.pool.clone());
+    let repo = teramind_db::repos::SearchRepo::new(pool.clone());
     let hits = repo.trgm_diffs("parse_jwt_payload", 10).await.unwrap();
     assert_eq!(hits.len(), 1, "expected one trgm hit");
     assert!(hits[0].trgm_score > 0.3);
-
-    f.shutdown().await;
 }
