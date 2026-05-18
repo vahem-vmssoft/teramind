@@ -60,3 +60,4 @@ reqwest    = { workspace = true }
 rand_chacha = { workspace = true }
 tokio-tungstenite = { workspace = true }
 futures-util = "0.3"
+teramind-db  = { path = "../teramind-db", features = ["testing"] }

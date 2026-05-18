@@ -30,7 +30,7 @@ ignore      = { workspace = true }
 
 [dev-dependencies]
 tempfile      = { workspace = true }
-teramind-db   = { path = "../teramind-db" }
+teramind-db   = { path = "../teramind-db", features = ["testing"] }
 teramindd     = { path = "../teramindd" }
 sqlx          = { workspace = true }
 ed25519-dalek = { workspace = true }
