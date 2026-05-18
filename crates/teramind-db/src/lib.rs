@@ -6,5 +6,8 @@ pub mod pg_supervisor;
 pub mod pool;
 pub mod repos;
 
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
+
 pub use error::DbError;
 pub use pool::DbPool;
