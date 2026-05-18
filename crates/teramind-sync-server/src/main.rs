@@ -186,7 +186,7 @@ async fn main() -> anyhow::Result<()> {
                 .map_err(|e| anyhow::anyhow!("hash: {e}"))?
                 .to_string();
             let mut secret_bytes = [0u8; 32];
-            rand::Rng::fill(&mut rand::thread_rng(), &mut secret_bytes);
+            rand::RngExt::fill(&mut rand::rng(), &mut secret_bytes[..]);
             let secret = hex::encode(secret_bytes);
             println!();
             println!("[admin]");

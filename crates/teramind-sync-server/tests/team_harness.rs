@@ -2,7 +2,7 @@
 //! make several authenticated requests, verify rows landed correctly.
 
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
 use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
@@ -24,10 +24,10 @@ impl Client {
     async fn redeem(addr: SocketAddr, pool: &DbPool, email: &str) -> Self {
         let invites = InviteRepo::new(pool.clone());
         let mut seed = [0u8; 32];
-        OsRng.fill_bytes(&mut seed);
+        rand::rng().fill(&mut seed[..]);
         let sk = SigningKey::from_bytes(&seed);
         let pk = sk.verifying_key().to_bytes().to_vec();
-        let code = InviteCode::generate(&mut OsRng);
+        let code = InviteCode::generate(&mut rand::rng());
         invites
             .create(
                 &code.hash(),
@@ -169,7 +169,7 @@ async fn stolen_token_without_key_fails_403() -> anyhow::Result<()> {
     let alice = Client::redeem(addr, &pool, "alice@acme.dev").await;
 
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let attacker_sk = SigningKey::from_bytes(&seed);
     let attacker = Client {
         addr,

@@ -7,7 +7,7 @@
 use crate::corpus::{Corpus, FileDiffRow, SessionRow, ToolCallRow, TurnRow};
 use crate::queries_bank::QUERIES;
 use crate::types::{Judgment, QrelsFile, QueriesFile, Query, QueryClass};
-use rand::distributions::WeightedIndex;
+use rand::distr::weighted::WeightedIndex;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use serde::Serialize;
@@ -102,13 +102,13 @@ fn build(rng: &mut ChaCha20Rng, scale: u32) -> (Corpus, QrelsFile) {
             started_at: base_ts + time::Duration::seconds(s_idx as i64 * 60),
         });
 
-        let n_turns: u32 = rng.gen_range(2..=5);
+        let n_turns: u32 = rng.random_range(2..=5);
         for t_idx in 0..n_turns {
             let turn_id = deterministic_uuid(rng);
             let chosen_query_idx: Option<usize> = if triggers_by_query.is_empty() {
                 None
-            } else if rng.gen_bool(0.20) {
-                Some(rng.gen_range(0..triggers_by_query.len()))
+            } else if rng.random_bool(0.20) {
+                Some(rng.random_range(0..triggers_by_query.len()))
             } else {
                 None
             };
@@ -148,7 +148,7 @@ fn build(rng: &mut ChaCha20Rng, scale: u32) -> (Corpus, QrelsFile) {
                 thinking: None,
             });
 
-            let n_tools: u32 = rng.gen_range(0..=2);
+            let n_tools: u32 = rng.random_range(0..=2);
             for tc_idx in 0..n_tools {
                 let tool_id = deterministic_uuid(rng);
                 let mut tool_output = format!(
@@ -181,7 +181,7 @@ fn build(rng: &mut ChaCha20Rng, scale: u32) -> (Corpus, QrelsFile) {
                 });
             }
 
-            if rng.gen_bool(0.4) {
+            if rng.random_bool(0.4) {
                 let diff_id = deterministic_uuid(rng);
                 let rel_path = format!("src/{}.rs", pick_one(rng, &["lib", "util", "parser"]));
                 let mut pre_excerpt = format!("fn old_{} {{}}", s_idx);
@@ -230,7 +230,7 @@ fn deterministic_uuid(rng: &mut ChaCha20Rng) -> Uuid {
 }
 
 fn pick_one<'a>(rng: &mut ChaCha20Rng, slice: &'a [&'a str]) -> &'a str {
-    slice[rng.gen_range(0..slice.len())]
+    slice[rng.random_range(0..slice.len())]
 }
 
 fn write_outputs(dest: &Path, corpus: &Corpus, qrels: &QrelsFile) -> anyhow::Result<()> {

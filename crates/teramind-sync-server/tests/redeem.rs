@@ -1,5 +1,5 @@
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
 use teramind_db::repos::InviteRepo;
@@ -37,7 +37,7 @@ async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, 
 
 fn fresh_pk() -> Vec<u8> {
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     SigningKey::from_bytes(&seed)
         .verifying_key()
         .to_bytes()

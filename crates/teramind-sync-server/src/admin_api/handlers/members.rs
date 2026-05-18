@@ -9,7 +9,6 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use rand::rngs::OsRng;
 use serde::Deserialize;
 use teramind_core::ids::{DeviceId, InviteId, UserId};
 use time::{Duration, OffsetDateTime};
@@ -140,7 +139,7 @@ pub async fn create_invite(
     Extension(_): Extension<AdminSession>,
     Json(body): Json<NewInvite>,
 ) -> DashboardResult<(StatusCode, Json<serde_json::Value>)> {
-    let code = InviteCode::generate(&mut OsRng);
+    let code = InviteCode::generate(&mut rand::rng());
     let days = body
         .expires_in_days
         .unwrap_or(state.cfg.auth.invite_default_expires_days);

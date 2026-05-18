@@ -2,7 +2,7 @@
 //! must emit the share-prompt notice.
 
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use teramind_core::team::{save_signing_key, TeamConfig};
 
 #[test]
@@ -12,7 +12,7 @@ fn session_start_with_team_mode_and_no_marker_emits_prompt() {
 
     // Make team-mode look configured.
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let team_dir = cfg_dir.path().join("teramind");
     std::fs::create_dir_all(&team_dir).unwrap();
@@ -56,7 +56,7 @@ fn no_prompt_when_marker_already_set() {
     std::env::set_var("XDG_CONFIG_HOME", cfg_dir.path());
 
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let team_dir = cfg_dir.path().join("teramind");
     std::fs::create_dir_all(&team_dir).unwrap();

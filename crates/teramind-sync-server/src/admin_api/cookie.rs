@@ -3,8 +3,9 @@
 //!   payload = jti(16 bytes) || expires_at_unix_be64(8 bytes)
 
 use base64::Engine;
-use hmac::{Hmac, Mac};
-use sha2_0_10::Sha256;
+use hmac::{Hmac, KeyInit, Mac};
+use rand::RngExt;
+use sha2::Sha256;
 use thiserror::Error;
 use time::OffsetDateTime;
 
@@ -33,7 +34,7 @@ pub struct AdminSession {
 /// Generate a random 16-byte jti from the OS RNG.
 pub fn random_jti() -> [u8; 16] {
     let mut out = [0u8; 16];
-    rand::Rng::fill(&mut rand::thread_rng(), &mut out);
+    rand::rng().fill(&mut out[..]);
     out
 }
 

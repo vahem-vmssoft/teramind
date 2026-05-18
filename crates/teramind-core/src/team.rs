@@ -120,11 +120,11 @@ fn ensure_secure_perms(_path: &Path) -> Result<()> {
 mod tests {
     use super::*;
     use ed25519_dalek::SigningKey;
-    use rand::{rngs::OsRng, RngCore};
+    use rand::RngExt;
 
     fn random_key() -> SigningKey {
         let mut seed = [0u8; 32];
-        OsRng.fill_bytes(&mut seed);
+        rand::rng().fill(&mut seed[..]);
         SigningKey::from_bytes(&seed)
     }
 

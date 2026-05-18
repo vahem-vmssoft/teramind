@@ -3,7 +3,7 @@
 
 use axum::{routing::post, Extension, Json, Router};
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
 use teramind_db::{
@@ -25,7 +25,7 @@ async fn echo(Extension(auth): Extension<AuthContext>) -> Json<serde_json::Value
 
 fn fresh_signing_key() -> (SigningKey, Vec<u8>) {
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes().to_vec();
     (sk, pk)
