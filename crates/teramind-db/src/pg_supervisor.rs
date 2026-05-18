@@ -34,6 +34,13 @@ impl PgSupervisor {
             // The instance owns its data dir; we manage the lifecycle here, so
             // disable the library's auto-cleanup-on-drop behaviour.
             temporary: false,
+            // Use POSIX shared memory instead of SYSV to avoid exhausting the
+            // kernel's SHMMNI limit when many embedded PG instances run in
+            // parallel (e.g. many test binaries each with their own instance).
+            configuration: std::collections::HashMap::from([(
+                "dynamic_shared_memory_type".to_string(),
+                "posix".to_string(),
+            )]),
             ..Settings::default()
         };
 
