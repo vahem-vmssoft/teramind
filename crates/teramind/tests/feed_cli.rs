@@ -10,17 +10,14 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use teramind_core::team::{save_signing_key, TeamConfig};
 use teramind_core::team_event::TeamEvent;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::repos::InviteRepo;
 use teramind_sync_server::{config::*, invite::InviteCode, server::build_router, state::AppState};
 use time::{Duration as TDur, OffsetDateTime};
 use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn feed_prints_one_event_then_exits() -> anyhow::Result<()> {
-    let pg_dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(pg_dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
@@ -103,6 +100,5 @@ async fn feed_prints_one_event_then_exits() -> anyhow::Result<()> {
     let result = tokio::time::timeout(Duration::from_secs(2), feed_handle).await??;
     assert!(result.is_ok(), "feed::run must succeed; got {:?}", result);
 
-    sup.shutdown().await?;
     Ok(())
 }
