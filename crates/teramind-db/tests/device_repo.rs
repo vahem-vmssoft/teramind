@@ -1,21 +1,8 @@
 use teramind_db::repos::{DeviceRepo, UserRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
-
-async fn fresh_pool() -> anyhow::Result<(
-    tempfile::TempDir,
-    teramind_db::pg_supervisor::PgSupervisor,
-    DbPool,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
-    Ok((dir, sup, pool))
-}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn insert_and_get_by_token_hash_round_trips() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = fresh_pool().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let users = UserRepo::new(pool.clone());
     let devices = DeviceRepo::new(pool.clone());
 
@@ -32,13 +19,12 @@ async fn insert_and_get_by_token_hash_round_trips() -> anyhow::Result<()> {
     assert_eq!(by_hash.id, d.id);
     assert_eq!(by_hash.public_key, public_key);
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn revoke_excludes_from_active_lookup() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = fresh_pool().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let users = UserRepo::new(pool.clone());
     let devices = DeviceRepo::new(pool.clone());
 
@@ -53,13 +39,12 @@ async fn revoke_excludes_from_active_lookup() -> anyhow::Result<()> {
         "revoked device must not appear via get_active_by_token_hash"
     );
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn touch_last_seen_advances() -> anyhow::Result<()> {
-    let (_dir, sup, pool) = fresh_pool().await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let users = UserRepo::new(pool.clone());
     let devices = DeviceRepo::new(pool.clone());
 
@@ -84,6 +69,5 @@ async fn touch_last_seen_advances() -> anyhow::Result<()> {
         "touch_last_seen must populate last_seen_at"
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

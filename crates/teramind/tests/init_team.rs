@@ -2,16 +2,12 @@
 
 use std::net::SocketAddr;
 use teramind_core::team::TeamConfig;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::{config::*, invite::InviteCode, server::build_router, state::AppState};
 use time::{Duration as TDur, OffsetDateTime};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn init_team_redeems_and_writes_config() -> anyhow::Result<()> {
-    let pg_dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(pg_dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
@@ -19,6 +15,8 @@ async fn init_team_redeems_and_writes_config() -> anyhow::Result<()> {
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);
@@ -59,6 +57,5 @@ async fn init_team_redeems_and_writes_config() -> anyhow::Result<()> {
     let key = teramind_core::team::load_signing_key(&key_path)?;
     assert_eq!(key.to_bytes().len(), 32);
 
-    sup.shutdown().await?;
     Ok(())
 }

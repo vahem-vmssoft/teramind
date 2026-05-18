@@ -1,17 +1,11 @@
 use tempfile::tempdir;
 use teramind_core::types::SearchRequest;
 use teramind_db::repos::{AgentRepo, SearchRepo, SessionRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::search;
 
 #[tokio::test]
 async fn do_search_finds_seeded_turn_via_fts() {
-    let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     let agents = AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await.unwrap();
@@ -73,8 +67,6 @@ async fn do_search_finds_seeded_turn_via_fts() {
     .unwrap();
     assert!(!out.hits.is_empty());
     assert!(!out.degraded);
-
-    sup.shutdown().await.unwrap();
 }
 
 #[tokio::test]
@@ -82,13 +74,10 @@ async fn do_search_falls_back_to_grep_when_pg_dies() {
     use std::io::Write;
     use teramind_core::ids::{ClientEventId, SessionId};
     use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
-    let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
 
+    let tmp = tempdir().unwrap();
+
+    // Seed a JSONL file for the grep fallback.
     let jsonl_dir = tmp.path().join("raw");
     std::fs::create_dir_all(&jsonl_dir).unwrap();
     let path = jsonl_dir.join("2026-05-13.jsonl");
@@ -107,7 +96,10 @@ async fn do_search_falls_back_to_grep_when_pg_dies() {
     f.write_all(&body).unwrap();
     writeln!(f).unwrap();
 
-    sup.shutdown().await.unwrap();
+    // Start with a working pool, then close it so any query errors with
+    // PoolClosed — that's what trips do_search_with_fallback into grep mode.
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
+    pool.pg().close().await;
 
     let repo = SearchRepo::new(pool.clone());
     let out = teramindd::services::search::do_search_with_fallback(
@@ -140,11 +132,7 @@ async fn ipc_search_request_returns_search_results() {
     use teramindd::services::session_manager::SessionManager;
 
     let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     let agents = AgentRepo::new(pool.clone());
     let agent = agents.upsert("claude_code", None).await.unwrap();
@@ -265,6 +253,4 @@ async fn ipc_search_request_returns_search_results() {
         }
         other => panic!("unexpected response: {other:?}"),
     }
-
-    sup.shutdown().await.unwrap();
 }

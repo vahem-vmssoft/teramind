@@ -24,8 +24,12 @@ pub async fn run() -> anyhow::Result<()> {
         use std::os::windows::process::CommandExt;
         let _ = Command::new(&exe).creation_flags(0x00000008).spawn()?;
     }
-    for _ in 0..50 {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    // The daemon's startup is bound by embedded-Postgres boot (~5-15s first
+    // run, ~3-5s with bundle cached) plus migrations. 60s is generous for
+    // a healthy boot and short enough to fail loud if PG itself is stuck.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    while std::time::Instant::now() < deadline {
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         if crate::ipc::request(teramind_ipc::proto::Request::Ping, 250)
             .await
             .is_ok()
@@ -34,7 +38,7 @@ pub async fn run() -> anyhow::Result<()> {
             return Ok(());
         }
     }
-    anyhow::bail!("daemon spawned but did not become responsive within 5 seconds");
+    anyhow::bail!("daemon spawned but did not become responsive within 60 seconds");
 }
 
 fn which_teramindd() -> anyhow::Result<std::path::PathBuf> {

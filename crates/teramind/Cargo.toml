@@ -43,6 +43,6 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 axum             = { workspace = true }
 libc             = "0.2"
-teramind-db      = { path = "../teramind-db" }
+teramind-db      = { path = "../teramind-db", features = ["testing"] }
 teramind-sync-server = { path = "../teramind-sync-server" }
 tokio            = { workspace = true }

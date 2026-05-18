@@ -59,8 +59,39 @@ impl App {
         let pid = std::process::id();
         std::fs::write(&paths.pid_file, format!("{pid}\n")).context("write pid file")?;
 
-        let supervisor = PgSupervisor::start(paths.pgdata_dir.clone(), "teramind").await?;
-        let pool = DbPool::connect(supervisor.connect_options()).await?;
+        // Postgres backend selection:
+        // - If `TERAMIND_PG_URL` is set, treat it as an admin URL on an
+        //   already-running Postgres. We create a database whose name is
+        //   derived from `pgdata_dir` (deterministic so the same daemon
+        //   instance always reuses the same DB) and connect to it.
+        // - Otherwise, bootstrap the embedded Postgres supervisor.
+        let (supervisor, pool) = match std::env::var("TERAMIND_PG_URL").ok() {
+            Some(url) => {
+                use sqlx::postgres::PgConnectOptions;
+                let admin_opts: PgConnectOptions = url.parse().context("parse TERAMIND_PG_URL")?;
+                let db_name = derive_db_name(&paths.pgdata_dir);
+                let admin_pool = DbPool::connect(admin_opts.clone()).await?;
+                let (exists,): (bool,) = sqlx::query_as(
+                    "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)",
+                )
+                .bind(&db_name)
+                .fetch_one(admin_pool.pg())
+                .await?;
+                if !exists {
+                    sqlx::query(&format!("CREATE DATABASE \"{db_name}\""))
+                        .execute(admin_pool.pg())
+                        .await?;
+                }
+                drop(admin_pool);
+                let pool = DbPool::connect(admin_opts.database(&db_name)).await?;
+                (None, pool)
+            }
+            None => {
+                let sup = PgSupervisor::start(paths.pgdata_dir.clone(), "teramind").await?;
+                let pool = DbPool::connect(sup.connect_options()).await?;
+                (Some(sup), pool)
+            }
+        };
         migrate::run(&pool).await?;
 
         let jsonl = Arc::new(JsonlWriter::open(paths.raw_dir.clone()).await?);
@@ -334,9 +365,23 @@ impl App {
         info!("teramindd shutting down");
         let _ = std::fs::remove_file(&paths.pid_file);
         let _ = std::fs::remove_file(&paths.socket_path);
-        supervisor.shutdown().await?;
+        if let Some(sup) = supervisor {
+            sup.shutdown().await?;
+        }
         Ok(())
     }
+}
+
+fn derive_db_name(data_dir: &std::path::Path) -> String {
+    // Deterministic per-instance DB name. Hash the canonicalized path so
+    // different daemons on the same external PG don't collide.
+    use sha2::{Digest, Sha256};
+    let canonical = data_dir.canonicalize().unwrap_or_else(|_| data_dir.to_path_buf());
+    let mut h = Sha256::new();
+    h.update(canonical.to_string_lossy().as_bytes());
+    let digest = h.finalize();
+    let hex: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
+    format!("teramind_{hex}")
 }
 
 fn provider_prefix(kind: teramind_core::embed::ProviderKind) -> &'static str {

@@ -34,6 +34,13 @@ impl PgSupervisor {
             // The instance owns its data dir; we manage the lifecycle here, so
             // disable the library's auto-cleanup-on-drop behaviour.
             temporary: false,
+            // Use POSIX shared memory instead of SYSV to avoid exhausting the
+            // kernel's SHMMNI limit when many embedded PG instances run in
+            // parallel (e.g. many test binaries each with their own instance).
+            configuration: std::collections::HashMap::from([(
+                "dynamic_shared_memory_type".to_string(),
+                "posix".to_string(),
+            )]),
             ..Settings::default()
         };
 
@@ -105,10 +112,18 @@ impl PgSupervisor {
 /// We request any compatible version (`*`) so the latest build for the
 /// running PG major version is selected automatically.
 ///
-/// The install is idempotent: if the files already exist the function
-/// uninstalls them first (registry bookkeeping) before reinstalling,
-/// so repeated `PgSupervisor::start` calls work correctly.
+/// Fast-path: if `vector.control` already exists in the extension directory
+/// the install is skipped entirely, avoiding the GitHub API call on every
+/// `PgSupervisor::start`.
 async fn install_pgvector(settings: &Settings) -> anyhow::Result<()> {
+    let marker = settings
+        .installation_dir
+        .join("share")
+        .join("extension")
+        .join("vector.control");
+    if marker.exists() {
+        return Ok(());
+    }
     let version = postgresql_extensions::VersionReq::STAR;
     postgresql_extensions::install(settings, "portal-corp", "pgvector_compiled", &version)
         .await

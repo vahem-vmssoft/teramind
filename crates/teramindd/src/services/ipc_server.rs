@@ -54,6 +54,7 @@ impl DaemonIpcHandler {
             summary_model: self.summary_model.clone(),
             jsonl_dir: self.jsonl_dir.clone(),
             event_bus: None,
+            event_log_writer: None,
             skill_obs: teramind_db::repos::SkillObservationRepo::new(self.pool.clone()),
             skill_cand: teramind_db::repos::SkillCandidateRepo::new(self.pool.clone()),
             skill_repo: teramind_db::repos::SkillRepo::new(self.pool.clone()),

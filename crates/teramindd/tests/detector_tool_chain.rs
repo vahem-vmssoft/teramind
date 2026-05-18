@@ -4,17 +4,13 @@
 use teramind_core::ids::TurnId;
 use teramind_db::repos::session::NewSession;
 use teramind_db::repos::{AgentRepo, SessionRepo, SkillObservationRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::codify::detectors::tool_chain;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn five_identical_chains_produce_one_observation() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -87,6 +83,5 @@ async fn five_identical_chains_produce_one_observation() -> anyhow::Result<()> {
     assert_eq!(above[0].frequency, 5);
     assert_eq!(above[0].kind, "tool_chain");
 
-    sup.shutdown().await?;
     Ok(())
 }

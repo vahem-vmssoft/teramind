@@ -59,7 +59,7 @@ impl EmbeddingProvider for FastEmbedProvider {
         let model = self.model.clone();
         let texts: Vec<String> = texts.to_vec();
         tokio::task::spawn_blocking(move || {
-            let m = model.blocking_lock();
+            let mut m = model.blocking_lock();
             m.embed(texts, None)
                 .map_err(|e| EmbedError::Other(format!("fastembed embed: {e}")))
         })

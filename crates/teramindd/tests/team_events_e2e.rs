@@ -4,14 +4,14 @@
 
 use base64::Engine;
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::team::TeamConfig;
 use teramind_core::team_event::TeamEvent;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::repos::InviteRepo;
 use teramind_sync_server::{config::*, invite::InviteCode, server::build_router, state::AppState};
 use teramindd::services::team_events::{TeamEvents, TeamEventsDeps};
 use time::{Duration as TDur, OffsetDateTime};
@@ -19,16 +19,15 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn ws_subscriber_receives_server_bus_event() -> anyhow::Result<()> {
-    let pg_dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(pg_dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let server_bus = state.bus.clone();
@@ -42,10 +41,10 @@ async fn ws_subscriber_receives_server_bus_event() -> anyhow::Result<()> {
     // Redeem.
     let invites = InviteRepo::new(pool.clone());
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes().to_vec();
-    let code = InviteCode::generate(&mut OsRng);
+    let code = InviteCode::generate(&mut rand::rng());
     invites
         .create(
             &code.hash(),
@@ -101,6 +100,5 @@ async fn ws_subscriber_receives_server_bus_event() -> anyhow::Result<()> {
         other => panic!("unexpected: {other:?}"),
     }
 
-    sup.shutdown().await?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 //! Invite-code generation / parsing / hashing.
 
-use rand::RngCore;
+use rand::Rng;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -23,7 +23,7 @@ pub struct InviteCode {
 }
 
 impl InviteCode {
-    pub fn generate<R: RngCore>(rng: &mut R) -> Self {
+    pub fn generate<R: Rng>(rng: &mut R) -> Self {
         let mut bytes = [0u8; RAW_BYTES];
         rng.fill_bytes(&mut bytes);
         Self::from_bytes(bytes)

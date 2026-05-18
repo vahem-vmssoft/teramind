@@ -27,11 +27,7 @@ async fn ollama_e2e_paraphrase_lookup() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -108,6 +104,5 @@ async fn ollama_e2e_paraphrase_lookup() -> anyhow::Result<()> {
         hits[0].semantic_score
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

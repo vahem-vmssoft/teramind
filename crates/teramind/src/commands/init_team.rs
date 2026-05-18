@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Context, Result};
 use base64::Engine;
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde::Deserialize;
 use teramind_core::team::{default_config_dir, save_signing_key, TeamConfig};
 
@@ -32,7 +32,7 @@ pub async fn run(server: String, invite: String, device_name: Option<String>) ->
 
     // Generate Ed25519 keypair.
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes();
     let pk_b64 = base64::engine::general_purpose::STANDARD.encode(pk);

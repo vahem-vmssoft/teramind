@@ -47,7 +47,7 @@ fn cli_init_start_status_stop_smoke() {
     let current_path = std::env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{}", target_dir.display(), current_path);
 
-    let env: Vec<(&str, String)> = vec![
+    let mut env: Vec<(&str, String)> = vec![
         ("HOME", tmp.path().to_string_lossy().into_owned()),
         (
             "XDG_DATA_HOME",
@@ -64,6 +64,12 @@ fn cli_init_start_status_stop_smoke() {
         ("TERAMIND_LOG", "warn".to_string()),
         ("PATH", new_path),
     ];
+    // If the test fixture is pointing at an external Postgres, let the
+    // daemon use it too — embedded PG boot blows past the start window
+    // on first run.
+    if let Ok(url) = std::env::var("TERAMIND_TEST_PG_URL") {
+        env.push(("TERAMIND_PG_URL", url));
+    }
 
     let teramind = cargo_bin("teramind");
 

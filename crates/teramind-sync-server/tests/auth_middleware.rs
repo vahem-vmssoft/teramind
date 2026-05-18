@@ -3,15 +3,10 @@
 
 use axum::{routing::post, Extension, Json, Router};
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
-use teramind_db::{
-    migrate,
-    pg_supervisor::PgSupervisor,
-    pool::DbPool,
-    repos::{DeviceRepo, UserRepo},
-};
+use teramind_db::repos::{DeviceRepo, UserRepo};
 use teramind_sync_server::auth::auth_middleware;
 use teramind_sync_server::config::*;
 use teramind_sync_server::proof::{body_hash_hex, sign, token_hash_hex, ProofClaims};
@@ -25,17 +20,14 @@ async fn echo(Extension(auth): Extension<AuthContext>) -> Json<serde_json::Value
 
 fn fresh_signing_key() -> (SigningKey, Vec<u8>) {
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes().to_vec();
     (sk, pk)
 }
 
-async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, AppState)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
@@ -43,6 +35,8 @@ async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, 
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool, cfg);
     let app = Router::new()
@@ -57,25 +51,24 @@ async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, 
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
-    Ok((dir, sup, addr, state))
+    Ok((addr, state))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn missing_authorization_is_401() -> anyhow::Result<()> {
-    let (_d, sup, addr, _s) = boot().await?;
+    let (addr, _s) = boot().await?;
     let r = reqwest::Client::new()
         .post(format!("http://{addr}/v1/echo"))
         .body("{}")
         .send()
         .await?;
     assert_eq!(r.status(), 401);
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn valid_bearer_plus_proof_passes() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
 
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
@@ -108,13 +101,12 @@ async fn valid_bearer_plus_proof_passes() -> anyhow::Result<()> {
         .send()
         .await?;
     assert_eq!(r.status(), 200, "happy path must pass");
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn bearer_without_proof_is_403() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
     let user = users.upsert_by_email("alice@acme.dev", None).await?;
@@ -131,13 +123,12 @@ async fn bearer_without_proof_is_403() -> anyhow::Result<()> {
         .send()
         .await?;
     assert_eq!(r.status(), 403);
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn proof_with_wrong_key_is_403() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
     let user = users.upsert_by_email("alice@acme.dev", None).await?;
@@ -173,13 +164,12 @@ async fn proof_with_wrong_key_is_403() -> anyhow::Result<()> {
         403,
         "stolen token without matching key must fail"
     );
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn replayed_jti_is_403() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
     let user = users.upsert_by_email("alice@acme.dev", None).await?;
@@ -214,6 +204,5 @@ async fn replayed_jti_is_403() -> anyhow::Result<()> {
     assert_eq!(first.status(), 200);
     let second = h(&proof).send().await?;
     assert_eq!(second.status(), 403, "replayed jti must fail");
-    sup.shutdown().await?;
     Ok(())
 }

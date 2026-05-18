@@ -50,11 +50,7 @@ impl SummaryProvider for EchoProvider {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn worker_writes_wiki_for_ended_session_within_10s() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -133,17 +129,12 @@ async fn worker_writes_wiki_for_ended_session_within_10s() -> anyhow::Result<()>
     assert_eq!(page.input_tokens, 10);
     assert_eq!(page.output_tokens, 20);
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn short_session_is_skipped() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -202,6 +193,5 @@ async fn short_session_is_skipped() -> anyhow::Result<()> {
         .expect("sentinel skip row");
     assert_eq!(page.content, "", "short session should get a sentinel skip");
 
-    sup.shutdown().await?;
     Ok(())
 }

@@ -7,7 +7,6 @@ use crate::state::AppState;
 use crate::token::DeviceToken;
 use axum::{extract::State, http::StatusCode, Json};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use teramind_db::repos::Device;
 
@@ -78,7 +77,7 @@ pub async fn redeem(
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "db".into()))?;
 
-    let token = DeviceToken::generate(&mut OsRng);
+    let token = DeviceToken::generate(&mut rand::rng());
     let device: Device = state
         .devices
         .insert(user.id, &req.device_name, &token.hash(), &pk)

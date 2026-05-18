@@ -59,6 +59,7 @@ rand        = { workspace = true }
 serde_json  = { workspace = true }
 teramind-sync-server = { path = "../teramind-sync-server" }
 teramind-mcp = { path = "../teramind-mcp" }
+teramind-db  = { path = "../teramind-db", features = ["testing"] }
 time        = { workspace = true }
 uuid        = { workspace = true }
 reqwest     = { workspace = true }

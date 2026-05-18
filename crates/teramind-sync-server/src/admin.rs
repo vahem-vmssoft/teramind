@@ -3,7 +3,6 @@
 use crate::config::ServerConfig;
 use crate::invite::InviteCode;
 use anyhow::Context;
-use rand::rngs::OsRng;
 use teramind_core::ids::{DeviceId, InviteId, UserId};
 use teramind_db::pool::DbPool;
 use teramind_db::repos::{DeviceRepo, InviteRepo, UserRepo};
@@ -31,7 +30,7 @@ pub async fn invite_create(
     let invites = InviteRepo::new(ctx.pool.clone());
     let days = expires_in_days.unwrap_or(ctx.cfg.auth.invite_default_expires_days);
     let expires_at = OffsetDateTime::now_utc() + Duration::days(days);
-    let code = InviteCode::generate(&mut OsRng);
+    let code = InviteCode::generate(&mut rand::rng());
     invites
         .create(&code.hash(), email, display_name, created_by, expires_at)
         .await

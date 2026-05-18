@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tempfile::tempdir;
 use teramind_core::redact::Redactor;
 use teramind_db::repos::{AgentRepo, DiffRepo, SearchRepo, SessionRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
+
 use teramind_ipc::transport::listen;
 use teramindd::services::{
     ingest::{IngestDeps, IngestService, IngestStats},
@@ -35,11 +35,7 @@ async fn hook_session_start_persists_to_postgres() {
         .status();
 
     let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
@@ -131,8 +127,6 @@ async fn hook_session_start_persists_to_postgres() {
         count, 1,
         "expected exactly one session row with id={expected_id}"
     );
-
-    sup.shutdown().await.unwrap();
 }
 
 #[tokio::test]
@@ -141,11 +135,7 @@ async fn hook_tool_call_lifecycle_persists() {
         .args(["build", "-p", "teramind-hook"])
         .status();
     let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
@@ -265,8 +255,6 @@ async fn hook_tool_call_lifecycle_persists() {
         "SELECT count(*) FROM tool_calls tc JOIN turns t ON tc.turn_id=t.id WHERE t.session_id=$1 AND tc.name='Edit' AND tc.output='ok'")
         .bind(session_uuid).fetch_one(pool.pg()).await.unwrap();
     assert_eq!(tc_count, 1);
-
-    sup.shutdown().await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -276,11 +264,7 @@ async fn hook_session_start_emits_auto_recall_digest() {
         .args(["build", "-p", "teramind-hook"])
         .status();
     let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     // Seed prior context: a session in cwd "/work-cwd" with one finalized turn.
     let agents = AgentRepo::new(pool.clone());
@@ -410,6 +394,4 @@ async fn hook_session_start_emits_auto_recall_digest() {
         stdout.contains("Recent Teramind context") || stdout.contains("yesterday"),
         "expected auto-recall digest on stdout; got: {stdout}"
     );
-
-    sup.shutdown().await.unwrap();
 }

@@ -4,14 +4,14 @@
 //! - Forwarder next tick ships the held events.
 
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::ids::SessionId;
 use teramind_core::team::TeamConfig;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::repos::InviteRepo;
 use teramind_sync_server::{config::*, invite::InviteCode, server::build_router, state::AppState};
 use teramindd::services::decision_cache::{DecisionCache, ShareDecision};
 use teramindd::services::team_sync::{TeamSync, TeamSyncDeps};
@@ -21,16 +21,15 @@ use uuid::Uuid;
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn pending_holds_then_allowed_ships() -> anyhow::Result<()> {
     // boot server
-    let pg_dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(pg_dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);
@@ -43,10 +42,10 @@ async fn pending_holds_then_allowed_ships() -> anyhow::Result<()> {
     // redeem
     let invites = InviteRepo::new(pool.clone());
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes().to_vec();
-    let code = InviteCode::generate(&mut OsRng);
+    let code = InviteCode::generate(&mut rand::rng());
     invites
         .create(
             &code.hash(),
@@ -132,6 +131,5 @@ async fn pending_holds_then_allowed_ships() -> anyhow::Result<()> {
         .await?;
     assert_eq!(n1, 1, "Allowed flip must trigger backfill");
 
-    sup.shutdown().await?;
     Ok(())
 }

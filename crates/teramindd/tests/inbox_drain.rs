@@ -4,7 +4,6 @@ use teramind_core::ids::{ClientEventId, SessionId};
 use teramind_core::redact::Redactor;
 use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
 use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::ingest::{drain_inbox, IngestDeps, IngestService, IngestStats};
 use teramindd::services::jsonl_writer::JsonlWriter;
 use teramindd::services::session_manager::SessionManager;
@@ -32,11 +31,7 @@ async fn inbox_drainer_consumes_pending_files() {
         std::fs::write(&path, serde_json::to_vec(&env).unwrap()).unwrap();
     }
 
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
     let (raw_tx, _) = tokio::sync::mpsc::unbounded_channel();
@@ -68,21 +63,12 @@ async fn inbox_drainer_consumes_pending_files() {
     assert_eq!(drained, 3);
     let remaining = std::fs::read_dir(&inbox).unwrap().count();
     assert_eq!(remaining, 0);
-
-    sup.shutdown().await.unwrap();
 }
 
 #[tokio::test]
 async fn dead_letter_receives_unroutable_events() {
     let tmp = tempfile::tempdir().unwrap();
-    let sup =
-        teramind_db::pg_supervisor::PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-            .await
-            .unwrap();
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options())
-        .await
-        .unwrap();
-    teramind_db::migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
     let jsonl = std::sync::Arc::new(
         teramindd::services::jsonl_writer::JsonlWriter::open(tmp.path().join("raw"))
             .await
@@ -134,5 +120,4 @@ async fn dead_letter_receives_unroutable_events() {
         count >= 1,
         "expected at least one dead-letter file; got {count}"
     );
-    sup.shutdown().await.unwrap();
 }

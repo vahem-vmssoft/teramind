@@ -46,12 +46,12 @@ pub fn sign(claims: &ProofClaims, signing_key: &SigningKey) -> String {
 mod tests {
     use super::*;
     use ed25519_dalek::SigningKey;
-    use rand::{rngs::OsRng, RngCore};
+    use rand::RngExt;
 
     #[test]
     fn sign_produces_three_segments() {
         let mut seed = [0u8; 32];
-        OsRng.fill_bytes(&mut seed);
+        rand::rng().fill(&mut seed[..]);
         let sk = SigningKey::from_bytes(&seed);
         let claims = ProofClaims {
             htm: "POST".into(),

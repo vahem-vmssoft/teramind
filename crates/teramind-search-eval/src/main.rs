@@ -35,6 +35,12 @@ enum Cmd {
         /// Weight to apply to the semantic score when --semantic is set.
         #[arg(long, default_value = "0.4")]
         semantic_weight: f32,
+        /// Emit metrics as a single JSON object (suitable for ingestion by the dashboard).
+        #[arg(long)]
+        json: bool,
+        /// Baseline label written into the JSON output (default: "lexical" or "semantic").
+        #[arg(long)]
+        baseline_label: Option<String>,
     },
     /// Compare `eval-results.json` against `baseline.json` and exit
     /// non-zero if any regression gate trips.
@@ -63,7 +69,19 @@ async fn main() -> anyhow::Result<()> {
             out,
             semantic,
             semantic_weight,
-        } => teramind_search_eval::harness::run(&corpus, &out, semantic, semantic_weight).await,
+            json,
+            baseline_label,
+        } => {
+            teramind_search_eval::harness::run(
+                &corpus,
+                &out,
+                semantic,
+                semantic_weight,
+                json,
+                baseline_label,
+            )
+            .await
+        }
         Cmd::CompareBaseline {
             results,
             baseline,

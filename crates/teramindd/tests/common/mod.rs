@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use teramind_core::redact::Redactor;
 use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::fs_watcher::{Debouncer, FsWatcherDeps, FsWatcherService, WatchRegistry};
 use teramindd::services::ingest::{IngestDeps, IngestService, IngestStats};
 use teramindd::services::jsonl_writer::JsonlWriter;
@@ -15,12 +14,12 @@ use teramindd::services::snapshot_cache::SnapshotCache;
 use teramindd::services::write_tool_ring::WriteToolRing;
 
 pub struct Harness {
-    pub pool: DbPool,
+    pub pool: teramind_db::pool::DbPool,
     pub ingest: Arc<IngestService>,
     // Kept to hold the registry alive; tests drive it via ingest.
     #[allow(dead_code)]
     pub registry: Arc<WatchRegistry>,
-    pub _sup: PgSupervisor,
+    // Kept alive for its filesystem lifetime.
     pub _tmp: tempfile::TempDir,
     // Kept for potential diagnostics / future tests; not read yet.
     #[allow(dead_code)]
@@ -41,11 +40,8 @@ impl Harness {
         std::fs::create_dir_all(&raw_dir)?;
         let dead_letter_dir = tmp_canon.join("dl");
         std::fs::create_dir_all(&dead_letter_dir)?;
-        let pgdata = tmp_canon.join("pgdata");
 
-        let sup = PgSupervisor::start(pgdata, "teramind").await?;
-        let pool = DbPool::connect(sup.connect_options()).await?;
-        migrate::run(&pool).await?;
+        let pool = teramind_db::testing::fresh_pool().await?;
 
         let stats = Arc::new(IngestStats::default());
         let jsonl = Arc::new(JsonlWriter::open(raw_dir.clone()).await?);
@@ -101,7 +97,6 @@ impl Harness {
             pool,
             ingest,
             registry,
-            _sup: sup,
             _tmp: tmp,
             raw_dir,
             dead_letter_dir,

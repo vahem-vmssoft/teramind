@@ -5,11 +5,7 @@ use time::OffsetDateTime;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn embedding_repo_bulk_insert_and_backlog() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     // Insert a session + turn so the view has a row.
     let agents = AgentRepo::new(pool.clone());
@@ -61,6 +57,5 @@ async fn embedding_repo_bulk_insert_and_backlog() -> anyhow::Result<()> {
     let written2 = repo.bulk_insert(&rows, "test-model", 768, &[v2]).await?;
     assert_eq!(written2, 0);
 
-    sup.shutdown().await?;
     Ok(())
 }

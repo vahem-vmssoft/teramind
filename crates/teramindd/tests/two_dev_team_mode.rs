@@ -2,14 +2,14 @@
 //! HttpsTransport finds it via /v1/rpc.
 
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::ids::SessionId;
 use teramind_core::team::TeamConfig;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::{pool::DbPool, repos::InviteRepo};
 use teramind_ipc::proto::{Request, Response};
 use teramind_ipc::rpc_transport::RpcTransport;
 use teramind_mcp::transport_https::HttpsTransport;
@@ -26,10 +26,10 @@ async fn redeem(
 ) -> anyhow::Result<(Arc<TeamConfig>, Arc<SigningKey>)> {
     let invites = InviteRepo::new(pool.clone());
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes().to_vec();
-    let code = InviteCode::generate(&mut OsRng);
+    let code = InviteCode::generate(&mut rand::rng());
     invites
         .create(
             &code.hash(),
@@ -65,16 +65,15 @@ async fn redeem(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn alice_captures_bob_searches() -> anyhow::Result<()> {
-    let pg_dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(pg_dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);
@@ -162,6 +161,5 @@ async fn alice_captures_bob_searches() -> anyhow::Result<()> {
         other => panic!("unexpected response: {other:?}"),
     }
 
-    sup.shutdown().await?;
     Ok(())
 }

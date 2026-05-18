@@ -5,6 +5,7 @@ pub mod dpop;
 pub mod embed;
 pub mod error;
 pub mod ids;
+pub mod quality;
 pub mod redact;
 pub mod summarize;
 pub mod team;

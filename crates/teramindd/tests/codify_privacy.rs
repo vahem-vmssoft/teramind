@@ -3,7 +3,6 @@
 use teramind_core::ids::TurnId;
 use teramind_db::repos::session::NewSession;
 use teramind_db::repos::{AgentRepo, SessionRepo, SkillObservationRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::codify::detectors::tool_chain;
 use teramindd::services::decision_cache::{DecisionCache, ShareDecision};
 use time::OffsetDateTime;
@@ -11,10 +10,7 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn denied_sessions_excluded_from_observations() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -86,6 +82,5 @@ async fn denied_sessions_excluded_from_observations() -> anyhow::Result<()> {
         "denied session id must not appear in observation"
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

@@ -1,13 +1,8 @@
 //! Verifies the team-mode migration applies cleanly on a fresh PG.
 
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn team_mode_migration_creates_tables_and_columns() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     // Tables exist.
     for t in ["users", "devices", "invites"] {
@@ -38,6 +33,5 @@ async fn team_mode_migration_creates_tables_and_columns() -> anyhow::Result<()> 
         assert!(exists, "{table}.{col} should exist after migration");
     }
 
-    sup.shutdown().await?;
     Ok(())
 }

@@ -7,11 +7,7 @@ use time::OffsetDateTime;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn search_finds_wiki_via_traces_fts() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -74,6 +70,5 @@ async fn search_finds_wiki_via_traces_fts() -> anyhow::Result<()> {
     assert_eq!(wiki_hits.len(), 1);
     assert!(wiki_hits[0].title.contains("Summary"));
 
-    sup.shutdown().await?;
     Ok(())
 }

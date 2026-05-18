@@ -2,15 +2,11 @@ use teramind_core::types::file_diff::Attribution;
 use teramind_db::repos::diff::NewFileDiff;
 use teramind_db::repos::session::NewSession;
 use teramind_db::repos::{AgentRepo, DiffRepo, SearchRepo, SessionRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use time::OffsetDateTime;
 
 #[tokio::test]
 async fn diff_excerpts_for_cwd_files_filters_by_rel_path() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -78,24 +74,15 @@ async fn diff_excerpts_for_cwd_files_filters_by_rel_path() -> anyhow::Result<()>
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].rel_path, "src/foo.rs");
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn vector_search_turns_returns_nearest_by_cosine() -> anyhow::Result<()> {
     use teramind_core::ids::TurnId;
-    use teramind_db::repos::session::NewSession;
-    use teramind_db::repos::{
-        AgentRepo, EmbeddingRepo, SearchRepo, SessionRepo, ToEmbedRow, TraceRepo,
-    };
-    use time::OffsetDateTime;
+    use teramind_db::repos::{EmbeddingRepo, ToEmbedRow, TraceRepo};
 
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -183,6 +170,5 @@ async fn vector_search_turns_returns_nearest_by_cosine() -> anyhow::Result<()> {
         hits[0].semantic_score
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

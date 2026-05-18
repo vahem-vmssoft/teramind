@@ -7,31 +7,30 @@
 //! - Assert: the events appear in the server's PG with (user_id, device_id) set.
 
 use ed25519_dalek::SigningKey;
-use rand::{rngs::OsRng, RngCore};
+use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::ids::SessionId;
 use teramind_core::team::TeamConfig;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::{pool::DbPool, repos::InviteRepo};
 use teramind_sync_server::{config::*, invite::InviteCode, server::build_router, state::AppState};
 use teramindd::services::decision_cache::{DecisionCache, ShareDecision};
 use teramindd::services::team_sync::{TeamSync, TeamSyncDeps};
 use time::{Duration as TDur, OffsetDateTime};
 use uuid::Uuid;
 
-async fn boot_server() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, DbPool)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot_server() -> anyhow::Result<(SocketAddr, DbPool)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
+        admin: None,
+        quality: None,
     };
     let state = AppState::new(pool.clone(), cfg);
     let app = build_router(state);
@@ -40,7 +39,7 @@ async fn boot_server() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, Socke
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
-    Ok((dir, sup, addr, pool))
+    Ok((addr, pool))
 }
 
 async fn redeem(
@@ -50,10 +49,10 @@ async fn redeem(
 ) -> anyhow::Result<(TeamConfig, SigningKey)> {
     let invites = InviteRepo::new(pool.clone());
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    rand::rng().fill(&mut seed[..]);
     let sk = SigningKey::from_bytes(&seed);
     let pk = sk.verifying_key().to_bytes().to_vec();
-    let code = InviteCode::generate(&mut OsRng);
+    let code = InviteCode::generate(&mut rand::rng());
     invites
         .create(
             &code.hash(),
@@ -89,7 +88,7 @@ async fn redeem(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn forwarder_ships_allowed_sessions_to_server() -> anyhow::Result<()> {
-    let (_pg_dir, sup, addr, pool) = boot_server().await?;
+    let (addr, pool) = boot_server().await?;
     let (team_cfg, sk) = redeem(addr, &pool, "alice@acme.dev").await?;
 
     let raw_dir = tempfile::tempdir()?;
@@ -141,6 +140,5 @@ async fn forwarder_ships_allowed_sessions_to_server() -> anyhow::Result<()> {
         "session must arrive at server with user_id annotation"
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

@@ -49,11 +49,7 @@ impl EmbeddingProvider for DeterministicMock {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn worker_fills_embeddings_within_15s() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -106,6 +102,5 @@ async fn worker_fills_embeddings_within_15s() -> anyhow::Result<()> {
     }
     assert_eq!(repo.backlog("mock:mock-model").await?, 0);
 
-    sup.shutdown().await?;
     Ok(())
 }
