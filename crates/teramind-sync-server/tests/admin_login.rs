@@ -3,16 +3,12 @@
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHasher};
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
 
-async fn boot(password: &str) -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot(password: &str) -> anyhow::Result<SocketAddr> {
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let salt = SaltString::generate(&mut OsRng);
     let hash = Argon2::default()
@@ -45,12 +41,12 @@ async fn boot(password: &str) -> anyhow::Result<(tempfile::TempDir, PgSupervisor
         .await
         .unwrap();
     });
-    Ok((dir, sup, addr))
+    Ok(addr)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn login_succeeds_with_correct_password() -> anyhow::Result<()> {
-    let (_d, sup, addr) = boot("hunter2hunter2").await?;
+    let addr = boot("hunter2hunter2").await?;
     let r = reqwest::Client::new()
         .post(format!("http://{addr}/admin/login"))
         .json(&serde_json::json!({ "password": "hunter2hunter2" }))
@@ -61,26 +57,24 @@ async fn login_succeeds_with_correct_password() -> anyhow::Result<()> {
     assert!(set_cookie.starts_with("tmd_admin="));
     assert!(set_cookie.contains("HttpOnly"));
     assert!(set_cookie.contains("SameSite=Strict"));
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn login_fails_with_wrong_password() -> anyhow::Result<()> {
-    let (_d, sup, addr) = boot("hunter2hunter2").await?;
+    let addr = boot("hunter2hunter2").await?;
     let r = reqwest::Client::new()
         .post(format!("http://{addr}/admin/login"))
         .json(&serde_json::json!({ "password": "wrong" }))
         .send()
         .await?;
     assert_eq!(r.status(), 401);
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn rate_limits_after_five_failures() -> anyhow::Result<()> {
-    let (_d, sup, addr) = boot("hunter2hunter2").await?;
+    let addr = boot("hunter2hunter2").await?;
     for _ in 0..5 {
         let r = reqwest::Client::new()
             .post(format!("http://{addr}/admin/login"))
@@ -95,13 +89,12 @@ async fn rate_limits_after_five_failures() -> anyhow::Result<()> {
         .send()
         .await?;
     assert_eq!(r.status(), 429);
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn me_requires_cookie() -> anyhow::Result<()> {
-    let (_d, sup, addr) = boot("hunter2hunter2").await?;
+    let addr = boot("hunter2hunter2").await?;
     let r = reqwest::Client::new()
         .get(format!("http://{addr}/admin/me"))
         .send()
@@ -131,6 +124,5 @@ async fn me_requires_cookie() -> anyhow::Result<()> {
     let body: serde_json::Value = r.json().await?;
     assert_eq!(body["admin"], true);
 
-    sup.shutdown().await?;
     Ok(())
 }

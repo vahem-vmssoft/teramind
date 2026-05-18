@@ -1,7 +1,6 @@
 //! /admin/candidates: approve / second-approve / patch.
 
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
@@ -22,17 +21,8 @@ fn admin_cfg(password: &str) -> AdminConfig {
     }
 }
 
-async fn boot() -> anyhow::Result<(
-    tempfile::TempDir,
-    PgSupervisor,
-    SocketAddr,
-    AppState,
-    String,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState, String)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -68,7 +58,7 @@ async fn boot() -> anyhow::Result<(
         .next()
         .unwrap()
         .to_string();
-    Ok((dir, sup, addr, state, cookie))
+    Ok((addr, state, cookie))
 }
 
 /// Seed an observation + candidate, return the candidate UUID.
@@ -108,7 +98,7 @@ async fn seed_candidate(state: &AppState, name: &str) -> anyhow::Result<uuid::Uu
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn approve_synchronously_promotes() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
     let cand_id = seed_candidate(&state, "promote-skill").await?;
 
     let r = reqwest::Client::new()
@@ -132,15 +122,12 @@ async fn approve_synchronously_promotes() -> anyhow::Result<()> {
     )
     .fetch_one(state.pool.pg())
     .await?;
-    assert!(exists, "skill row must exist after approve");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert!(exists, "skill row must exist after approve");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn second_approve_is_409() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
     let cand_id = seed_candidate(&state, "double-approve-skill").await?;
 
     // First approve: 200.
@@ -159,15 +146,12 @@ async fn second_approve_is_409() -> anyhow::Result<()> {
         .json(&serde_json::json!({}))
         .send()
         .await?;
-    assert_eq!(r2.status(), 409);
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(r2.status(), 409);    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn patch_updates_body_keeps_pending() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
     let cand_id = seed_candidate(&state, "patchable-skill").await?;
 
     let r = reqwest::Client::new()
@@ -189,8 +173,5 @@ async fn patch_updates_body_keeps_pending() -> anyhow::Result<()> {
     assert_eq!(r2.status(), 200);
     let got: serde_json::Value = r2.json().await?;
     assert_eq!(got["body"], "updated body content");
-    assert_eq!(got["status"], "pending");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(got["status"], "pending");    Ok(())
 }

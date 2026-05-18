@@ -3,7 +3,6 @@
 use futures_util::StreamExt;
 use std::net::SocketAddr;
 use teramind_core::team_event::TeamEvent;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
@@ -26,17 +25,8 @@ fn admin_cfg_with_password(password: &str) -> AdminConfig {
     }
 }
 
-async fn boot() -> anyhow::Result<(
-    tempfile::TempDir,
-    PgSupervisor,
-    SocketAddr,
-    AppState,
-    String,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState, String)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -72,12 +62,12 @@ async fn boot() -> anyhow::Result<(
         .next()
         .unwrap()
         .to_string();
-    Ok((dir, sup, addr, state, cookie))
+    Ok((addr, state, cookie))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn activity_returns_recent_rows() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     state
         .event_log
@@ -102,13 +92,12 @@ async fn activity_returns_recent_rows() -> anyhow::Result<()> {
     let body: serde_json::Value = r.json().await?;
     assert_eq!(body["events"].as_array().unwrap().len(), 2);
 
-    sup.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn ws_subscriber_receives_bus_event() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     let req = Request::builder()
         .uri(format!("ws://{addr}/admin/events"))
@@ -150,6 +139,5 @@ async fn ws_subscriber_receives_bus_event() -> anyhow::Result<()> {
         panic!("expected text");
     }
 
-    sup.shutdown().await?;
     Ok(())
 }

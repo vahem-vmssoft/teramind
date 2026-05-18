@@ -4,7 +4,7 @@ use ed25519_dalek::SigningKey;
 use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::{pool::DbPool, repos::InviteRepo};
 use teramind_sync_server::config::*;
 use teramind_sync_server::invite::InviteCode;
 use teramind_sync_server::proof::{body_hash_hex, sign, token_hash_hex, ProofClaims};
@@ -19,11 +19,8 @@ struct Redeemed {
     signing_key: SigningKey,
 }
 
-async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, DbPool)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, teramind_db::pool::DbPool)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -40,7 +37,7 @@ async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, 
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
-    Ok((dir, sup, addr, pool))
+    Ok((addr, pool))
 }
 
 async fn redeem(addr: SocketAddr, pool: &DbPool, email: &str) -> Redeemed {
@@ -123,7 +120,7 @@ fn sample_batch() -> serde_json::Value {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn ingest_with_valid_auth_lands_rows() -> anyhow::Result<()> {
-    let (_d, sup, addr, pool) = boot().await?;
+    let (addr, pool) = boot().await?;
     let r = redeem(addr, &pool, "alice@acme.dev").await;
     let body = serde_json::to_vec(&sample_batch())?;
     let resp = signed(addr, "/v1/ingest", &body, &r).send().await?;
@@ -141,28 +138,23 @@ async fn ingest_with_valid_auth_lands_rows() -> anyhow::Result<()> {
     assert_eq!(
         count, 1,
         "session row must be annotated with (user_id, device_id)"
-    );
-
-    sup.shutdown().await?;
-    Ok(())
+    );    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn ingest_without_auth_is_401() -> anyhow::Result<()> {
-    let (_d, sup, addr, _pool) = boot().await?;
+    let (addr, _pool) = boot().await?;
     let resp = reqwest::Client::new()
         .post(format!("http://{addr}/v1/ingest"))
         .json(&sample_batch())
         .send()
         .await?;
-    assert_eq!(resp.status(), 401);
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(resp.status(), 401);    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn ingest_idempotent_on_duplicate_client_event_id() -> anyhow::Result<()> {
-    let (_d, sup, addr, _pool) = boot().await?;
+    let (addr, _pool) = boot().await?;
     let r = redeem(addr, &_pool, "carol@acme.dev").await;
     let batch = sample_batch();
     let body = serde_json::to_vec(&batch)?;
@@ -175,7 +167,5 @@ async fn ingest_idempotent_on_duplicate_client_event_id() -> anyhow::Result<()> 
     assert_eq!(
         s["accepted"].as_i64().unwrap() + s["duplicates"].as_i64().unwrap(),
         1
-    );
-    sup.shutdown().await?;
-    Ok(())
+    );    Ok(())
 }

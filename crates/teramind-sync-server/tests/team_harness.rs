@@ -5,7 +5,8 @@ use ed25519_dalek::SigningKey;
 use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::repos::InviteRepo;
+use teramind_db::pool::DbPool;
 use teramind_sync_server::config::*;
 use teramind_sync_server::invite::InviteCode;
 use teramind_sync_server::proof::{body_hash_hex, sign, token_hash_hex, ProofClaims};
@@ -81,10 +82,7 @@ impl Client {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn full_redeem_then_ingest_flow() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
@@ -137,18 +135,12 @@ async fn full_redeem_then_ingest_flow() -> anyhow::Result<()> {
     )
     .fetch_one(pool.pg())
     .await?;
-    assert_eq!(alice_users, 1);
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(alice_users, 1);    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn stolen_token_without_key_fails_403() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -183,8 +175,5 @@ async fn stolen_token_without_key_fails_403() -> anyhow::Result<()> {
         r.status(),
         403,
         "stolen token without matching private key must fail"
-    );
-
-    sup.shutdown().await?;
-    Ok(())
+    );    Ok(())
 }

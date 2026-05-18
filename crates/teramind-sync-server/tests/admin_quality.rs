@@ -1,7 +1,6 @@
 //! /admin/quality: upload, latest, validation.
 
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
@@ -22,17 +21,8 @@ fn admin_cfg(password: &str) -> AdminConfig {
     }
 }
 
-async fn boot() -> anyhow::Result<(
-    tempfile::TempDir,
-    PgSupervisor,
-    SocketAddr,
-    AppState,
-    String,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState, String)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -68,12 +58,12 @@ async fn boot() -> anyhow::Result<(
         .next()
         .unwrap()
         .to_string();
-    Ok((dir, sup, addr, state, cookie))
+    Ok((addr, state, cookie))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn upload_persists_run() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     let payload = serde_json::json!({
         "baseline_label": "semantic",
@@ -104,15 +94,12 @@ async fn upload_persists_run() -> anyhow::Result<()> {
     let rows = state.quality.list_recent(Some("semantic"), 10).await?;
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].source, "manual");
-    assert_eq!(rows[0].baseline_label, "semantic");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(rows[0].baseline_label, "semantic");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn latest_returns_most_recent() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     // Insert two runs with different ran_at timestamps directly via state.quality.insert().
     // We rely on DB default NOW() for the first, then insert the second immediately after.
@@ -175,15 +162,12 @@ async fn latest_returns_most_recent() -> anyhow::Result<()> {
     assert!(
         (ndcg - 0.80).abs() < 1e-9,
         "expected newer run with ndcg10=0.80, got {ndcg}"
-    );
-
-    sup.shutdown().await?;
-    Ok(())
+    );    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn validation_rejects_nan() -> anyhow::Result<()> {
-    let (_d, sup, addr, _state, cookie) = boot().await?;
+    let (addr, _state, cookie) = boot().await?;
 
     // serde_json doesn't serialise f64::NAN as JSON NaN (it would be invalid JSON).
     // Instead send a raw JSON string with the literal NaN token, which some parsers accept
@@ -218,8 +202,5 @@ async fn validation_rejects_nan() -> anyhow::Result<()> {
         r.status().as_u16() == 400 || r.status().as_u16() == 422,
         "expected 400 or 422, got {}",
         r.status()
-    );
-
-    sup.shutdown().await?;
-    Ok(())
+    );    Ok(())
 }

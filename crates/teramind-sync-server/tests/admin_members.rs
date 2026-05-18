@@ -1,7 +1,6 @@
 //! /admin/members + /admin/devices + /admin/invites
 
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
@@ -22,17 +21,8 @@ fn admin_cfg(password: &str) -> AdminConfig {
     }
 }
 
-async fn boot() -> anyhow::Result<(
-    tempfile::TempDir,
-    PgSupervisor,
-    SocketAddr,
-    AppState,
-    String,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState, String)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -68,12 +58,12 @@ async fn boot() -> anyhow::Result<(
         .next()
         .unwrap()
         .to_string();
-    Ok((dir, sup, addr, state, cookie))
+    Ok((addr, state, cookie))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn lists_members_with_device_counts() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     // Seed a user with two devices.
     let user = state
@@ -101,15 +91,12 @@ async fn lists_members_with_device_counts() -> anyhow::Result<()> {
         .iter()
         .find(|u| u["email"] == "alice@example.com")
         .unwrap();
-    assert_eq!(alice["device_count"], 2);
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(alice["device_count"], 2);    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn creates_invite_and_returns_code_once() -> anyhow::Result<()> {
-    let (_d, sup, addr, _state, cookie) = boot().await?;
+    let (addr, _state, cookie) = boot().await?;
 
     // POST /admin/invites → 201 + code starting with TM-
     let r = reqwest::Client::new()
@@ -144,15 +131,12 @@ async fn creates_invite_and_returns_code_once() -> anyhow::Result<()> {
         invites[0].get("code").is_none(),
         "raw code must not appear in list response"
     );
-    assert_eq!(invites[0]["invited_email"], "bob@example.com");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(invites[0]["invited_email"], "bob@example.com");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn revokes_device_via_admin_endpoint() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     // Seed user + device.
     let user = state
@@ -186,8 +170,5 @@ async fn revokes_device_via_admin_endpoint() -> anyhow::Result<()> {
     assert!(
         post.is_empty(),
         "device should be revoked and absent from active list"
-    );
-
-    sup.shutdown().await?;
-    Ok(())
+    );    Ok(())
 }

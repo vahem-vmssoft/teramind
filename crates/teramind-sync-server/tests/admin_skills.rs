@@ -1,7 +1,6 @@
 //! /admin/skills: list / show / delete.
 
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
@@ -22,17 +21,8 @@ fn admin_cfg(password: &str) -> AdminConfig {
     }
 }
 
-async fn boot() -> anyhow::Result<(
-    tempfile::TempDir,
-    PgSupervisor,
-    SocketAddr,
-    AppState,
-    String,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState, String)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -68,12 +58,12 @@ async fn boot() -> anyhow::Result<(
         .next()
         .unwrap()
         .to_string();
-    Ok((dir, sup, addr, state, cookie))
+    Ok((addr, state, cookie))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn list_returns_codified_skills_only_when_filtered() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     // Seed one authored, one codified.
     let skill_repo = teramind_db::repos::SkillRepo::new(state.pool.clone());
@@ -93,15 +83,12 @@ async fn list_returns_codified_skills_only_when_filtered() -> anyhow::Result<()>
     let body: serde_json::Value = r.json().await?;
     let skills = body["skills"].as_array().unwrap();
     assert_eq!(skills.len(), 1);
-    assert_eq!(skills[0]["source"], "codified");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(skills[0]["source"], "codified");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn show_returns_full_body() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     let skill_repo = teramind_db::repos::SkillRepo::new(state.pool.clone());
     let skill_id = skill_repo
@@ -116,15 +103,12 @@ async fn show_returns_full_body() -> anyhow::Result<()> {
     assert_eq!(r.status(), 200);
     let body: serde_json::Value = r.json().await?;
     assert_eq!(body["name"], "my-skill");
-    assert_eq!(body["body"], "the body text");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(body["body"], "the body text");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn delete_removes_skill() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     let skill_repo = teramind_db::repos::SkillRepo::new(state.pool.clone());
     let skill_id = skill_repo
@@ -146,8 +130,5 @@ async fn delete_removes_skill() -> anyhow::Result<()> {
         .header("Cookie", &cookie)
         .send()
         .await?;
-    assert_eq!(r2.status(), 404);
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(r2.status(), 404);    Ok(())
 }

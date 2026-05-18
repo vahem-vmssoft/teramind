@@ -1,15 +1,11 @@
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn dashboard_index_returns_html() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
@@ -58,6 +54,5 @@ async fn dashboard_index_returns_html() -> anyhow::Result<()> {
         .to_str()?
         .starts_with("text/html"));
 
-    sup.shutdown().await?;
     Ok(())
 }

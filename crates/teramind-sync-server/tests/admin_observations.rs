@@ -1,7 +1,6 @@
 //! /admin/observations: list (kind filter, min_freq filter) + show.
 
 use std::net::SocketAddr;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
 use teramind_sync_server::state::AppState;
@@ -22,17 +21,8 @@ fn admin_cfg(password: &str) -> AdminConfig {
     }
 }
 
-async fn boot() -> anyhow::Result<(
-    tempfile::TempDir,
-    PgSupervisor,
-    SocketAddr,
-    AppState,
-    String,
-)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState, String)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -68,12 +58,12 @@ async fn boot() -> anyhow::Result<(
         .next()
         .unwrap()
         .to_string();
-    Ok((dir, sup, addr, state, cookie))
+    Ok((addr, state, cookie))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn list_filters_by_kind_and_status() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     let obs_repo = teramind_db::repos::SkillObservationRepo::new(state.pool.clone());
     use teramind_core::ids::SessionId;
@@ -96,15 +86,12 @@ async fn list_filters_by_kind_and_status() -> anyhow::Result<()> {
     let body: serde_json::Value = r.json().await?;
     let obs = body["observations"].as_array().unwrap();
     assert_eq!(obs.len(), 1);
-    assert_eq!(obs[0]["kind"], "tool_chain");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(obs[0]["kind"], "tool_chain");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn list_applies_min_freq_filter() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     let obs_repo = teramind_db::repos::SkillObservationRepo::new(state.pool.clone());
     use teramind_core::ids::SessionId;
@@ -141,15 +128,12 @@ async fn list_applies_min_freq_filter() -> anyhow::Result<()> {
         1,
         "only high-freq obs should pass min_freq=3 filter"
     );
-    assert_eq!(obs[0]["signature"], "high-freq-sig");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(obs[0]["signature"], "high-freq-sig");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn show_returns_context_blob() -> anyhow::Result<()> {
-    let (_d, sup, addr, state, cookie) = boot().await?;
+    let (addr, state, cookie) = boot().await?;
 
     let obs_repo = teramind_db::repos::SkillObservationRepo::new(state.pool.clone());
     use teramind_core::ids::SessionId;
@@ -171,8 +155,5 @@ async fn show_returns_context_blob() -> anyhow::Result<()> {
     assert_eq!(r.status(), 200);
     let body: serde_json::Value = r.json().await?;
     assert_eq!(body["context_blob"]["tool"], "bash");
-    assert_eq!(body["context_blob"]["command"], "ls -la");
-
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(body["context_blob"]["command"], "ls -la");    Ok(())
 }

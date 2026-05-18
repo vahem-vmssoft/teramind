@@ -6,12 +6,7 @@ use ed25519_dalek::SigningKey;
 use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
-use teramind_db::{
-    migrate,
-    pg_supervisor::PgSupervisor,
-    pool::DbPool,
-    repos::{DeviceRepo, UserRepo},
-};
+use teramind_db::repos::{DeviceRepo, UserRepo};
 use teramind_sync_server::auth::auth_middleware;
 use teramind_sync_server::config::*;
 use teramind_sync_server::proof::{body_hash_hex, sign, token_hash_hex, ProofClaims};
@@ -31,11 +26,8 @@ fn fresh_signing_key() -> (SigningKey, Vec<u8>) {
     (sk, pk)
 }
 
-async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, AppState)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot() -> anyhow::Result<(SocketAddr, AppState)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
@@ -59,25 +51,23 @@ async fn boot() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, 
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
-    Ok((dir, sup, addr, state))
+    Ok((addr, state))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn missing_authorization_is_401() -> anyhow::Result<()> {
-    let (_d, sup, addr, _s) = boot().await?;
+    let (addr, _s) = boot().await?;
     let r = reqwest::Client::new()
         .post(format!("http://{addr}/v1/echo"))
         .body("{}")
         .send()
         .await?;
-    assert_eq!(r.status(), 401);
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(r.status(), 401);    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn valid_bearer_plus_proof_passes() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
 
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
@@ -109,14 +99,12 @@ async fn valid_bearer_plus_proof_passes() -> anyhow::Result<()> {
         .body(body.to_vec())
         .send()
         .await?;
-    assert_eq!(r.status(), 200, "happy path must pass");
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(r.status(), 200, "happy path must pass");    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn bearer_without_proof_is_403() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
     let user = users.upsert_by_email("alice@acme.dev", None).await?;
@@ -132,14 +120,12 @@ async fn bearer_without_proof_is_403() -> anyhow::Result<()> {
         .body("{}")
         .send()
         .await?;
-    assert_eq!(r.status(), 403);
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(r.status(), 403);    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn proof_with_wrong_key_is_403() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
     let user = users.upsert_by_email("alice@acme.dev", None).await?;
@@ -174,14 +160,12 @@ async fn proof_with_wrong_key_is_403() -> anyhow::Result<()> {
         r.status(),
         403,
         "stolen token without matching key must fail"
-    );
-    sup.shutdown().await?;
-    Ok(())
+    );    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn replayed_jti_is_403() -> anyhow::Result<()> {
-    let (_d, sup, addr, state) = boot().await?;
+    let (addr, state) = boot().await?;
     let users = UserRepo::new(state.pool.clone());
     let devices = DeviceRepo::new(state.pool.clone());
     let user = users.upsert_by_email("alice@acme.dev", None).await?;
@@ -215,7 +199,5 @@ async fn replayed_jti_is_403() -> anyhow::Result<()> {
     let first = h(&proof).send().await?;
     assert_eq!(first.status(), 200);
     let second = h(&proof).send().await?;
-    assert_eq!(second.status(), 403, "replayed jti must fail");
-    sup.shutdown().await?;
-    Ok(())
+    assert_eq!(second.status(), 403, "replayed jti must fail");    Ok(())
 }
