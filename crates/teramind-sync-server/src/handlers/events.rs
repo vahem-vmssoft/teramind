@@ -96,7 +96,11 @@ async fn handle_socket(mut socket: WebSocket, mut rx: broadcast::Receiver<TeamEv
         "type": "hello",
         "server_version": crate::VERSION,
     });
-    if socket.send(Message::Text(hello.to_string().into())).await.is_err() {
+    if socket
+        .send(Message::Text(hello.to_string().into()))
+        .await
+        .is_err()
+    {
         return;
     }
     loop {
