@@ -5,7 +5,6 @@ use teramind_core::ids::{ClientEventId, SessionId};
 use teramind_core::redact::Redactor;
 use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
 use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::ingest::{IngestDeps, IngestService, IngestStats};
 use teramindd::services::jsonl_writer::JsonlWriter;
 use teramindd::services::session_manager::SessionManager;
@@ -14,11 +13,7 @@ use time::OffsetDateTime;
 #[tokio::test]
 async fn ingest_drops_when_queue_is_saturated() {
     let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
@@ -68,6 +63,4 @@ async fn ingest_drops_when_queue_is_saturated() {
     assert!(dropped > 0, "expected at least some drops with capacity=4");
     assert_eq!(stats.drops.load(Ordering::Relaxed) as u32, dropped);
     assert!(accepted + dropped == 100);
-
-    sup.shutdown().await.unwrap();
 }

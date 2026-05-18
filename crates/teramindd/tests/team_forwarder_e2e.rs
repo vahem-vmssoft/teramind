@@ -14,18 +14,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::ids::SessionId;
 use teramind_core::team::TeamConfig;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::{pool::DbPool, repos::InviteRepo};
 use teramind_sync_server::{config::*, invite::InviteCode, server::build_router, state::AppState};
 use teramindd::services::decision_cache::{DecisionCache, ShareDecision};
 use teramindd::services::team_sync::{TeamSync, TeamSyncDeps};
 use time::{Duration as TDur, OffsetDateTime};
 use uuid::Uuid;
 
-async fn boot_server() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, SocketAddr, DbPool)> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+async fn boot_server() -> anyhow::Result<(SocketAddr, DbPool)> {
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -42,7 +39,7 @@ async fn boot_server() -> anyhow::Result<(tempfile::TempDir, PgSupervisor, Socke
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
-    Ok((dir, sup, addr, pool))
+    Ok((addr, pool))
 }
 
 async fn redeem(
@@ -91,7 +88,7 @@ async fn redeem(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn forwarder_ships_allowed_sessions_to_server() -> anyhow::Result<()> {
-    let (_pg_dir, sup, addr, pool) = boot_server().await?;
+    let (addr, pool) = boot_server().await?;
     let (team_cfg, sk) = redeem(addr, &pool, "alice@acme.dev").await?;
 
     let raw_dir = tempfile::tempdir()?;
@@ -143,6 +140,5 @@ async fn forwarder_ships_allowed_sessions_to_server() -> anyhow::Result<()> {
         "session must arrive at server with user_id annotation"
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

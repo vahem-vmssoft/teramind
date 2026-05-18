@@ -31,11 +31,7 @@ impl EmbeddingProvider for AlwaysFailsProvider {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn search_marks_degraded_when_provider_fails() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let search_repo = teramind_db::repos::SearchRepo::new(pool.clone());
     let weights = teramindd::services::search::BlendWeights {
@@ -55,6 +51,5 @@ async fn search_marks_degraded_when_provider_fails() -> anyhow::Result<()> {
     )
     .await?;
     assert!(out.degraded, "embedding failure should set degraded=true");
-    sup.shutdown().await?;
     Ok(())
 }

@@ -2,7 +2,6 @@
 use std::sync::Arc;
 use teramind_core::redact::Redactor;
 use teramind_db::repos::{AgentRepo, DiffRepo, SearchRepo, SessionRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramind_ipc::client::{IpcClient, StreamClient};
 use teramind_ipc::proto::{Request, Response};
 use teramind_ipc::transport::{connect, listen};
@@ -14,11 +13,7 @@ use teramindd::services::session_manager::SessionManager;
 #[tokio::test]
 async fn status_request_returns_status_report() {
     let tmp = tempfile::tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
@@ -86,6 +81,4 @@ async fn status_request_returns_status_report() {
         Response::Status(s) => assert_eq!(s.ingest_drops_total, 0),
         other => panic!("unexpected: {:?}", other),
     }
-
-    sup.shutdown().await.unwrap();
 }

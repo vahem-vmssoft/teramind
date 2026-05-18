@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::team::TeamConfig;
 use teramind_core::team_event::TeamEvent;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::repos::InviteRepo;
 use teramind_sync_server::{config::*, invite::InviteCode, server::build_router, state::AppState};
 use teramindd::services::team_events::{TeamEvents, TeamEventsDeps};
 use time::{Duration as TDur, OffsetDateTime};
@@ -19,10 +19,7 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn ws_subscriber_receives_server_bus_event() -> anyhow::Result<()> {
-    let pg_dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(pg_dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -103,6 +100,5 @@ async fn ws_subscriber_receives_server_bus_event() -> anyhow::Result<()> {
         other => panic!("unexpected: {other:?}"),
     }
 
-    sup.shutdown().await?;
     Ok(())
 }

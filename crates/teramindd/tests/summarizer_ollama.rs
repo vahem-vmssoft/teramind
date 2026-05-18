@@ -28,11 +28,7 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
         return Ok(());
     }
 
-    let dir = tempfile::tempdir()?;
-    let sup = teramind_db::pg_supervisor::PgSupervisor::start(dir.path().to_path_buf(), "teramind")
-        .await?;
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-    teramind_db::migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let agents = AgentRepo::new(pool.clone());
     let sessions = SessionRepo::new(pool.clone());
@@ -101,7 +97,7 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
         output_token_budget: 4000,
         ..SummarizeConfig::default()
     };
-    let secrets = dir.path().join("secrets.toml");
+    let secrets = tempfile::tempdir()?.path().join("secrets.toml");
     let provider = build_provider(&cfg, &secrets)?;
 
     let _worker = SummarizerWorker::spawn(SummarizerDeps {
@@ -148,6 +144,5 @@ async fn ollama_summarizes_session_with_section_headers() -> anyhow::Result<()> 
         page.content
     );
 
-    sup.shutdown().await?;
     Ok(())
 }

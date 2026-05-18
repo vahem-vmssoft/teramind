@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use teramind_core::ids::SessionId;
 use teramind_core::team::TeamConfig;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool, repos::InviteRepo};
+use teramind_db::{pool::DbPool, repos::InviteRepo};
 use teramind_ipc::proto::{Request, Response};
 use teramind_ipc::rpc_transport::RpcTransport;
 use teramind_mcp::transport_https::HttpsTransport;
@@ -65,10 +65,7 @@ async fn redeem(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn alice_captures_bob_searches() -> anyhow::Result<()> {
-    let pg_dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(pg_dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
@@ -164,6 +161,5 @@ async fn alice_captures_bob_searches() -> anyhow::Result<()> {
         other => panic!("unexpected response: {other:?}"),
     }
 
-    sup.shutdown().await?;
     Ok(())
 }

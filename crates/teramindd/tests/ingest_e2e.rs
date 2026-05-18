@@ -4,7 +4,6 @@ use teramind_core::ids::{ClientEventId, SessionId};
 use teramind_core::redact::Redactor;
 use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
 use teramind_db::repos::{AgentRepo, DiffRepo, SessionRepo, TraceRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::services::ingest::{IngestDeps, IngestService, IngestStats};
 use teramindd::services::jsonl_writer::JsonlWriter;
 use teramindd::services::session_manager::SessionManager;
@@ -13,11 +12,7 @@ use time::OffsetDateTime;
 #[tokio::test]
 async fn ingest_session_start_then_user_prompt_writes_rows() {
     let tmp = tempdir().unwrap();
-    let sup = PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-        .await
-        .unwrap();
-    let pool = DbPool::connect(sup.connect_options()).await.unwrap();
-    migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
 
     let jsonl = Arc::new(JsonlWriter::open(tmp.path().join("raw")).await.unwrap());
     let stats = Arc::new(IngestStats::default());
@@ -90,21 +85,12 @@ async fn ingest_session_start_then_user_prompt_writes_rows() {
         !prompt.contains("AKIAIOSFODNN7EXAMPLE"),
         "secret leaked: {prompt}"
     );
-
-    sup.shutdown().await.unwrap();
 }
 
 #[tokio::test]
 async fn storage_stats_sampler_records_a_row() {
     let tmp = tempfile::tempdir().unwrap();
-    let sup =
-        teramind_db::pg_supervisor::PgSupervisor::start(tmp.path().join("pg"), "teramind_test")
-            .await
-            .unwrap();
-    let pool = teramind_db::pool::DbPool::connect(sup.connect_options())
-        .await
-        .unwrap();
-    teramind_db::migrate::run(&pool).await.unwrap();
+    let pool = teramind_db::testing::fresh_pool().await.unwrap();
     let repo = teramind_db::repos::StorageStatsRepo::new(pool.clone());
     let raw = tmp.path().join("raw");
     std::fs::create_dir_all(&raw).unwrap();
@@ -120,5 +106,4 @@ async fn storage_stats_sampler_records_a_row() {
         .await
         .unwrap();
     assert!(n >= 1);
-    sup.shutdown().await.unwrap();
 }

@@ -8,7 +8,6 @@ use teramind_core::codify::{CodifyDecision, CodifyProvider, CodifyRequest, Codif
 use teramind_core::ids::SessionId;
 use teramind_core::redact::Redactor;
 use teramind_db::repos::{SkillCandidateRepo, SkillObservationRepo, SkillRepo};
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 use teramindd::config::CodifyConfig;
 use teramindd::services::codifier_worker::{CodifierDeps, CodifierWorker};
 use uuid::Uuid;
@@ -36,10 +35,7 @@ impl CodifyProvider for AlwaysSkill {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn synthesis_then_approval_promotes() -> anyhow::Result<()> {
-    let dir = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(dir.path().to_path_buf(), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let obs = SkillObservationRepo::new(pool.clone());
     obs.upsert(
@@ -103,6 +99,5 @@ async fn synthesis_then_approval_promotes() -> anyhow::Result<()> {
             .await?;
     assert_eq!(n, 1, "candidate must be promoted");
 
-    sup.shutdown().await?;
     Ok(())
 }
