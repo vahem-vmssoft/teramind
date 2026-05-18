@@ -105,10 +105,18 @@ impl PgSupervisor {
 /// We request any compatible version (`*`) so the latest build for the
 /// running PG major version is selected automatically.
 ///
-/// The install is idempotent: if the files already exist the function
-/// uninstalls them first (registry bookkeeping) before reinstalling,
-/// so repeated `PgSupervisor::start` calls work correctly.
+/// Fast-path: if `vector.control` already exists in the extension directory
+/// the install is skipped entirely, avoiding the GitHub API call on every
+/// `PgSupervisor::start`.
 async fn install_pgvector(settings: &Settings) -> anyhow::Result<()> {
+    let marker = settings
+        .installation_dir
+        .join("share")
+        .join("extension")
+        .join("vector.control");
+    if marker.exists() {
+        return Ok(());
+    }
     let version = postgresql_extensions::VersionReq::STAR;
     postgresql_extensions::install(settings, "portal-corp", "pgvector_compiled", &version)
         .await
