@@ -122,7 +122,8 @@ async fn approve_synchronously_promotes() -> anyhow::Result<()> {
     )
     .fetch_one(state.pool.pg())
     .await?;
-    assert!(exists, "skill row must exist after approve");    Ok(())
+    assert!(exists, "skill row must exist after approve");
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -146,7 +147,8 @@ async fn second_approve_is_409() -> anyhow::Result<()> {
         .json(&serde_json::json!({}))
         .send()
         .await?;
-    assert_eq!(r2.status(), 409);    Ok(())
+    assert_eq!(r2.status(), 409);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -173,5 +175,6 @@ async fn patch_updates_body_keeps_pending() -> anyhow::Result<()> {
     assert_eq!(r2.status(), 200);
     let got: serde_json::Value = r2.json().await?;
     assert_eq!(got["body"], "updated body content");
-    assert_eq!(got["status"], "pending");    Ok(())
+    assert_eq!(got["status"], "pending");
+    Ok(())
 }

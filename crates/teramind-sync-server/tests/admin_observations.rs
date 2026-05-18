@@ -86,7 +86,8 @@ async fn list_filters_by_kind_and_status() -> anyhow::Result<()> {
     let body: serde_json::Value = r.json().await?;
     let obs = body["observations"].as_array().unwrap();
     assert_eq!(obs.len(), 1);
-    assert_eq!(obs[0]["kind"], "tool_chain");    Ok(())
+    assert_eq!(obs[0]["kind"], "tool_chain");
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -128,7 +129,8 @@ async fn list_applies_min_freq_filter() -> anyhow::Result<()> {
         1,
         "only high-freq obs should pass min_freq=3 filter"
     );
-    assert_eq!(obs[0]["signature"], "high-freq-sig");    Ok(())
+    assert_eq!(obs[0]["signature"], "high-freq-sig");
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -155,5 +157,6 @@ async fn show_returns_context_blob() -> anyhow::Result<()> {
     assert_eq!(r.status(), 200);
     let body: serde_json::Value = r.json().await?;
     assert_eq!(body["context_blob"]["tool"], "bash");
-    assert_eq!(body["context_blob"]["command"], "ls -la");    Ok(())
+    assert_eq!(body["context_blob"]["command"], "ls -la");
+    Ok(())
 }

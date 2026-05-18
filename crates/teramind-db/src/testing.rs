@@ -22,7 +22,11 @@ async fn shared() -> &'static SharedPg {
         let sup = PgSupervisor::start(data_dir.path().to_path_buf(), "postgres")
             .await
             .expect("start shared embedded PG");
-        SharedPg { sup, db_counter: AtomicU64::new(0), _data_dir: data_dir }
+        SharedPg {
+            sup,
+            db_counter: AtomicU64::new(0),
+            _data_dir: data_dir,
+        }
     })
     .await
 }

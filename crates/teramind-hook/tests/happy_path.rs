@@ -126,7 +126,8 @@ async fn hook_session_start_persists_to_postgres() {
     assert_eq!(
         count, 1,
         "expected exactly one session row with id={expected_id}"
-    );}
+    );
+}
 
 #[tokio::test]
 async fn hook_tool_call_lifecycle_persists() {
@@ -253,7 +254,8 @@ async fn hook_tool_call_lifecycle_persists() {
     let (tc_count,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM tool_calls tc JOIN turns t ON tc.turn_id=t.id WHERE t.session_id=$1 AND tc.name='Edit' AND tc.output='ok'")
         .bind(session_uuid).fetch_one(pool.pg()).await.unwrap();
-    assert_eq!(tc_count, 1);}
+    assert_eq!(tc_count, 1);
+}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn hook_session_start_emits_auto_recall_digest() {
@@ -391,4 +393,5 @@ async fn hook_session_start_emits_auto_recall_digest() {
     assert!(
         stdout.contains("Recent Teramind context") || stdout.contains("yesterday"),
         "expected auto-recall digest on stdout; got: {stdout}"
-    );}
+    );
+}

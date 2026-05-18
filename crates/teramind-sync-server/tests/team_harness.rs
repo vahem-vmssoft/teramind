@@ -5,8 +5,8 @@ use ed25519_dalek::SigningKey;
 use rand::RngExt;
 use serde_json::json;
 use std::net::SocketAddr;
-use teramind_db::repos::InviteRepo;
 use teramind_db::pool::DbPool;
+use teramind_db::repos::InviteRepo;
 use teramind_sync_server::config::*;
 use teramind_sync_server::invite::InviteCode;
 use teramind_sync_server::proof::{body_hash_hex, sign, token_hash_hex, ProofClaims};
@@ -135,7 +135,8 @@ async fn full_redeem_then_ingest_flow() -> anyhow::Result<()> {
     )
     .fetch_one(pool.pg())
     .await?;
-    assert_eq!(alice_users, 1);    Ok(())
+    assert_eq!(alice_users, 1);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -175,5 +176,6 @@ async fn stolen_token_without_key_fails_403() -> anyhow::Result<()> {
         r.status(),
         403,
         "stolen token without matching private key must fail"
-    );    Ok(())
+    );
+    Ok(())
 }

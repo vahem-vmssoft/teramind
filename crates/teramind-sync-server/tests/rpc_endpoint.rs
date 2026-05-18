@@ -114,7 +114,8 @@ async fn search_round_trips_through_rpc() -> anyhow::Result<()> {
     match parsed {
         teramind_ipc::proto::Response::SearchResults(_) => {}
         other => panic!("expected SearchResults, got {other:?}"),
-    }    Ok(())
+    }
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -132,5 +133,6 @@ async fn rpc_without_auth_is_401() -> anyhow::Result<()> {
         .body(body)
         .send()
         .await?;
-    assert_eq!(resp.status(), 401);    Ok(())
+    assert_eq!(resp.status(), 401);
+    Ok(())
 }

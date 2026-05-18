@@ -138,7 +138,8 @@ async fn ingest_with_valid_auth_lands_rows() -> anyhow::Result<()> {
     assert_eq!(
         count, 1,
         "session row must be annotated with (user_id, device_id)"
-    );    Ok(())
+    );
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -149,7 +150,8 @@ async fn ingest_without_auth_is_401() -> anyhow::Result<()> {
         .json(&sample_batch())
         .send()
         .await?;
-    assert_eq!(resp.status(), 401);    Ok(())
+    assert_eq!(resp.status(), 401);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -167,5 +169,6 @@ async fn ingest_idempotent_on_duplicate_client_event_id() -> anyhow::Result<()> 
     assert_eq!(
         s["accepted"].as_i64().unwrap() + s["duplicates"].as_i64().unwrap(),
         1
-    );    Ok(())
+    );
+    Ok(())
 }

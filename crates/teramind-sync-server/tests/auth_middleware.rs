@@ -62,7 +62,8 @@ async fn missing_authorization_is_401() -> anyhow::Result<()> {
         .body("{}")
         .send()
         .await?;
-    assert_eq!(r.status(), 401);    Ok(())
+    assert_eq!(r.status(), 401);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -99,7 +100,8 @@ async fn valid_bearer_plus_proof_passes() -> anyhow::Result<()> {
         .body(body.to_vec())
         .send()
         .await?;
-    assert_eq!(r.status(), 200, "happy path must pass");    Ok(())
+    assert_eq!(r.status(), 200, "happy path must pass");
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -120,7 +122,8 @@ async fn bearer_without_proof_is_403() -> anyhow::Result<()> {
         .body("{}")
         .send()
         .await?;
-    assert_eq!(r.status(), 403);    Ok(())
+    assert_eq!(r.status(), 403);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -160,7 +163,8 @@ async fn proof_with_wrong_key_is_403() -> anyhow::Result<()> {
         r.status(),
         403,
         "stolen token without matching key must fail"
-    );    Ok(())
+    );
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -199,5 +203,6 @@ async fn replayed_jti_is_403() -> anyhow::Result<()> {
     let first = h(&proof).send().await?;
     assert_eq!(first.status(), 200);
     let second = h(&proof).send().await?;
-    assert_eq!(second.status(), 403, "replayed jti must fail");    Ok(())
+    assert_eq!(second.status(), 403, "replayed jti must fail");
+    Ok(())
 }

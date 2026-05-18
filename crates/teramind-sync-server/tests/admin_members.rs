@@ -91,7 +91,8 @@ async fn lists_members_with_device_counts() -> anyhow::Result<()> {
         .iter()
         .find(|u| u["email"] == "alice@example.com")
         .unwrap();
-    assert_eq!(alice["device_count"], 2);    Ok(())
+    assert_eq!(alice["device_count"], 2);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -131,7 +132,8 @@ async fn creates_invite_and_returns_code_once() -> anyhow::Result<()> {
         invites[0].get("code").is_none(),
         "raw code must not appear in list response"
     );
-    assert_eq!(invites[0]["invited_email"], "bob@example.com");    Ok(())
+    assert_eq!(invites[0]["invited_email"], "bob@example.com");
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -170,5 +172,6 @@ async fn revokes_device_via_admin_endpoint() -> anyhow::Result<()> {
     assert!(
         post.is_empty(),
         "device should be revoked and absent from active list"
-    );    Ok(())
+    );
+    Ok(())
 }

@@ -123,7 +123,8 @@ async fn session_ended_event_streams_to_ws_subscriber() -> anyhow::Result<()> {
             }
         }
         other => panic!("expected text, got {other:?}"),
-    }    Ok(())
+    }
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -157,5 +158,6 @@ async fn missing_proof_is_rejected() -> anyhow::Result<()> {
         r.status() == 400 || r.status() == 401,
         "expected 400/401, got {}",
         r.status()
-    );    Ok(())
+    );
+    Ok(())
 }

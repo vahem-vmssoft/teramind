@@ -73,7 +73,8 @@ async fn happy_path_issues_token() -> anyhow::Result<()> {
         .unwrap()
         .starts_with("tmd_v1_"));
     assert!(body["user_id"].is_string());
-    assert!(body["device_id"].is_string());    Ok(())
+    assert!(body["device_id"].is_string());
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -106,7 +107,8 @@ async fn redeeming_twice_is_409() -> anyhow::Result<()> {
             .unwrap()
     };
     assert_eq!(send().await.status(), 200);
-    assert_eq!(send().await.status(), 409);    Ok(())
+    assert_eq!(send().await.status(), 409);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -133,7 +135,8 @@ async fn expired_invite_is_410() -> anyhow::Result<()> {
         }))
         .send()
         .await?;
-    assert_eq!(r.status(), 410);    Ok(())
+    assert_eq!(r.status(), 410);
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -149,5 +152,6 @@ async fn malformed_code_is_400() -> anyhow::Result<()> {
         }))
         .send()
         .await?;
-    assert_eq!(r.status(), 400);    Ok(())
+    assert_eq!(r.status(), 400);
+    Ok(())
 }

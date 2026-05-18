@@ -83,7 +83,8 @@ async fn list_returns_codified_skills_only_when_filtered() -> anyhow::Result<()>
     let body: serde_json::Value = r.json().await?;
     let skills = body["skills"].as_array().unwrap();
     assert_eq!(skills.len(), 1);
-    assert_eq!(skills[0]["source"], "codified");    Ok(())
+    assert_eq!(skills[0]["source"], "codified");
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -103,7 +104,8 @@ async fn show_returns_full_body() -> anyhow::Result<()> {
     assert_eq!(r.status(), 200);
     let body: serde_json::Value = r.json().await?;
     assert_eq!(body["name"], "my-skill");
-    assert_eq!(body["body"], "the body text");    Ok(())
+    assert_eq!(body["body"], "the body text");
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -130,5 +132,6 @@ async fn delete_removes_skill() -> anyhow::Result<()> {
         .header("Cookie", &cookie)
         .send()
         .await?;
-    assert_eq!(r2.status(), 404);    Ok(())
+    assert_eq!(r2.status(), 404);
+    Ok(())
 }
