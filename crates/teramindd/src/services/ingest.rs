@@ -124,8 +124,12 @@ impl IngestService {
 }
 
 async fn handle(d: &IngestDeps, env: EventEnvelope) -> anyhow::Result<()> {
-    d.jsonl.append(&env).await?;
+    // Redaction must run before ANY persistence (Postgres + the JSONL shadow
+    // log). The shadow log feeds both `grep_fallback` search results and the
+    // team-sync forwarder, so an unredacted append here would leak secrets
+    // through both paths.
     let redacted = redact_envelope(&d.redactor, env);
+    d.jsonl.append(&redacted).await?;
 
     let mut attempt = 0u32;
     let mut backoff = std::time::Duration::from_millis(50);

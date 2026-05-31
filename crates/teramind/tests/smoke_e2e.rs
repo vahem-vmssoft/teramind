@@ -119,6 +119,31 @@ fn cli_init_start_status_stop_smoke() {
         "status output did not contain uptime line: {status_out}"
     );
 
+    // Exercise `restart` (stop + start) and confirm the daemon comes back up.
+    // Spec §3 promises `teramind start | stop | status | restart` as a quartet
+    // of explicit user-facing controls.
+    let restart_out = Command::new(&teramind)
+        .arg("restart")
+        .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
+        .output()
+        .unwrap();
+    assert!(
+        restart_out.status.success(),
+        "restart failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&restart_out.stdout),
+        String::from_utf8_lossy(&restart_out.stderr),
+    );
+    let post_restart_status = Command::new(&teramind)
+        .arg("status")
+        .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
+        .output()
+        .unwrap();
+    assert!(
+        String::from_utf8_lossy(&post_restart_status.stdout).contains("uptime"),
+        "status after restart missing uptime: {}",
+        String::from_utf8_lossy(&post_restart_status.stdout),
+    );
+
     let _ = Command::new(&teramind)
         .arg("stop")
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
