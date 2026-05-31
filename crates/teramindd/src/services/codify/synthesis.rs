@@ -116,8 +116,14 @@ async fn bundle_context(pool: &DbPool, obs: &Observation, budget: usize) -> anyh
             }
         }
         if out.len() > budget {
-            out.truncate(budget);
-            out.push_str("\n…[truncated]");
+            const MARKER: &str = "\n…[truncated]";
+            let cap = budget.saturating_sub(MARKER.len());
+            let mut end = cap.min(out.len());
+            while end > 0 && !out.is_char_boundary(end) {
+                end -= 1;
+            }
+            out.truncate(end);
+            out.push_str(MARKER);
             break;
         }
     }

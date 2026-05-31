@@ -116,6 +116,36 @@ pub async fn approve(
         DashboardError::new(StatusCode::BAD_REQUEST, "validation_failed", "bad uuid")
     })?;
     let reviewer = body.reviewer.unwrap_or_else(|| "admin".into());
+
+    // Codifier §10: a provider-returned Skill whose name collides with an
+    // existing authored skill whose source_session_ids is disjoint is rejected
+    // synchronously, BEFORE we mark the candidate approved.
+    let collision: Option<(String, Vec<uuid::Uuid>, Vec<uuid::Uuid>)> = sqlx::query_as(
+        r#"SELECT s.source, s.source_session_ids, c.source_session_ids
+           FROM skill_candidates c
+           JOIN skills s ON s.name = c.name
+           WHERE c.id = $1"#,
+    )
+    .bind(id)
+    .fetch_optional(state.pool.pg())
+    .await
+    .map_err(|e| {
+        DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
+    })?;
+    if let Some((source, existing_sessions, candidate_sessions)) = collision {
+        if source == "authored" {
+            let existing: std::collections::HashSet<_> = existing_sessions.iter().collect();
+            let disjoint = !candidate_sessions.iter().any(|s| existing.contains(s));
+            if disjoint {
+                return Err(DashboardError::new(
+                    StatusCode::CONFLICT,
+                    "conflict",
+                    "name collision with existing authored skill",
+                ));
+            }
+        }
+    }
+
     let n = sqlx::query(
         "UPDATE skill_candidates SET status='approved', reviewer=$2, reviewed_at=now()
          WHERE id=$1 AND status='pending'",

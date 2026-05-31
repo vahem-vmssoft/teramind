@@ -13,15 +13,46 @@ use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
+/// CSP for /dashboard/* responses, per
+/// docs/superpowers/specs/2026-05-17-teramind-web-dashboard-design.md §8.
+/// `connect-src` permits same-origin WebSocket upgrades; `frame-ancestors 'none'`
+/// blocks clickjacking; inline styles are allowed because Tailwind emits some
+/// `style=` attributes for dynamic values.
+const DASHBOARD_CSP: &str = "default-src 'self'; \
+script-src 'self'; \
+style-src 'self' 'unsafe-inline'; \
+connect-src 'self' ws: wss:; \
+img-src 'self' data:; \
+object-src 'none'; \
+frame-ancestors 'none'";
+
+fn apply_dashboard_security_headers(resp: &mut axum::response::Response) {
+    resp.headers_mut().insert(
+        "content-security-policy",
+        HeaderValue::from_static(DASHBOARD_CSP),
+    );
+    resp.headers_mut()
+        .insert("x-frame-options", HeaderValue::from_static("DENY"));
+    resp.headers_mut().insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
+}
+
 async fn serve_dashboard_index() -> impl IntoResponse {
     match crate::dashboard_assets::lookup("index.html") {
         Some((bytes, ct)) => {
             let mut resp = bytes.into_response();
             resp.headers_mut()
                 .insert(header::CONTENT_TYPE, HeaderValue::from_static(ct));
+            apply_dashboard_security_headers(&mut resp);
             resp
         }
-        None => (StatusCode::NOT_FOUND, "dashboard not built").into_response(),
+        None => {
+            let mut resp = (StatusCode::NOT_FOUND, "dashboard not built").into_response();
+            apply_dashboard_security_headers(&mut resp);
+            resp
+        }
     }
 }
 
@@ -31,9 +62,14 @@ async fn serve_dashboard_asset(Path(path): Path<String>) -> impl IntoResponse {
             let mut resp = bytes.into_response();
             resp.headers_mut()
                 .insert(header::CONTENT_TYPE, HeaderValue::from_static(ct));
+            apply_dashboard_security_headers(&mut resp);
             resp
         }
-        None => (StatusCode::NOT_FOUND, "not found").into_response(),
+        None => {
+            let mut resp = (StatusCode::NOT_FOUND, "not found").into_response();
+            apply_dashboard_security_headers(&mut resp);
+            resp
+        }
     }
 }
 
