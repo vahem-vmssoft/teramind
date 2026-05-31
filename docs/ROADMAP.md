@@ -101,6 +101,10 @@ Single source of truth for post-v1.0 work. Each item links back to the spec that
 - **Hosted SaaS offering** alongside the self-hosted path. — [team-sync spec §11.4](superpowers/specs/2026-05-17-teramind-team-sync-design.md)
 - **Embeddable widgets** — iframe of "latest codified skills" for the team wiki. — [web-dashboard spec §2.2](superpowers/specs/2026-05-17-teramind-web-dashboard-design.md)
 
+### Multi-agent connectors
+
+- **Codex / Cursor / Hermes / Pi connectors.** v1 captures Claude Code only. The internal schema was designed agent-agnostic from day one (`agents.kind/version`, free-form `tool_call.input`) so adding connectors is additive work, not a migration. Each connector lands as its own follow-on spec. — [core spec §2.2](superpowers/specs/2026-05-13-teramind-core-design.md)
+
 ---
 
 ## Out of scope (not planned)
