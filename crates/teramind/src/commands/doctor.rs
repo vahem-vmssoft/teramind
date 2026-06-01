@@ -76,6 +76,10 @@ pub async fn run() -> anyhow::Result<()> {
                     println!("  summary tokens : in={it}  out={ot}");
                 }
             }
+            if let Some(obs) = s.codifier_observations_total {
+                let pending = s.codifier_candidates_pending.unwrap_or(0);
+                println!("  codifier counts: observations={obs}  candidates pending={pending}");
+            }
         }
         Ok(other) => println!("  daemon         : unexpected response {:?}", other),
         Err(_) => println!("  daemon         : not responding"),

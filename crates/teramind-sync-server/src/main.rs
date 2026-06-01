@@ -35,7 +35,12 @@ enum Cmd {
         action: MemberAction,
     },
     /// Hash a new admin password (prints config snippet to stdout).
-    AdminPassword,
+    AdminPassword {
+        /// Provide the password non-interactively (skips prompt). For scripting
+        /// and tests; interactive prompt is still preferred for humans.
+        #[arg(long)]
+        password: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -168,14 +173,20 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Cmd::AdminPassword => {
+        Cmd::AdminPassword { password } => {
             use argon2::password_hash::{rand_core::OsRng, SaltString};
             use argon2::{Argon2, PasswordHasher};
-            let p1 = rpassword::prompt_password("Enter new admin password: ")?;
-            let p2 = rpassword::prompt_password("Confirm: ")?;
-            if p1 != p2 {
-                anyhow::bail!("passwords do not match");
-            }
+            let p1 = match password {
+                Some(p) => p,
+                None => {
+                    let p1 = rpassword::prompt_password("Enter new admin password: ")?;
+                    let p2 = rpassword::prompt_password("Confirm: ")?;
+                    if p1 != p2 {
+                        anyhow::bail!("passwords do not match");
+                    }
+                    p1
+                }
+            };
             if p1.len() < 12 {
                 anyhow::bail!("password must be at least 12 characters");
             }

@@ -34,7 +34,24 @@ pub async fn list(
         .map_err(|e| {
             DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
         })?;
-    let _ = q.since; // v1: client paginates by limit only
+    // Dashboard §5: ?since=<RFC3339 ts> filters to rows newer than ts.
+    let rows: Vec<_> = if let Some(since_str) = q.since.as_deref() {
+        match time::OffsetDateTime::parse(
+            since_str,
+            &time::format_description::well_known::Rfc3339,
+        ) {
+            Ok(since_ts) => rows.into_iter().filter(|r| r.ran_at > since_ts).collect(),
+            Err(_) => {
+                return Err(DashboardError::new(
+                    StatusCode::BAD_REQUEST,
+                    "validation_failed",
+                    "since must be RFC3339",
+                ))
+            }
+        }
+    } else {
+        rows
+    };
     Ok(Json(serde_json::json!({
         "runs": rows.into_iter().map(|r| serde_json::json!({
             "id": r.id, "baseline_label": r.baseline_label, "model": r.model,
@@ -114,9 +131,33 @@ pub async fn config(
     State(state): State<AppState>,
     Extension(_): Extension<AdminSession>,
 ) -> Json<serde_json::Value> {
+    use cron::Schedule;
+    use std::str::FromStr;
+    let qcfg = state.cfg.quality.as_ref();
+    let cron_str = qcfg.and_then(|q| q.cron.clone());
+    // next_run_at: only meaningful if quality is enabled AND cron parses.
+    let next_run_at = match (qcfg.map(|q| q.enabled).unwrap_or(false), cron_str.as_ref()) {
+        (true, Some(c)) => {
+            let s = Schedule::from_str(&format!("0 {c}")).ok();
+            s.and_then(|s| s.upcoming(chrono::Utc).next())
+                .map(|t| t.to_rfc3339())
+        }
+        _ => None,
+    };
+    // last_run_at: most recent quality_runs row (across any baseline).
+    let last_run_at = state
+        .quality
+        .list_recent(None, 1)
+        .await
+        .ok()
+        .and_then(|rows| rows.into_iter().next())
+        .map(|r| r.ran_at.to_string());
+
     Json(serde_json::json!({
-        "enabled": state.cfg.quality.as_ref().map(|q| q.enabled).unwrap_or(false),
-        "cron":    state.cfg.quality.as_ref().and_then(|q| q.cron.clone()),
-        "baselines": state.cfg.quality.as_ref().map(|q| q.baselines.clone()).unwrap_or_default(),
+        "enabled": qcfg.map(|q| q.enabled).unwrap_or(false),
+        "cron":    cron_str,
+        "baselines": qcfg.map(|q| q.baselines.clone()).unwrap_or_default(),
+        "last_run_at": last_run_at,
+        "next_run_at": next_run_at,
     }))
 }

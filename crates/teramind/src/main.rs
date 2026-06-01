@@ -1,4 +1,6 @@
-use teramind::cli::{ClaudeAction, Cli, Command, SessionsAction, SkillsAction};
+use teramind::cli::{
+    ClaudeAction, Cli, Command, RedactAction, SessionsAction, SkillsAction, TeamAction,
+};
 use teramind::commands;
 
 use clap::Parser;
@@ -50,6 +52,14 @@ async fn main() -> anyhow::Result<()> {
                 status,
                 limit,
             } => commands::skills::observations(kind, min_freq, status, limit).await,
+        },
+        Command::Redact { action } => match action {
+            RedactAction::Test { input } => commands::redact::test(input).await,
+        },
+        Command::Team { action } => match action {
+            TeamAction::ShareSet { enable, disable } => {
+                commands::team::share_set(enable, disable).await
+            }
         },
     }
 }

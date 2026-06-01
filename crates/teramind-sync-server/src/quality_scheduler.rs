@@ -51,7 +51,13 @@ async fn run_loop(repo: QualityRunRepo, cfg: QualityConfig, schedule: Schedule) 
     }
 }
 
-async fn run_one(repo: &QualityRunRepo, binary: &str, baseline: &str) {
+/// Helper that runs a single eval baseline and persists a `quality_runs` row.
+///
+/// Always inserts a row — successes carry real metrics; failures (binary
+/// missing, non-zero exit, JSON parse error) carry sentinel `0.0` metrics
+/// and an `error` field in `raw_json`. Dashboard §6 requires failures be
+/// observable as rows, not just log lines.
+pub async fn run_one(repo: &QualityRunRepo, binary: &str, baseline: &str) {
     info!(baseline, "starting scheduled eval");
     // The eval CLI surface: `teramind-search-eval run --baseline-label <label> --json`
     let out = Command::new(binary)
@@ -92,32 +98,54 @@ async fn run_one(repo: &QualityRunRepo, binary: &str, baseline: &str) {
                 Err(e) => {
                     warn!(error = %e, "failed to parse eval output");
                     let raw = serde_json::json!({ "error": e.to_string(), "stdout": stdout });
-                    let _ = repo
-                        .insert(
-                            baseline,
-                            None,
-                            f64::NAN,
-                            f64::NAN,
-                            f64::NAN,
-                            f64::NAN,
-                            f64::NAN,
-                            f64::NAN,
-                            f64::NAN,
-                            0,
-                            0,
-                            serde_json::json!({}),
-                            raw,
-                            "scheduled",
-                        )
-                        .await;
+                    persist_failure(repo, baseline, raw).await;
                 }
             }
         }
         Ok(o) => {
             warn!(status = ?o.status, "eval binary returned non-zero");
+            let raw = serde_json::json!({
+                "error": format!("eval binary returned non-zero: {:?}", o.status),
+                "stderr": String::from_utf8_lossy(&o.stderr).into_owned(),
+            });
+            persist_failure(repo, baseline, raw).await;
         }
         Err(e) => {
             warn!(error = %e, baseline, "eval binary failed to spawn");
+            let raw = serde_json::json!({
+                "error": format!("eval binary failed to spawn: {e}"),
+            });
+            persist_failure(repo, baseline, raw).await;
         }
+    }
+}
+
+async fn persist_failure(
+    repo: &QualityRunRepo,
+    baseline: &str,
+    raw_json: serde_json::Value,
+) {
+    // Sentinel metrics (0.0) for failures — NaN would violate downstream
+    // validators that require finite f64 in the upload path.
+    if let Err(e) = repo
+        .insert(
+            baseline,
+            None,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0,
+            0,
+            serde_json::json!({}),
+            raw_json,
+            "scheduled",
+        )
+        .await
+    {
+        warn!(error = %e, "quality_runs failure-row insert failed");
     }
 }

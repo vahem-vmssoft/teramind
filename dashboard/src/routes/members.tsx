@@ -122,13 +122,14 @@ export function Members() {
 function DeviceList({ userId, onRevoke }: { userId: string; onRevoke: (deviceId: string) => void }) {
   const { data } = useQuery({
     queryKey: ['user-devices', userId],
-    queryFn: () => api.get<{ devices: Device[] }>(`/admin/members/${userId}/devices`),
+    queryFn: () => api.get<Device[]>(`/admin/members/${userId}/devices`),
   });
+  const devices = data ?? [];
   return (
     <tr><td colSpan={5} className="bg-neutral-50 px-4 py-2 text-xs">
-      {(data?.devices ?? []).length === 0 ? '(no active devices)' : (
+      {devices.length === 0 ? '(no active devices)' : (
         <ul className="space-y-1">
-          {(data!.devices).map(d => (
+          {devices.map(d => (
             <li key={d.id} className="flex justify-between">
               <span className="font-mono">{d.name}</span>
               <span className="text-neutral-500">{d.last_seen_at ?? 'never'}</span>

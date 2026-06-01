@@ -5,6 +5,15 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 type DeviceRow = (Uuid, Uuid, String, Vec<u8>, Option<OffsetDateTime>);
+type DeviceFullRow = (
+    Uuid,
+    Uuid,
+    String,
+    Vec<u8>,
+    Option<OffsetDateTime>,
+    OffsetDateTime,
+    Option<OffsetDateTime>,
+);
 
 fn row_to_device(r: DeviceRow) -> Device {
     Device {
@@ -13,6 +22,20 @@ fn row_to_device(r: DeviceRow) -> Device {
         name: r.2,
         public_key: r.3,
         last_seen_at: r.4,
+        created_at: None,
+        revoked_at: None,
+    }
+}
+
+fn row_full_to_device(r: DeviceFullRow) -> Device {
+    Device {
+        id: DeviceId(r.0),
+        user_id: UserId(r.1),
+        name: r.2,
+        public_key: r.3,
+        last_seen_at: r.4,
+        created_at: Some(r.5),
+        revoked_at: r.6,
     }
 }
 
@@ -28,6 +51,8 @@ pub struct Device {
     pub name: String,
     pub public_key: Vec<u8>,
     pub last_seen_at: Option<OffsetDateTime>,
+    pub created_at: Option<OffsetDateTime>,
+    pub revoked_at: Option<OffsetDateTime>,
 }
 
 impl DeviceRepo {
@@ -92,9 +117,9 @@ impl DeviceRepo {
     }
 
     pub async fn list_for_user(&self, user_id: UserId) -> Result<Vec<Device>> {
-        let rows: Vec<DeviceRow> = sqlx::query_as(
+        let rows: Vec<DeviceFullRow> = sqlx::query_as(
             r#"
-            SELECT id, user_id, name, public_key, last_seen_at
+            SELECT id, user_id, name, public_key, last_seen_at, created_at, revoked_at
             FROM   devices
             WHERE  user_id = $1 AND revoked_at IS NULL
             ORDER BY name
@@ -103,6 +128,26 @@ impl DeviceRepo {
         .bind(user_id.0)
         .fetch_all(self.pool.pg())
         .await?;
-        Ok(rows.into_iter().map(row_to_device).collect())
+        Ok(rows.into_iter().map(row_full_to_device).collect())
+    }
+
+    /// Variant that returns ALL devices for a user (including revoked ones),
+    /// for the admin dashboard members/devices listing.
+    pub async fn list_for_user_including_revoked(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<Device>> {
+        let rows: Vec<DeviceFullRow> = sqlx::query_as(
+            r#"
+            SELECT id, user_id, name, public_key, last_seen_at, created_at, revoked_at
+            FROM   devices
+            WHERE  user_id = $1
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(user_id.0)
+        .fetch_all(self.pool.pg())
+        .await?;
+        Ok(rows.into_iter().map(row_full_to_device).collect())
     }
 }

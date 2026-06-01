@@ -111,6 +111,10 @@ pub struct StatusReport {
     pub summary_input_tokens_total: Option<u64>,
     #[serde(default)]
     pub summary_output_tokens_total: Option<u64>,
+    #[serde(default)]
+    pub codifier_observations_total: Option<i64>,
+    #[serde(default)]
+    pub codifier_candidates_pending: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -34,8 +34,10 @@ pub async fn show(session_id: Option<String>, json: bool) -> anyhow::Result<()> 
             }
         }
         Response::WikiNotFound => {
-            eprintln!("teramind: no wiki page found for the given criteria.");
-            eprintln!("Run `teramind doctor` for summarizer health.");
+            eprintln!(
+                "teramind: no wiki page yet — the summarizer backlog is still pending for this session."
+            );
+            eprintln!("Run `teramind doctor` to inspect the summarizer queue and health.");
             std::process::exit(2);
         }
         Response::Error(msg) => anyhow::bail!("wiki lookup failed: {msg}"),

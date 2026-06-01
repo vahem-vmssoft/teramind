@@ -102,6 +102,41 @@ pub enum Command {
         #[command(subcommand)]
         action: SkillsAction,
     },
+    /// Redaction utilities.
+    Redact {
+        #[command(subcommand)]
+        action: RedactAction,
+    },
+    /// Team-mode utilities (markers, share toggles).
+    Team {
+        #[command(subcommand)]
+        action: TeamAction,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum RedactAction {
+    /// Preview redactions on the given input (sanity-check).
+    /// Reads from <input> if provided, otherwise stdin.
+    Test {
+        /// Optional inline input. If omitted, stdin is read.
+        input: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum TeamAction {
+    /// Flip the per-project team-share marker in `.teramind/team-share.toml`.
+    ///
+    /// Exactly one of --enable or --disable must be passed.
+    ShareSet {
+        /// Set share=true.
+        #[arg(long, conflicts_with = "disable")]
+        enable: bool,
+        /// Set share=false.
+        #[arg(long, conflicts_with = "enable")]
+        disable: bool,
+    },
 }
 
 #[derive(Debug, clap::Subcommand)]

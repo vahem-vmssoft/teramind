@@ -97,6 +97,19 @@ impl IpcServer for DaemonIpcHandler {
                     .summarizer_stats
                     .output_tokens_total
                     .load(Ordering::Relaxed);
+                // Codifier surfaces: observation count + pending candidates.
+                // Cheap COUNT(*) queries; tolerate failures (best-effort doctor data).
+                let codifier_obs_total: Option<i64> =
+                    sqlx::query_scalar::<_, i64>("SELECT count(*)::bigint FROM skill_observations")
+                        .fetch_one(self.pool.pg())
+                        .await
+                        .ok();
+                let codifier_pending: Option<i64> = sqlx::query_scalar::<_, i64>(
+                    "SELECT count(*)::bigint FROM skill_candidates WHERE status = 'pending'",
+                )
+                .fetch_one(self.pool.pg())
+                .await
+                .ok();
                 Response::Status(StatusReport {
                     uptime_seconds: self.started.elapsed().as_secs(),
                     pg_connected: true,
@@ -115,6 +128,8 @@ impl IpcServer for DaemonIpcHandler {
                     summary_written_total: Some(summary_written),
                     summary_input_tokens_total: Some(summary_in),
                     summary_output_tokens_total: Some(summary_out),
+                    codifier_observations_total: codifier_obs_total,
+                    codifier_candidates_pending: codifier_pending,
                 })
             }
             Request::Ping => Response::Pong,

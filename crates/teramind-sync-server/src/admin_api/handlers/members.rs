@@ -79,18 +79,27 @@ pub async fn user_devices(
     let id = UserId(uuid::Uuid::parse_str(&user_id).map_err(|_| {
         DashboardError::new(StatusCode::BAD_REQUEST, "validation_failed", "bad uuid")
     })?);
-    let devices = state.devices.list_for_user(id).await.map_err(|e| {
-        DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
-    })?;
+    // Dashboard §5: include revoked devices too so admins can audit history.
+    let devices = state
+        .devices
+        .list_for_user_including_revoked(id)
+        .await
+        .map_err(|e| {
+            DashboardError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
+        })?;
     let json = devices
         .into_iter()
         .map(|d| {
             serde_json::json!({
-                "id": d.id.0, "name": d.name, "last_seen_at": d.last_seen_at.map(|t| t.to_string()),
+                "id": d.id.0,
+                "name": d.name,
+                "created_at": d.created_at.map(|t| t.to_string()),
+                "last_seen_at": d.last_seen_at.map(|t| t.to_string()),
+                "revoked_at": d.revoked_at.map(|t| t.to_string()),
             })
         })
         .collect::<Vec<_>>();
-    Ok(Json(serde_json::json!({ "devices": json })))
+    Ok(Json(serde_json::Value::Array(json)))
 }
 
 pub async fn revoke_device(

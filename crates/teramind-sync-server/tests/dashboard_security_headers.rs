@@ -1,6 +1,8 @@
 //! Dashboard §8 — /dashboard/* responses carry a Content-Security-Policy header
 //! with default-src, connect-src, and frame-ancestors directives.
 
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHasher};
 use std::net::SocketAddr;
 use teramind_sync_server::config::*;
 use teramind_sync_server::server::build_router;
@@ -8,13 +10,23 @@ use teramind_sync_server::state::AppState;
 
 async fn boot() -> anyhow::Result<SocketAddr> {
     let pool = teramind_db::testing::fresh_pool().await?;
+    let salt = SaltString::generate(&mut OsRng);
+    let hash = Argon2::default()
+        .hash_password(b"hunter2hunter2", &salt)
+        .unwrap()
+        .to_string();
     let cfg = ServerConfig {
         listen_addr: "127.0.0.1:0".into(),
         database_url: "ignored".into(),
         tls: None,
         auth: AuthConfig::default(),
         ingest: IngestConfig::default(),
-        admin: None,
+        admin: Some(AdminConfig {
+            admin_password_hash: hash,
+            admin_session_secret: "ab".repeat(32),
+            admin_session_ttl_hours: 12,
+            event_log_retention_days: 90,
+        }),
         quality: None,
     };
     let state = AppState::new(pool, cfg);

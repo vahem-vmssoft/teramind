@@ -74,20 +74,31 @@ async fn serve_dashboard_asset(Path(path): Path<String>) -> impl IntoResponse {
 }
 
 pub fn build_router(state: AppState) -> Router {
-    let public = Router::new()
+    // Dashboard §2: when [admin] is absent, the entire dashboard surface
+    // (both /admin/* and /dashboard/*) is omitted — those paths fall through
+    // to 404 like any unregistered route.
+    let admin_enabled = state.cfg.admin.is_some();
+    let mut public = Router::new()
         .route("/v1/health", get(handlers::health::health))
         .route("/v1/version", get(handlers::health::version))
         .route("/v1/auth/redeem", post(handlers::redeem::redeem))
-        .route("/v1/events", get(handlers::events::events))
-        .route("/dashboard", axum::routing::get(serve_dashboard_index))
-        .route(
-            "/dashboard/{*path}",
-            axum::routing::get(serve_dashboard_asset),
-        );
+        .route("/v1/events", get(handlers::events::events));
+    if admin_enabled {
+        public = public
+            .route("/dashboard", axum::routing::get(serve_dashboard_index))
+            .route(
+                "/dashboard/{*path}",
+                axum::routing::get(serve_dashboard_asset),
+            );
+    }
     let authed = Router::new()
         .route("/v1/ingest", post(handlers::ingest::ingest))
         .route("/v1/rpc", post(handlers::rpc::rpc))
-        .layer(axum::middleware::from_fn_with_state(
+        // route_layer (not layer) so the middleware applies ONLY to matched
+        // routes here, not to the merged-router fallback — otherwise a request
+        // to an unrouted path (e.g. /admin/login when admin is disabled) would
+        // still pass through auth_middleware and return 401 instead of 404.
+        .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::auth::auth_middleware,
         ));
@@ -194,17 +205,16 @@ pub fn build_router(state: AppState) -> Router {
             "/admin/health",
             axum::routing::get(crate::admin_api::handlers::health::health),
         )
-        .layer(axum::middleware::from_fn_with_state(
+        .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::admin_api::auth::admin_middleware,
         ));
-    let admin = admin_public.merge(admin_authed);
-
-    public
-        .merge(authed)
-        .merge(admin)
-        .with_state(state)
-        .layer(TraceLayer::new_for_http())
+    let mut app = public.merge(authed);
+    if admin_enabled {
+        let admin = admin_public.merge(admin_authed);
+        app = app.merge(admin);
+    }
+    app.with_state(state).layer(TraceLayer::new_for_http())
 }
 
 pub async fn serve(state: AppState, addr: SocketAddr) -> anyhow::Result<()> {
