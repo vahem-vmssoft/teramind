@@ -18,14 +18,20 @@ pub async fn run(
 ) -> anyhow::Result<()> {
     let cutoff = time::OffsetDateTime::now_utc() - window;
 
-    // Pull turns + their associated diffs.
+    // Pull turns + their associated diffs in a single pass. Earlier shape used
+    // a correlated subquery per row which scaled O(turns) round-trips and blew
+    // the perf budget at ~5k turns; the LEFT JOIN + GROUP BY here is one scan.
     let rows: Vec<(uuid::Uuid, uuid::Uuid, Option<String>, Option<String>)> = sqlx::query_as(
         r#"
-        SELECT t.session_id, t.id AS turn_id, t.user_prompt,
-               (SELECT string_agg(d.unified_diff, chr(10)) FROM file_diffs d WHERE d.turn_id = t.id) AS diff_agg
+        SELECT t.session_id,
+               t.id AS turn_id,
+               t.user_prompt,
+               string_agg(d.unified_diff, chr(10)) AS diff_agg
         FROM   turns t
+        LEFT JOIN file_diffs d ON d.turn_id = t.id
         WHERE  t.started_at >= $1
           AND  t.user_prompt IS NOT NULL
+        GROUP BY t.session_id, t.id, t.user_prompt
         "#)
         .bind(cutoff).fetch_all(pool.pg()).await?;
 
