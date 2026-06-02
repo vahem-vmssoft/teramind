@@ -24,6 +24,7 @@ uuid        = { workspace = true }
 time        = { workspace = true }
 async-trait = { workspace = true }
 tempfile    = { workspace = true }
+libc        = { workspace = true }
 
 [dev-dependencies]
 anyhow   = { workspace = true }

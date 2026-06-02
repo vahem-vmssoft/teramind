@@ -4553,6 +4553,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "libc",
  "pgvector",
  "postgresql_embedded",
  "postgresql_extensions",
