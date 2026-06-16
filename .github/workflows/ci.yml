@@ -6,11 +6,25 @@ on:
 
 jobs:
   lint-and-test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-14]
+    runs-on: ubuntu-24.04
+    # Postgres + pgvector available at localhost:5432 for the duration of the
+    # job. Tests set TERAMIND_TEST_PG_URL so the shared fixture uses this
+    # instead of bootstrapping embedded PG (which is slow + needs network
+    # access to GitHub releases for the binary tarball).
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -23,14 +37,23 @@ jobs:
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: unit tests
+        env:
+          TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
+          # Used by any test path that still spins up embedded PG (e.g. the
+          # teramind-search-eval corpus test, which uses PgSupervisor
+          # directly). Without it, the postgresql_embedded binary download
+          # from GitHub releases hits the 60-req/hr unauthenticated quota.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cargo test --workspace --lib --bins
       - name: integration tests
-        run: cargo test --workspace --test '*'
         env:
+          TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TERAMIND_LOG: warn
+        run: cargo test --workspace --test '*'
 
   lint-scripts:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck install.sh
