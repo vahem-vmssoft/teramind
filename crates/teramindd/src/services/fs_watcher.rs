@@ -350,12 +350,30 @@ mod tests {
             .unwrap();
         // Modify the file.
         std::fs::write(dir.path().join("a.rs"), "y").unwrap();
-        // Wait briefly for notify to fire.
-        let evt = tokio::time::timeout(Duration::from_secs(2), rx.recv())
-            .await
-            .expect("timed out")
-            .expect("channel closed");
-        assert!(evt.abs_path.ends_with("a.rs"), "got {:?}", evt.abs_path);
+        // macOS FSEvents on CI runners coalesces and sometimes emits a parent
+        // directory event before (or instead of) the file event — drain
+        // received events until we see the one for `a.rs` or hit the timeout.
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut got_file_event = false;
+        let mut seen: Vec<std::path::PathBuf> = Vec::new();
+        while std::time::Instant::now() < deadline {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            match tokio::time::timeout(remaining, rx.recv()).await {
+                Ok(Some(evt)) => {
+                    seen.push(evt.abs_path.clone());
+                    if evt.abs_path.ends_with("a.rs") {
+                        got_file_event = true;
+                        break;
+                    }
+                }
+                Ok(None) => break,
+                Err(_) => break,
+            }
+        }
+        assert!(
+            got_file_event,
+            "no event for a.rs within 5s; saw paths: {seen:?}"
+        );
     }
 
     #[tokio::test]
