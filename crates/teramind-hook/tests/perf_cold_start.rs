@@ -88,23 +88,18 @@ async fn perf_hook_cold_start_p99() {
     let sock = tmp.path().join("hook-perf.sock");
     let listener = teramind_ipc::transport::listen(&sock).expect("bind mock IPC socket");
     let accept_task = tokio::spawn(async move {
-        loop {
-            match listener.accept().await {
-                Ok((mut stream, _)) => {
-                    // Drain in background so each connection doesn't block accept.
-                    tokio::spawn(async move {
-                        use tokio::io::AsyncReadExt;
-                        let mut buf = [0u8; 4096];
-                        loop {
-                            match stream.read(&mut buf).await {
-                                Ok(0) | Err(_) => break,
-                                Ok(_) => continue,
-                            }
-                        }
-                    });
+        while let Ok((mut stream, _)) = listener.accept().await {
+            // Drain in background so each connection doesn't block accept.
+            tokio::spawn(async move {
+                use tokio::io::AsyncReadExt;
+                let mut buf = [0u8; 4096];
+                loop {
+                    match stream.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => continue,
+                    }
                 }
-                Err(_) => break,
-            }
+            });
         }
     });
 

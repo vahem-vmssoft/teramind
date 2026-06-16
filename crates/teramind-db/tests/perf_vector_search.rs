@@ -128,7 +128,7 @@ async fn perf_vector_search_turns_p99_under_50ms() {
     // Seed N turns + embeddings in batches so the transaction in bulk_insert stays
     // a reasonable size (HNSW build cost goes up roughly with rows; chunking keeps
     // memory bounded and avoids one giant tx).
-    let mut rng = Lcg::new(0xC0FFEE_DEAD_BEEF);
+    let mut rng = Lcg::new(0x00C0_FFEE_DEAD_BEEF);
     let batch: usize = 500;
     let started = Instant::now();
     let now = OffsetDateTime::now_utc();
