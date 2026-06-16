@@ -91,7 +91,15 @@ async fn worker_backs_off_on_outage_then_recovers() -> anyhow::Result<()> {
         )
         .await?;
     trace
-        .finalize_turn(tid, OffsetDateTime::now_utc(), Some("a"), None, None, None, None)
+        .finalize_turn(
+            tid,
+            OffsetDateTime::now_utc(),
+            Some("a"),
+            None,
+            None,
+            None,
+            None,
+        )
         .await?;
 
     let repo = EmbeddingRepo::new(pool.clone());
@@ -131,7 +139,10 @@ async fn worker_backs_off_on_outage_then_recovers() -> anyhow::Result<()> {
             break;
         }
     }
-    assert!(saw_error, "errors must increment while provider is unhealthy");
+    assert!(
+        saw_error,
+        "errors must increment while provider is unhealthy"
+    );
 
     // Wait for backlog to drain.
     for _ in 0..50 {

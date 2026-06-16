@@ -59,9 +59,8 @@ async fn sessions_show_without_wiki_prints_pending_message() {
         String::from_utf8_lossy(&out.stderr)
     )
     .to_lowercase();
-    let actionable = combined.contains("pending")
-        || combined.contains("backlog")
-        || combined.contains("doctor");
+    let actionable =
+        combined.contains("pending") || combined.contains("backlog") || combined.contains("doctor");
     assert!(
         actionable,
         "stdout/stderr should mention pending/backlog/doctor; got:\n{combined}"

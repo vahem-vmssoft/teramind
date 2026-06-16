@@ -83,7 +83,9 @@ async fn logout_clears_session_cookie() -> anyhow::Result<()> {
     );
     let clears = set_cookie.contains("Max-Age=0")
         || set_cookie.contains("max-age=0")
-        || set_cookie.to_ascii_lowercase().contains("expires=thu, 01 jan 1970");
+        || set_cookie
+            .to_ascii_lowercase()
+            .contains("expires=thu, 01 jan 1970");
     assert!(
         clears,
         "logout Set-Cookie should clear the session (Max-Age=0 or past Expires): {set_cookie}"

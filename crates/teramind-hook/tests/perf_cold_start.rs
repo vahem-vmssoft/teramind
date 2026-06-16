@@ -57,9 +57,7 @@ async fn perf_hook_cold_start_p99() {
     let _pool = match teramind_db::testing::fresh_pool().await {
         Ok(p) => p,
         Err(e) => {
-            eprintln!(
-                "perf_hook_cold_start_p99: SKIPPED — could not seed fresh_pool: {e}"
-            );
+            eprintln!("perf_hook_cold_start_p99: SKIPPED — could not seed fresh_pool: {e}");
             return;
         }
     };
@@ -125,10 +123,7 @@ async fn perf_hook_cold_start_p99() {
             .env("TERAMIND_HOOK_NO_SPAWN", "1")
             .env("HOME", tmp.path())
             .env("XDG_DATA_HOME", &xdg)
-            .env(
-                "XDG_CONFIG_HOME",
-                tmp.path().join(format!("xdg-cfg-{i}")),
-            )
+            .env("XDG_CONFIG_HOME", tmp.path().join(format!("xdg-cfg-{i}")))
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::null())

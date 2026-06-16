@@ -20,12 +20,11 @@ pub async fn health(
         .fetch_one(state.pool.pg())
         .await
         .is_ok();
-    let backlog: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM skill_candidates WHERE status='pending'",
-    )
-    .fetch_one(state.pool.pg())
-    .await
-    .unwrap_or(0);
+    let backlog: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM skill_candidates WHERE status='pending'")
+            .fetch_one(state.pool.pg())
+            .await
+            .unwrap_or(0);
     let uptime = process_start().elapsed().as_secs();
     Json(serde_json::json!({
         "db": if db_ok { "ok" } else { "down" },

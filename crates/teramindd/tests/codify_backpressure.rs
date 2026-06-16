@@ -57,7 +57,12 @@ async fn synthesis_skipped_when_pending_at_cap() -> anyhow::Result<()> {
     // Seed a SECOND observation (for the pre-existing pending candidate).
     let other_sids: Vec<SessionId> = (0..3).map(|_| SessionId(Uuid::new_v4())).collect();
     obs_repo
-        .upsert("tool_chain", "other-sig", &other_sids, serde_json::json!({}))
+        .upsert(
+            "tool_chain",
+            "other-sig",
+            &other_sids,
+            serde_json::json!({}),
+        )
         .await?;
     let other_obs = obs_repo
         .find_by_sig("tool_chain", "other-sig")

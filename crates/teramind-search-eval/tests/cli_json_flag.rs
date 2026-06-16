@@ -87,7 +87,9 @@ fn json_flag_emits_single_quality_run_output_object() {
     let trimmed = stdout.trim();
     let parsed: serde_json::Value =
         serde_json::from_str(trimmed).unwrap_or_else(|e| panic!("stdout not JSON: {e}\n{trimmed}"));
-    let obj = parsed.as_object().expect("top-level JSON must be an object");
+    let obj = parsed
+        .as_object()
+        .expect("top-level JSON must be an object");
 
     // QualityRunOutput contract — fields documented in teramind_core::quality.
     for key in [

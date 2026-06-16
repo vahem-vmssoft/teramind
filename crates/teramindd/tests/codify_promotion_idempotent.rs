@@ -78,11 +78,10 @@ async fn promote_is_idempotent_after_crash() -> anyhow::Result<()> {
     assert_eq!(body, "the body", "ON CONFLICT DO UPDATE rewrote body");
 
     // (b) candidate transitions to 'promoted'.
-    let (status,): (String,) =
-        sqlx::query_as("SELECT status FROM skill_candidates WHERE id=$1")
-            .bind(cand_id.0)
-            .fetch_one(pool.pg())
-            .await?;
+    let (status,): (String,) = sqlx::query_as("SELECT status FROM skill_candidates WHERE id=$1")
+        .bind(cand_id.0)
+        .fetch_one(pool.pg())
+        .await?;
     assert_eq!(status, "promoted");
 
     Ok(())

@@ -106,7 +106,11 @@ async fn ingest_event_to_pg_committed_p99_under_50ms() {
     let mut baseline: i64 = current_turn_count(&pool).await;
     for i in 0..N {
         let ordinal = (i as i32) + 1; // 0 used by warmup
-        let env = make_user_prompt(session_id, ordinal, now + time::Duration::milliseconds(i as i64));
+        let env = make_user_prompt(
+            session_id,
+            ordinal,
+            now + time::Duration::milliseconds(i as i64),
+        );
         let start = Instant::now();
         svc.try_enqueue(env).unwrap();
         // Poll for commit: turn count must increment by 1.

@@ -120,11 +120,7 @@ pub async fn run_one(repo: &QualityRunRepo, binary: &str, baseline: &str) {
     }
 }
 
-async fn persist_failure(
-    repo: &QualityRunRepo,
-    baseline: &str,
-    raw_json: serde_json::Value,
-) {
+async fn persist_failure(repo: &QualityRunRepo, baseline: &str, raw_json: serde_json::Value) {
     // Sentinel metrics (0.0) for failures — NaN would violate downstream
     // validators that require finite f64 in the upload path.
     if let Err(e) = repo

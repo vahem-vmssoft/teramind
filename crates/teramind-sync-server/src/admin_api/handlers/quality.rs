@@ -36,10 +36,8 @@ pub async fn list(
         })?;
     // Dashboard §5: ?since=<RFC3339 ts> filters to rows newer than ts.
     let rows: Vec<_> = if let Some(since_str) = q.since.as_deref() {
-        match time::OffsetDateTime::parse(
-            since_str,
-            &time::format_description::well_known::Rfc3339,
-        ) {
+        match time::OffsetDateTime::parse(since_str, &time::format_description::well_known::Rfc3339)
+        {
             Ok(since_ts) => rows.into_iter().filter(|r| r.ran_at > since_ts).collect(),
             Err(_) => {
                 return Err(DashboardError::new(

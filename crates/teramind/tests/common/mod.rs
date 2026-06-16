@@ -55,7 +55,9 @@ impl DaemonHandle {
 /// Mirrors `teramindd::app::derive_db_name`.
 pub fn derive_db_name(data_dir: &Path) -> String {
     use sha2::{Digest, Sha256};
-    let canonical = data_dir.canonicalize().unwrap_or_else(|_| data_dir.to_path_buf());
+    let canonical = data_dir
+        .canonicalize()
+        .unwrap_or_else(|_| data_dir.to_path_buf());
     let mut h = Sha256::new();
     h.update(canonical.to_string_lossy().as_bytes());
     let digest = h.finalize();

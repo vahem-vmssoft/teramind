@@ -133,10 +133,7 @@ impl DeviceRepo {
 
     /// Variant that returns ALL devices for a user (including revoked ones),
     /// for the admin dashboard members/devices listing.
-    pub async fn list_for_user_including_revoked(
-        &self,
-        user_id: UserId,
-    ) -> Result<Vec<Device>> {
+    pub async fn list_for_user_including_revoked(&self, user_id: UserId) -> Result<Vec<Device>> {
         let rows: Vec<DeviceFullRow> = sqlx::query_as(
             r#"
             SELECT id, user_id, name, public_key, last_seen_at, created_at, revoked_at

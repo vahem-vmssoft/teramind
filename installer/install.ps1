@@ -1,16 +1,16 @@
 # Teramind installer (Windows). Idempotent.
 #
 # Environment overrides (all optional):
-#   $env:TERAMIND_VERSION         — version tag to install
-#   $env:TERAMIND_RELEASE_BASE    — base URL for releases (default: https://get.teramind.dev)
-#   $env:TERAMIND_INSTALL_ROOT    — where binaries go (default: $env:LOCALAPPDATA\teramind)
-#   $env:TERAMIND_NO_MODIFY_PATH  — skip user PATH prepend (default: unset)
+#   $env:TERAMIND_VERSION         -- version tag to install
+#   $env:TERAMIND_RELEASE_BASE    -- base URL for releases (default: https://get.teramind.dev)
+#   $env:TERAMIND_INSTALL_ROOT    -- where binaries go (default: $env:LOCALAPPDATA\teramind)
+#   $env:TERAMIND_NO_MODIFY_PATH  -- skip user PATH prepend (default: unset)
 
 #Requires -Version 5
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Write-Info($msg) { Write-Host "install.ps1: $msg" }
+function Write-Info($msg) { Write-Information "install.ps1: $msg" -InformationAction Continue }
 function Die($msg) { Write-Error "install.ps1: $msg"; exit 1 }
 
 function Get-Triple {
@@ -27,7 +27,7 @@ function Resolve-Version($base) {
     return $idx.latest
 }
 
-function Verify-Sha256($file, $expected) {
+function Test-Sha256($file, $expected) {
     $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
     if ($actual -ne $expected.ToLower()) {
         Die "checksum mismatch for $file (expected $expected, got $actual)"
@@ -60,7 +60,7 @@ try {
     $Line = Get-Content $SumsPath | Where-Object { $_ -match [regex]::Escape($ArchiveName) } | Select-Object -First 1
     if (-not $Line) { Die "no SHA256 entry for $ArchiveName in SHA256SUMS" }
     $Expected = ($Line -split '\s+')[0]
-    Verify-Sha256 $ArchivePath $Expected
+    Test-Sha256 $ArchivePath $Expected
 
     New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
     Expand-Archive -Path $ArchivePath -DestinationPath $BinDir -Force

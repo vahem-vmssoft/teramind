@@ -116,11 +116,10 @@ async fn provider_swap_reembeds_without_touching_old_rows() -> anyhow::Result<()
     assert_eq!(repo.backlog("modelA").await?, 0);
     worker_a.abort();
 
-    let (rows_a,): (i64,) = sqlx::query_as(
-        "SELECT count(*) FROM embeddings WHERE model='modelA' AND item_kind='turn'",
-    )
-    .fetch_one(pool.pg())
-    .await?;
+    let (rows_a,): (i64,) =
+        sqlx::query_as("SELECT count(*) FROM embeddings WHERE model='modelA' AND item_kind='turn'")
+            .fetch_one(pool.pg())
+            .await?;
     assert_eq!(rows_a, 2, "modelA must have produced 2 turn rows");
 
     // Now spawn a worker against the SAME pool with modelB.
@@ -147,18 +146,17 @@ async fn provider_swap_reembeds_without_touching_old_rows() -> anyhow::Result<()
         sqlx::query_as("SELECT count(*) FROM embeddings WHERE model='modelA'")
             .fetch_one(pool.pg())
             .await?;
-    assert_eq!(
-        rows_a_after, 2,
-        "modelA rows must be untouched by the swap"
-    );
+    assert_eq!(rows_a_after, 2, "modelA rows must be untouched by the swap");
 
     // (b) New modelB rows exist keyed by the same item_ids.
-    let (rows_b,): (i64,) = sqlx::query_as(
-        "SELECT count(*) FROM embeddings WHERE model='modelB' AND item_kind='turn'",
-    )
-    .fetch_one(pool.pg())
-    .await?;
-    assert_eq!(rows_b, 2, "modelB must have produced rows for the same turns");
+    let (rows_b,): (i64,) =
+        sqlx::query_as("SELECT count(*) FROM embeddings WHERE model='modelB' AND item_kind='turn'")
+            .fetch_one(pool.pg())
+            .await?;
+    assert_eq!(
+        rows_b, 2,
+        "modelB must have produced rows for the same turns"
+    );
 
     let (shared,): (i64,) = sqlx::query_as(
         r#"SELECT count(*) FROM embeddings a JOIN embeddings b
@@ -170,10 +168,9 @@ async fn provider_swap_reembeds_without_touching_old_rows() -> anyhow::Result<()
     assert_eq!(shared, 2, "every turn must have one row per model");
 
     // (c) UNIQUE(item_kind, item_id, model) honoured: total rows = 4 for two turns.
-    let (total,): (i64,) =
-        sqlx::query_as("SELECT count(*) FROM embeddings WHERE item_kind='turn'")
-            .fetch_one(pool.pg())
-            .await?;
+    let (total,): (i64,) = sqlx::query_as("SELECT count(*) FROM embeddings WHERE item_kind='turn'")
+        .fetch_one(pool.pg())
+        .await?;
     assert_eq!(total, 4);
 
     Ok(())

@@ -103,7 +103,15 @@ async fn perf_problem_fix_detector_p99_under_1s() {
                 return;
             }
             if let Err(e) = trace
-                .finalize_turn(tid, started, Some("Fixed."), None, Some("claude"), None, None)
+                .finalize_turn(
+                    tid,
+                    started,
+                    Some("Fixed."),
+                    None,
+                    Some("claude"),
+                    None,
+                    None,
+                )
                 .await
             {
                 eprintln!("perf_detector_problem_fix: skipping — finalize_turn failed: {e}");

@@ -26,18 +26,17 @@ async fn traces_fts_refresh_concurrently_p99_under_30s() {
     };
 
     // Seed an agent so each session has a valid FK.
-    let (agent_id,): (uuid::Uuid,) = match sqlx::query_as(
-        "INSERT INTO agents (kind) VALUES ('claude_code') RETURNING id",
-    )
-    .fetch_one(pool.pg())
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("perf-traces-fts-refresh-p99: cannot insert agent ({e}); skipping");
-            return;
-        }
-    };
+    let (agent_id,): (uuid::Uuid,) =
+        match sqlx::query_as("INSERT INTO agents (kind) VALUES ('claude_code') RETURNING id")
+            .fetch_one(pool.pg())
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("perf-traces-fts-refresh-p99: cannot insert agent ({e}); skipping");
+                return;
+            }
+        };
 
     // Bulk-seed sessions in a single transaction for speed.
     let mut tx = match pool.pg().begin().await {
@@ -154,9 +153,7 @@ async fn traces_fts_refresh_concurrently_p99_under_30s() {
             .execute(pool.pg())
             .await
         {
-            panic!(
-                "perf-traces-fts-refresh-p99: REFRESH CONCURRENTLY failed at iter {i}: {e}"
-            );
+            panic!("perf-traces-fts-refresh-p99: REFRESH CONCURRENTLY failed at iter {i}: {e}");
         }
         samples.push(start.elapsed());
     }

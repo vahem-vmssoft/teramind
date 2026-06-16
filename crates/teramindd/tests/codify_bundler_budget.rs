@@ -68,8 +68,14 @@ async fn bundler_respects_char_budget_and_prefers_wiki() -> anyhow::Result<()> {
         })
         .await?;
     let wiki_marker = "WIKI_MARKER_SESSION_ZERO_SIGNAL_DENSE";
-    wiki.upsert(s0, "m", &format!("# wiki\n{wiki_marker} {}\n", "x".repeat(800)), 0, 0)
-        .await?;
+    wiki.upsert(
+        s0,
+        "m",
+        &format!("# wiki\n{wiki_marker} {}\n", "x".repeat(800)),
+        0,
+        0,
+    )
+    .await?;
     sids.push(SessionId(s0.0));
 
     // Sessions 1..4: large turns → lower-signal, expected to be dropped under tight budget.

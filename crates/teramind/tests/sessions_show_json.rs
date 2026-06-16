@@ -68,8 +68,20 @@ async fn sessions_show_json_emits_expected_fields() {
     );
     let v: serde_json::Value = serde_json::from_str(stdout.trim())
         .unwrap_or_else(|e| panic!("stdout not valid JSON ({e}):\n{stdout}"));
-    assert!(v.get("session_id").and_then(|x| x.as_str()).is_some(), "session_id missing/non-string in {v}");
-    assert!(v.get("content").and_then(|x| x.as_str()).is_some(), "content missing/non-string in {v}");
-    assert!(v.get("model").and_then(|x| x.as_str()).is_some(), "model missing/non-string in {v}");
-    assert!(v.get("generated_at").is_some(), "generated_at missing in {v}");
+    assert!(
+        v.get("session_id").and_then(|x| x.as_str()).is_some(),
+        "session_id missing/non-string in {v}"
+    );
+    assert!(
+        v.get("content").and_then(|x| x.as_str()).is_some(),
+        "content missing/non-string in {v}"
+    );
+    assert!(
+        v.get("model").and_then(|x| x.as_str()).is_some(),
+        "model missing/non-string in {v}"
+    );
+    assert!(
+        v.get("generated_at").is_some(),
+        "generated_at missing in {v}"
+    );
 }

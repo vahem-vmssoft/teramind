@@ -71,12 +71,11 @@ impl App {
                 let admin_opts: PgConnectOptions = url.parse().context("parse TERAMIND_PG_URL")?;
                 let db_name = derive_db_name(&paths.pgdata_dir);
                 let admin_pool = DbPool::connect(admin_opts.clone()).await?;
-                let (exists,): (bool,) = sqlx::query_as(
-                    "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)",
-                )
-                .bind(&db_name)
-                .fetch_one(admin_pool.pg())
-                .await?;
+                let (exists,): (bool,) =
+                    sqlx::query_as("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)")
+                        .bind(&db_name)
+                        .fetch_one(admin_pool.pg())
+                        .await?;
                 if !exists {
                     sqlx::query(&format!("CREATE DATABASE \"{db_name}\""))
                         .execute(admin_pool.pg())
@@ -376,7 +375,9 @@ fn derive_db_name(data_dir: &std::path::Path) -> String {
     // Deterministic per-instance DB name. Hash the canonicalized path so
     // different daemons on the same external PG don't collide.
     use sha2::{Digest, Sha256};
-    let canonical = data_dir.canonicalize().unwrap_or_else(|_| data_dir.to_path_buf());
+    let canonical = data_dir
+        .canonicalize()
+        .unwrap_or_else(|_| data_dir.to_path_buf());
     let mut h = Sha256::new();
     h.update(canonical.to_string_lossy().as_bytes());
     let digest = h.finalize();

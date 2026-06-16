@@ -53,10 +53,7 @@ fn every_15_minutes_fires_within_15min() {
         "next */15 fire must be within 15 minutes of 12:07:30 base, got {delta:?}"
     );
     // From 12:07:30, the next */15 boundary is 12:15:00.
-    assert_eq!(
-        next,
-        Utc.with_ymd_and_hms(2026, 6, 1, 12, 15, 0).unwrap(),
-    );
+    assert_eq!(next, Utc.with_ymd_and_hms(2026, 6, 1, 12, 15, 0).unwrap(),);
 }
 
 #[test]

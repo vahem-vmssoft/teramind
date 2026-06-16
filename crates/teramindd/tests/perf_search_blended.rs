@@ -12,7 +12,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use teramind_core::embed::{DistanceMetric, EmbedError, EmbeddingProvider, ProviderKind};
 use teramind_core::types::SearchRequest;
-use teramind_db::repos::{AgentRepo, EmbeddingRepo, SearchRepo, SessionRepo, ToEmbedRow, TraceRepo};
+use teramind_db::repos::{
+    AgentRepo, EmbeddingRepo, SearchRepo, SessionRepo, ToEmbedRow, TraceRepo,
+};
 use teramindd::services::search::{self, BlendWeights};
 
 const MODEL: &str = "perf:mock-768";
@@ -162,7 +164,9 @@ async fn blended_search_p95_under_1s() {
     // ANALYZE so the planner picks reasonable plans for the seeded data.
     let _ = sqlx::query("ANALYZE").execute(pool.pg()).await;
 
-    let provider: Arc<dyn EmbeddingProvider> = Arc::new(MockRandomProvider { rng_seed: 0xBADC0DE });
+    let provider: Arc<dyn EmbeddingProvider> = Arc::new(MockRandomProvider {
+        rng_seed: 0xBADC0DE,
+    });
     let repo = SearchRepo::new(pool.clone());
     let weights = BlendWeights {
         fts: 0.6,
@@ -190,7 +194,10 @@ async fn blended_search_p95_under_1s() {
             .expect("do_search failed");
         samples.push(start.elapsed());
         // Sanity: with semantic=0.4 the provider returned vectors → not degraded.
-        assert!(!out.degraded, "search degraded despite provider returning vectors");
+        assert!(
+            !out.degraded,
+            "search degraded despite provider returning vectors"
+        );
     }
 
     samples.sort();

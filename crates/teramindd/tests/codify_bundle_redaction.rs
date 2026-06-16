@@ -91,7 +91,15 @@ async fn redactor_strips_secrets_from_bundled_context() -> anyhow::Result<()> {
                 )
                 .await?;
             trace
-                .finalize_turn(tid, started, Some(&format!("assistant {SECRET}")), None, None, None, None)
+                .finalize_turn(
+                    tid,
+                    started,
+                    Some(&format!("assistant {SECRET}")),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
                 .await?;
         }
         sids.push(SessionId(sid.0));

@@ -19,9 +19,7 @@ async fn sessions_show_by_id_prints_wiki_markdown() {
         return;
     }
     let h = boot_daemon();
-    let pool = connect_daemon_db(&h)
-        .await
-        .expect("connect to daemon DB");
+    let pool = connect_daemon_db(&h).await.expect("connect to daemon DB");
 
     let session_id = SessionId::new();
     let body = format!("# Wiki body marker {}", uuid::Uuid::new_v4());

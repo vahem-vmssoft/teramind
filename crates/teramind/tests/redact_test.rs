@@ -27,7 +27,7 @@ fn cargo_bin(name: &str) -> std::path::PathBuf {
             };
             std::path::PathBuf::from(target).join(profile).join(name)
         })
-    }
+}
 
 #[test]
 fn redact_test_masks_aws_access_key() {

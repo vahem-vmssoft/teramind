@@ -70,11 +70,7 @@ async fn approve_rejected_on_authored_name_collision() -> anyhow::Result<()> {
     // 1. Pre-seed an authored skill (empty source_session_ids).
     let skill_repo = teramind_db::repos::SkillRepo::new(state.pool.clone());
     skill_repo
-        .upsert_authored(
-            "rust-pr-prep",
-            "author-written guide",
-            "checklist body",
-        )
+        .upsert_authored("rust-pr-prep", "author-written guide", "checklist body")
         .await?;
 
     // 2. Insert a pending candidate with the SAME name but a disjoint
@@ -112,7 +108,10 @@ async fn approve_rejected_on_authored_name_collision() -> anyhow::Result<()> {
 
     // 3. Approve must be rejected with 4xx (conflict).
     let r = reqwest::Client::new()
-        .post(format!("http://{addr}/admin/candidates/{}/approve", cand_id.0))
+        .post(format!(
+            "http://{addr}/admin/candidates/{}/approve",
+            cand_id.0
+        ))
         .header("Cookie", &cookie)
         .json(&serde_json::json!({}))
         .send()

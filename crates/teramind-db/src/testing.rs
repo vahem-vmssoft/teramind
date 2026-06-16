@@ -229,8 +229,8 @@ async fn connect_with_retry(opts: PgConnectOptions) -> anyhow::Result<DbPool> {
             Ok(p) => return Ok(p),
             Err(e) => {
                 let msg = e.to_string();
-                let transient = msg.contains("Postgres.app rejected")
-                    || msg.contains("auth_permission_dialog");
+                let transient =
+                    msg.contains("Postgres.app rejected") || msg.contains("auth_permission_dialog");
                 last_err = Some(e.into());
                 if !transient {
                     break;

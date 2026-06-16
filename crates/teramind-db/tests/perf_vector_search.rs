@@ -26,7 +26,10 @@ const BUDGET_P99: Duration = Duration::from_millis(50);
 struct Lcg(u64);
 impl Lcg {
     fn new(seed: u64) -> Self {
-        Self(seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407))
+        Self(
+            seed.wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407),
+        )
     }
     fn next_u64(&mut self) -> u64 {
         self.0 = self
@@ -71,9 +74,7 @@ async fn perf_vector_search_turns_p99_under_50ms() {
     let pool = match teramind_db::testing::fresh_pool().await {
         Ok(p) => p,
         Err(e) => {
-            eprintln!(
-                "perf-vector-search-p99: skipping — could not acquire fresh_pool: {e:#}"
-            );
+            eprintln!("perf-vector-search-p99: skipping — could not acquire fresh_pool: {e:#}");
             return;
         }
     };

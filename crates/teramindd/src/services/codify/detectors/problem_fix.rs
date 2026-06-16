@@ -32,8 +32,11 @@ pub async fn run(
         WHERE  t.started_at >= $1
           AND  t.user_prompt IS NOT NULL
         GROUP BY t.session_id, t.id, t.user_prompt
-        "#)
-        .bind(cutoff).fetch_all(pool.pg()).await?;
+        "#,
+    )
+    .bind(cutoff)
+    .fetch_all(pool.pg())
+    .await?;
 
     let mut sig_to_sessions: HashMap<String, Vec<SessionId>> = HashMap::new();
     let mut sig_to_context: HashMap<String, (String, String)> = HashMap::new();

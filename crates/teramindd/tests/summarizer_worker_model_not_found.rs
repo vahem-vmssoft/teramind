@@ -38,7 +38,9 @@ impl SummaryProvider for MissingModel {
         _user: &str,
         _max_output_tokens: usize,
     ) -> Result<SummaryResult, SummaryError> {
-        Err(SummaryError::ModelNotFound("mock:missing not pulled".into()))
+        Err(SummaryError::ModelNotFound(
+            "mock:missing not pulled".into(),
+        ))
     }
 }
 
