@@ -15,7 +15,7 @@ jobs:
     name: run L5 benchmark
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: run benchmark
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-22.04
     continue-on-error: true   # fail-soft until v1.0.1 corpus expansion
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: install ollama
