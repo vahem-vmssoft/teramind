@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
 
+# Lock the workflow's GITHUB_TOKEN to read-only. Even if a malicious PR
+# managed to exfiltrate the token, the token can only do what these
+# permissions allow.
+permissions:
+  contents: read
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-24.04
@@ -36,19 +42,20 @@ jobs:
         run: cargo fmt --all -- --check
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      # The shared fixture honours TERAMIND_TEST_PG_URL and routes through
+      # the pgvector/pgvector service container, so cargo test does not
+      # need GITHUB_TOKEN. We deliberately do NOT export the token into
+      # these steps: PR-supplied test code runs in the same step and would
+      # be able to read it from the env otherwise. One test that still uses
+      # embedded PG directly (teramind-search-eval corpus) is `#[ignore]`d
+      # in CI; see crates/teramind-search-eval/src/corpus.rs.
       - name: unit tests
         env:
           TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
-          # Used by any test path that still spins up embedded PG (e.g. the
-          # teramind-search-eval corpus test, which uses PgSupervisor
-          # directly). Without it, the postgresql_embedded binary download
-          # from GitHub releases hits the 60-req/hr unauthenticated quota.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cargo test --workspace --lib --bins
       - name: integration tests
         env:
           TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TERAMIND_LOG: warn
         run: cargo test --workspace --test '*'
 

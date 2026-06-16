@@ -230,7 +230,15 @@ mod tests {
 
     use teramind_db::{migrate, pg_supervisor::PgSupervisor};
 
+    // #[ignore]d because this test uses `PgSupervisor::start` directly
+    // (not the shared `teramind_db::testing::fresh_pool` fixture that
+    // honours TERAMIND_TEST_PG_URL). Embedded-PG bootstrap downloads the
+    // PG binary tarball from GitHub releases, which trips the 60 req/hr
+    // unauthenticated rate limit on CI. Run locally with
+    //   cargo test -p teramind-search-eval -- --ignored
+    // once the search-eval crate is migrated to fresh_pool().
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[ignore]
     async fn ingest_loads_a_minimal_corpus_into_pg() -> anyhow::Result<()> {
         let dir = TempDir::new().unwrap();
         let pgdata = dir.path().join("pgdata");
