@@ -41,6 +41,14 @@ jobs:
       TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v5
+      # Reclaim preinstalled SDKs (~25 GB) — the fastembed/ort dep graph plus
+      # release artifacts exceed the runner's default free space.
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            /usr/local/share/powershell /usr/share/swift
+          df -h /
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: run benchmark
@@ -101,6 +109,14 @@ jobs:
       TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v5
+      # Reclaim preinstalled SDKs (~25 GB) — the fastembed/ort dep graph plus
+      # release artifacts exceed the runner's default free space.
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            /usr/local/share/powershell /usr/share/swift
+          df -h /
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: install ollama

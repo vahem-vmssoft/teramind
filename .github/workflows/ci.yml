@@ -33,6 +33,16 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v5
+      # The dep graph (fastembed -> ort/onnxruntime, aws-lc) plus debug
+      # artifacts for the whole workspace x (lib/bins + every test binary)
+      # exceeds the runner's ~14 GB free space. Reclaim the preinstalled
+      # SDKs we don't use (~25 GB) before building.
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            /usr/local/share/powershell /usr/share/swift
+          df -h /
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
