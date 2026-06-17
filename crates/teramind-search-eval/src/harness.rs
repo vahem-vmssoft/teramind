@@ -8,7 +8,6 @@ use crate::types::CorpusSize;
 use std::path::Path;
 use std::time::Instant;
 use teramind_db::repos::SearchRepo;
-use teramind_db::{migrate, pg_supervisor::PgSupervisor, pool::DbPool};
 
 pub async fn run(
     corpus_root: &Path,
@@ -38,10 +37,10 @@ async fn run_lexical(
     json: bool,
     baseline_label: Option<String>,
 ) -> anyhow::Result<()> {
-    let tmp = tempfile::tempdir()?;
-    let sup = PgSupervisor::start(tmp.path().join("pgdata"), "teramind").await?;
-    let pool = DbPool::connect(sup.connect_options()).await?;
-    migrate::run(&pool).await?;
+    // Honor TERAMIND_TEST_PG_URL (external PG, e.g. a CI pgvector service
+    // container) when set; otherwise fall back to embedded PG. fresh_pool
+    // runs migrations and hands back a ready pool in an isolated database.
+    let pool = teramind_db::testing::fresh_pool().await?;
 
     let cor = corpus::load(corpus_root)?;
     let size = CorpusSize {
@@ -86,7 +85,8 @@ async fn run_lexical(
             total_relevant: total_rel,
         });
     }
-    sup.shutdown().await?;
+    // PG lifecycle is owned by the shared fixture (dropped at process exit);
+    // nothing to shut down here.
 
     latencies.sort();
     let p50_ms = percentile_u32(&latencies, 50);

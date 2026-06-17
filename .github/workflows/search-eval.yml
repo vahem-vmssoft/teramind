@@ -10,10 +10,35 @@ on:
     - cron: "0 6 * * 1"   # weekly Monday 06:00 UTC
   workflow_dispatch: {}
 
+# Read-only token: this workflow runs on pull_request, so PR-supplied code
+# executes here. Scope the token to the minimum.
+permissions:
+  contents: read
+
 jobs:
   eval:
     name: run L5 benchmark
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    # Postgres + pgvector at localhost:5432. The eval harness honours
+    # TERAMIND_TEST_PG_URL and routes through this instead of bootstrapping
+    # embedded PG (which needs network access to GitHub releases for the
+    # binary + pgvector tarballs, tripping the unauthenticated rate limit).
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -25,9 +50,14 @@ jobs:
       - name: detect rebaseline marker
         id: rebaseline
         shell: bash
+        # Bind untrusted PR body to an env var rather than interpolating it
+        # into the script (avoids shell injection from a crafted PR body).
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ] && \
-             echo "${{ github.event.pull_request.body }}" | grep -q "\[eval-baseline-update\]"; then
+          if [ "$EVENT_NAME" = "pull_request" ] && \
+             printf '%s' "$PR_BODY" | grep -q '\[eval-baseline-update\]'; then
             echo "permitted=true" >> "$GITHUB_OUTPUT"
           else
             echo "permitted=false" >> "$GITHUB_OUTPUT"
@@ -51,8 +81,24 @@ jobs:
   eval-semantic:
     name: run L5 benchmark (semantic)
     needs: eval
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     continue-on-error: true   # fail-soft until v1.0.1 corpus expansion
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TERAMIND_TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable

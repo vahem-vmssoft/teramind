@@ -228,23 +228,13 @@ mod tests {
         assert!(c.turns.is_empty());
     }
 
-    use teramind_db::{migrate, pg_supervisor::PgSupervisor};
-
-    // #[ignore]d because this test uses `PgSupervisor::start` directly
-    // (not the shared `teramind_db::testing::fresh_pool` fixture that
-    // honours TERAMIND_TEST_PG_URL). Embedded-PG bootstrap downloads the
-    // PG binary tarball from GitHub releases, which trips the 60 req/hr
-    // unauthenticated rate limit on CI. Run locally with
-    //   cargo test -p teramind-search-eval -- --ignored
-    // once the search-eval crate is migrated to fresh_pool().
+    // Uses the shared `teramind_db::testing::fresh_pool` fixture, which
+    // honours TERAMIND_TEST_PG_URL (external PG, e.g. CI's pgvector service
+    // container) and falls back to embedded PG locally. Runs migrations and
+    // returns a ready pool in an isolated database.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    #[ignore]
     async fn ingest_loads_a_minimal_corpus_into_pg() -> anyhow::Result<()> {
-        let dir = TempDir::new().unwrap();
-        let pgdata = dir.path().join("pgdata");
-        let sup = PgSupervisor::start(pgdata, "teramind").await?;
-        let pool = teramind_db::pool::DbPool::connect(sup.connect_options()).await?;
-        migrate::run(&pool).await?;
+        let pool = teramind_db::testing::fresh_pool().await?;
 
         let c = Corpus {
             sessions: vec![SessionRow {
@@ -265,7 +255,6 @@ mod tests {
             .await?;
         assert_eq!(n, 1);
 
-        sup.shutdown().await?;
         Ok(())
     }
 }

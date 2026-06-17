@@ -37,13 +37,11 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-// Marked #[ignore] because teramind-search-eval still uses the embedded
-// `PgSupervisor` (does not honor `TERAMIND_TEST_PG_URL`), and embedded PG
-// init can hit SysV `shmget(ENOSPC)` on hosts where the kernel shared-memory
-// quota is exhausted. Run with `cargo test -p teramind-search-eval --
-// --ignored` once the harness is migrated to the shared fixture.
+// The harness now routes through `teramind_db::testing::fresh_pool`, which
+// honours TERAMIND_TEST_PG_URL (forwarded to the spawned binary below). When
+// that var is set this runs against an external PG; otherwise the binary
+// falls back to embedded PG. No longer #[ignore]d.
 #[test]
-#[ignore]
 fn json_flag_emits_single_quality_run_output_object() {
     // Ensure the binary exists (Cargo builds it before integration tests,
     // but fall back to `cargo build` for robustness in dev environments).
