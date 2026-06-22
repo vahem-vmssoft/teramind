@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "teramind",
+  "description": "Teramind — turn AI coding sessions into searchable team knowledge.",
+  "owner": {
+    "name": "vahem-vmssoft",
+    "url": "https://github.com/vahem-vmssoft"
+  },
+  "plugins": [
+    {
+      "name": "teramind",
+      "description": "Captures Claude Code sessions (prompts, tool calls, file diffs) into the local Teramind daemon, and exposes search over prior work via MCP. Requires the teramind binaries on PATH.",
+      "source": "./plugins/claude",
+      "category": "productivity"
+    }
+  ]
+}
