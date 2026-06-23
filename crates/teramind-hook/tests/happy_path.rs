@@ -88,6 +88,7 @@ async fn hook_session_start_persists_to_postgres() {
         ),
         decision_cache: None,
         team_share_writer: None,
+        shutdown: Arc::new(tokio::sync::Notify::new()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -188,6 +189,7 @@ async fn hook_tool_call_lifecycle_persists() {
         ),
         decision_cache: None,
         team_share_writer: None,
+        shutdown: Arc::new(tokio::sync::Notify::new()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
@@ -362,6 +364,7 @@ async fn hook_session_start_emits_auto_recall_digest() {
         ),
         decision_cache: None,
         team_share_writer: None,
+        shutdown: Arc::new(tokio::sync::Notify::new()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
