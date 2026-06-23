@@ -84,6 +84,32 @@ Notes:
 - *Developing locally?* Add the marketplace from a path instead of GitHub:
   `claude plugin marketplace add /path/to/teramind` — same files, no push needed.
 
+## Core config (optional)
+
+The daemon's core settings live in `~/.config/teramind/config.toml`. You almost
+never need to touch it: **if the file is absent, the daemon uses built-in
+defaults** — it never writes the file itself. So for a solo setup you can skip
+`teramind init` entirely.
+
+Run `teramind init` only if you want an editable config file: it writes a
+`config.toml` whose values are exactly the built-in defaults —
+
+```toml
+ingest_queue_capacity        = 4096
+idle_timeout_secs            = 1800
+redaction_enabled            = true
+autorecall_enabled           = true
+storage_sample_interval_secs = 300
+```
+
+The file is a starter subset; three more fields (`fs_debounce_ms = 200`,
+`attribution_window_ms = 5000`, `snapshot_ttl_secs = 1800`) aren't written but
+take those same defaults at load. Add any of them to override. Either way the
+effective config is identical — `init` just gives you something to edit.
+
+(Semantic search and summaries are configured separately, below. `teramind init
+--team …` is a different, required step for team mode — not covered here.)
+
 ## Configure semantic search (optional, recommended)
 
 Out of the box, capture and **keyword** search work with no extra setup. Two
