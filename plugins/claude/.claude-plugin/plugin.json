@@ -1,0 +1,10 @@
+{
+  "name": "teramind",
+  "version": "0.1.0",
+  "description": "Captures Claude Code sessions into the local Teramind daemon; search prior work via MCP.",
+  "homepage": "https://github.com/vahem-vmssoft/teramind",
+  "author": {
+    "name": "vahem-vmssoft",
+    "url": "https://github.com/vahem-vmssoft"
+  }
+}

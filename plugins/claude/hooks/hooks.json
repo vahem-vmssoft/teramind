@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "command -v teramind-hook >/dev/null 2>&1 && teramind-hook || exit 0", "timeout": 10 } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "command -v teramind-hook >/dev/null 2>&1 && teramind-hook || exit 0", "timeout": 10 } ] }
+    ],
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "command -v teramind-hook >/dev/null 2>&1 && teramind-hook || exit 0", "timeout": 10 } ] }
+    ],
+    "PostToolUse": [
+      { "hooks": [ { "type": "command", "command": "command -v teramind-hook >/dev/null 2>&1 && teramind-hook || exit 0", "timeout": 10 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "command -v teramind-hook >/dev/null 2>&1 && teramind-hook || exit 0", "timeout": 10 } ] }
+    ],
+    "PreCompact": [
+      { "hooks": [ { "type": "command", "command": "command -v teramind-hook >/dev/null 2>&1 && teramind-hook || exit 0", "timeout": 10 } ] }
+    ]
+  }
+}

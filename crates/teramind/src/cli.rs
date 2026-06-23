@@ -46,11 +46,6 @@ pub enum Command {
         #[arg(long)]
         confirm: bool,
     },
-    /// Manage the Claude Code plugin integration.
-    Claude {
-        #[command(subcommand)]
-        action: ClaudeAction,
-    },
     /// Search prior traces and skills.
     Search {
         /// The query text.
@@ -182,12 +177,4 @@ pub enum SkillsAction {
         #[arg(long, default_value = "50")]
         limit: u32,
     },
-}
-
-#[derive(Debug, Subcommand)]
-pub enum ClaudeAction {
-    /// Install the Teramind Claude plugin (`~/.claude/plugins/teramind/`).
-    Install,
-    /// Remove the Teramind Claude plugin. Data is untouched.
-    Uninstall,
 }

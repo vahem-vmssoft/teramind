@@ -1,6 +1,4 @@
-use teramind::cli::{
-    ClaudeAction, Cli, Command, RedactAction, SessionsAction, SkillsAction, TeamAction,
-};
+use teramind::cli::{Cli, Command, RedactAction, SessionsAction, SkillsAction, TeamAction};
 use teramind::commands;
 
 use clap::Parser;
@@ -23,10 +21,6 @@ async fn main() -> anyhow::Result<()> {
         Command::Restart => commands::restart::run().await,
         Command::Doctor => commands::doctor::run().await,
         Command::Reset { purge, confirm } => commands::reset::run(purge, confirm).await,
-        Command::Claude { action } => match action {
-            ClaudeAction::Install => commands::claude::install().await,
-            ClaudeAction::Uninstall => commands::claude::uninstall().await,
-        },
         Command::Search {
             query,
             limit,
