@@ -92,8 +92,8 @@ impl App {
                     .ok()
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(54817);
-                let sup =
-                    PgSupervisor::start(paths.pgdata_dir.clone(), "teramind", Some(pg_port)).await?;
+                let sup = PgSupervisor::start(paths.pgdata_dir.clone(), "teramind", Some(pg_port))
+                    .await?;
                 let pool = DbPool::connect(sup.connect_options()).await?;
                 (Some(sup), pool)
             }
