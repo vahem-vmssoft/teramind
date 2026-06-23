@@ -4578,6 +4578,7 @@ dependencies = [
  "ed25519-dalek",
  "ignore",
  "rand 0.10.1",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",
