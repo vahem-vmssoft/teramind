@@ -20,6 +20,42 @@ use time::OffsetDateTime;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, warn};
 
+/// Try `Recursive` watch on `dir`. On success inotify owns the whole subtree,
+/// including new subdirectories created later — nothing more to do.
+///
+/// On EACCES, fall back: watch `dir` itself non-recursively, then recurse into
+/// each readable child and apply the same logic. Fully accessible subtrees
+/// still get `Recursive` coverage; only the boundary dirs (readable but with
+/// at least one unreadable child) are watched non-recursively.
+///
+/// Returns the number of directories skipped due to permission errors.
+fn watch_or_fallback(watcher: &mut RecommendedWatcher, dir: &Path) -> usize {
+    match watcher.watch(dir, RecursiveMode::Recursive) {
+        Ok(()) => return 0,
+        Err(ref e) if is_permission_error(e) => {}
+        Err(e) => {
+            warn!(error = %e, path = %dir.display(), "fs_watcher: watch failed");
+            return 0;
+        }
+    }
+    // Recursive watch denied somewhere in this subtree. Watch this level
+    // non-recursively so we still see events here, then descend manually.
+    let _ = watcher.watch(dir, RecursiveMode::NonRecursive);
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return 1,
+    };
+    entries
+        .flatten()
+        .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+        .map(|e| watch_or_fallback(watcher, &e.path()))
+        .sum()
+}
+
+fn is_permission_error(e: &notify::Error) -> bool {
+    matches!(&e.kind, notify::ErrorKind::Io(io) if io.kind() == std::io::ErrorKind::PermissionDenied)
+}
+
 /// One watcher per unique cwd. Refcounted by active session_ids; the
 /// watcher is dropped when the last session in that cwd ends.
 pub struct WatchRegistry {
@@ -96,7 +132,10 @@ impl WatchRegistry {
                     });
                 }
             })?;
-        watcher.watch(&cwd, RecursiveMode::Recursive)?;
+        let skipped = watch_or_fallback(&mut watcher, &cwd);
+        if skipped > 0 {
+            warn!(skipped, cwd = %cwd.display(), "fs_watcher: skipped inaccessible directories");
+        }
         let mut sessions = HashSet::new();
         sessions.insert(session);
         g.insert(
