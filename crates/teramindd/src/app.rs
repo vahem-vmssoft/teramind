@@ -86,7 +86,14 @@ impl App {
                 (None, pool)
             }
             None => {
-                let sup = PgSupervisor::start(paths.pgdata_dir.clone(), "teramind").await?;
+                // Fixed port so the embedded PG is reachable at a known address
+                // across restarts; override via TERAMIND_PG_PORT if it collides.
+                let pg_port = std::env::var("TERAMIND_PG_PORT")
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(54817);
+                let sup =
+                    PgSupervisor::start(paths.pgdata_dir.clone(), "teramind", Some(pg_port)).await?;
                 let pool = DbPool::connect(sup.connect_options()).await?;
                 (Some(sup), pool)
             }
@@ -353,6 +360,7 @@ impl App {
             summarizer_stats,
             decision_cache: Some(decision_cache.clone()),
             team_share_writer,
+            shutdown: Arc::new(tokio::sync::Notify::new()),
         });
         let listener = listen(&paths.socket_path)?;
         let h2 = handler.clone();
@@ -360,7 +368,11 @@ impl App {
             let _ = run_accept_loop(listener, h2).await;
         });
 
-        crate::signals::shutdown_signal().await;
+        // Exit on either an OS signal or a `Shutdown` IPC request (`teramind stop`).
+        tokio::select! {
+            _ = crate::signals::shutdown_signal() => {}
+            _ = handler.shutdown.notified() => {}
+        }
         info!("teramindd shutting down");
         let _ = std::fs::remove_file(&paths.pid_file);
         let _ = std::fs::remove_file(&paths.socket_path);

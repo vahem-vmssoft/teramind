@@ -79,7 +79,7 @@ async fn shared() -> &'static SharedPg {
 
 async fn init_embedded() -> SharedPg {
     let data_dir = tempfile::tempdir().expect("tempdir for shared PG");
-    let sup = PgSupervisor::start(data_dir.path().to_path_buf(), "postgres")
+    let sup = PgSupervisor::start(data_dir.path().to_path_buf(), "postgres", None)
         .await
         .expect("start shared embedded PG");
     // Stash admin opts for the exit-time cleanup. Embedded mode tears down

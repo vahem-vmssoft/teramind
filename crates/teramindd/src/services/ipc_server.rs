@@ -39,6 +39,7 @@ pub struct DaemonIpcHandler {
     pub summarizer_stats: std::sync::Arc<crate::services::summarizer_worker::SummarizerStats>,
     pub decision_cache: Option<std::sync::Arc<crate::services::decision_cache::DecisionCache>>,
     pub team_share_writer: Option<std::sync::Arc<dyn TeamShareSetter>>,
+    pub shutdown: Arc<tokio::sync::Notify>,
 }
 
 impl DaemonIpcHandler {
@@ -133,7 +134,10 @@ impl IpcServer for DaemonIpcHandler {
                 })
             }
             Request::Ping => Response::Pong,
-            Request::Shutdown => Response::Ok,
+            Request::Shutdown => {
+                self.shutdown.notify_one();
+                Response::Ok
+            }
             req @ (Request::Search(_)
             | Request::Recall(_)
             | Request::AutoRecall(_)
