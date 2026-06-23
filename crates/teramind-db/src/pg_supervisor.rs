@@ -22,12 +22,17 @@ pub struct PgSupervisor {
 impl PgSupervisor {
     /// Install (if needed), initialise (if needed), and start an embedded
     /// Postgres rooted at `data_dir`. Ensures `database_name` exists.
-    pub async fn start(data_dir: PathBuf, database_name: &str) -> Result<Self> {
+    ///
+    /// `port` pins the listen port (so the daemon is reachable at a known
+    /// address across restarts); `None` lets PG pick a free port — required
+    /// for tests, where many instances run in parallel.
+    pub async fn start(data_dir: PathBuf, database_name: &str, port: Option<u16>) -> Result<Self> {
         std::fs::create_dir_all(&data_dir)?;
 
         let settings = Settings {
             data_dir: data_dir.clone(),
             password: "teramind".to_string(),
+            port: port.unwrap_or(0),
             // Pin to PostgreSQL 16: portal-corp's pgvector_compiled prebuilts
             // only exist for PG16. Update when PG17/18 builds appear.
             version: postgresql_embedded::V16.clone(),

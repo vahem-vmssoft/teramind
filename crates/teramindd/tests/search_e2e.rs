@@ -229,6 +229,7 @@ async fn ipc_search_request_returns_search_results() {
         ),
         decision_cache: None,
         team_share_writer: None,
+        shutdown: Arc::new(tokio::sync::Notify::new()),
     });
     let sock = tmp.path().join("t.sock");
     let listener = listen(&sock).unwrap();
