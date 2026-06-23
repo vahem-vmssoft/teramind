@@ -128,7 +128,8 @@ main() {
         esac
     fi
     info ""
-    info "next:  teramind init && teramind claude install"
+    info "next:  add the plugin in Claude Code:  /plugin marketplace add vahem-vmssoft/teramind"
+    info "       then:  /plugin install teramind@teramind   (the daemon self-spawns on first session)"
 }
 
 main "$@"

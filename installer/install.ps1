@@ -81,7 +81,8 @@ try {
         }
     }
     Write-Info ""
-    Write-Info "next:  teramind init; teramind claude install"
+    Write-Info "next:  add the plugin in Claude Code:  /plugin marketplace add vahem-vmssoft/teramind"
+    Write-Info "       then:  /plugin install teramind@teramind   (the daemon self-spawns on first session)"
 } finally {
     Remove-Item $Tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
