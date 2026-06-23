@@ -37,7 +37,7 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
             IngestEvent::UserPrompt {
                 session_id: sid_uuid,
                 turn_ordinal: ordinal,
-                prompt,
+                prompt: strip_runtime_injections(&prompt),
                 turn_id: Some(turn_id),
             }
         }
@@ -106,6 +106,19 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
         ts,
         event,
     })
+}
+
+/// Strip XML-ish blocks that the Claude Code runtime injects into the user turn.
+/// These are not user-authored content and should not be stored as the prompt.
+fn strip_runtime_injections(prompt: &str) -> String {
+    use regex::Regex;
+    use std::sync::OnceLock;
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| {
+        Regex::new(r"(?s)<(?:task-notification|system-reminder|user-prompt-submit-hook)\b[^>]*>.*?</(?:task-notification|system-reminder|user-prompt-submit-hook)>")
+            .expect("static regex is valid")
+    });
+    re.replace_all(prompt, "").trim().to_string()
 }
 
 fn hostname() -> Option<String> {
@@ -352,6 +365,17 @@ mod tests {
             }
             other => panic!("expected ToolCallStart, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn strips_task_notification_from_prompt() {
+        let raw = "hello\n<task-notification>\n<task-id>abc</task-id>\n<status>completed</status>\n</task-notification>";
+        assert_eq!(strip_runtime_injections(raw), "hello");
+
+        let both = "<system-reminder>foo</system-reminder> real prompt <task-notification>bar</task-notification>";
+        assert_eq!(strip_runtime_injections(both), "real prompt");
+
+        assert_eq!(strip_runtime_injections("clean prompt"), "clean prompt");
     }
 
     #[test]
