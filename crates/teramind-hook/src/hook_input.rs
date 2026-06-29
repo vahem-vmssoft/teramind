@@ -30,13 +30,16 @@ pub enum HookInput {
         #[serde(default)]
         is_error: bool,
     },
-    Stop {
+    PreCompact {
         session_id: String,
         cwd: String,
-        #[serde(default)]
-        stop_hook_active: bool,
     },
-    PreCompact {
+    CwdChanged {
+        session_id: String,
+        new_cwd: String,
+        previous_cwd: String,
+    },
+    SessionEnd {
         session_id: String,
         cwd: String,
     },
@@ -166,25 +169,10 @@ mod tests {
     }
 
     #[test]
-    fn stop_final_parses() {
-        let raw = r#"{
-            "hook_event_name": "Stop",
-            "session_id": "abc-123",
-            "cwd": "/w",
-            "stop_hook_active": false
-        }"#;
+    fn stop_parses_as_other() {
+        let raw = r#"{ "hook_event_name": "Stop", "session_id": "abc-123", "cwd": "/w" }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
-        match parsed {
-            HookInput::Stop {
-                session_id,
-                stop_hook_active,
-                ..
-            } => {
-                assert_eq!(session_id, "abc-123");
-                assert!(!stop_hook_active);
-            }
-            other => panic!("expected Stop, got {other:?}"),
-        }
+        assert!(matches!(parsed, HookInput::Other));
     }
 
     #[test]

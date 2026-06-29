@@ -63,19 +63,19 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
         HookInput::PreCompact { session_id, cwd: _ } => IngestEvent::PreCompact {
             session_id: claude_session_to_uuid(&session_id),
         },
-        HookInput::Stop {
+        HookInput::CwdChanged {
             session_id,
-            cwd: _,
-            stop_hook_active,
-        } => {
-            if stop_hook_active {
-                return None;
-            }
-            IngestEvent::SessionEnd {
-                session_id: claude_session_to_uuid(&session_id),
-                reason: "stop_hook".to_string(),
-            }
-        }
+            new_cwd,
+            previous_cwd,
+        } => IngestEvent::CwdChanged {
+            session_id: claude_session_to_uuid(&session_id),
+            new_cwd,
+            previous_cwd,
+        },
+        HookInput::SessionEnd { session_id, cwd: _ } => IngestEvent::SessionEnd {
+            session_id: claude_session_to_uuid(&session_id),
+            reason: "session_end_hook".to_string(),
+        },
         HookInput::PostToolUse {
             session_id,
             cwd: _,
@@ -267,6 +267,28 @@ mod tests {
     }
 
     #[test]
+    fn translates_cwd_changed() {
+        let input = HookInput::CwdChanged {
+            session_id: "abc-cwd".into(),
+            new_cwd: "/other/repo".into(),
+            previous_cwd: "/w".into(),
+        };
+        let env = translate(input).expect("must translate");
+        match env.event {
+            IngestEvent::CwdChanged {
+                session_id,
+                new_cwd,
+                previous_cwd,
+            } => {
+                assert_eq!(session_id, claude_session_to_uuid("abc-cwd"));
+                assert_eq!(new_cwd, "/other/repo");
+                assert_eq!(previous_cwd, "/w");
+            }
+            other => panic!("expected CwdChanged, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn translates_pre_compact() {
         let input = HookInput::PreCompact {
             session_id: "abc-pc".into(),
@@ -277,24 +299,19 @@ mod tests {
     }
 
     #[test]
-    fn translates_stop_final_to_session_end() {
-        let input = HookInput::Stop {
-            session_id: "abc-stop".into(),
+    fn translates_session_end() {
+        let input = HookInput::SessionEnd {
+            session_id: "abc-end".into(),
             cwd: "/w".into(),
-            stop_hook_active: false,
         };
         let env = translate(input).expect("must translate");
-        matches!(env.event, IngestEvent::SessionEnd { .. });
-    }
-
-    #[test]
-    fn translates_stop_inner_to_none() {
-        let input = HookInput::Stop {
-            session_id: "abc-stop".into(),
-            cwd: "/w".into(),
-            stop_hook_active: true,
-        };
-        assert!(translate(input).is_none());
+        match env.event {
+            IngestEvent::SessionEnd { session_id, reason } => {
+                assert_eq!(session_id, claude_session_to_uuid("abc-end"));
+                assert_eq!(reason, "session_end_hook");
+            }
+            other => panic!("expected SessionEnd, got {other:?}"),
+        }
     }
 
     #[test]
