@@ -14,6 +14,7 @@ use teramindd::services::snapshot_cache::SnapshotCache;
 use teramindd::services::write_tool_ring::WriteToolRing;
 
 pub struct Harness {
+    #[allow(dead_code)]
     pub pool: teramind_db::pool::DbPool,
     pub ingest: Arc<IngestService>,
     // Kept to hold the registry alive; tests drive it via ingest.

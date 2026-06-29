@@ -1,7 +1,5 @@
 //! Integration tests for the idle session sweeper.
 
-mod common;
-
 use std::sync::Arc;
 use std::time::Duration;
 use teramind_db::repos::session::NewSession;

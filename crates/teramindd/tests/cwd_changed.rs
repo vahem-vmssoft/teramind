@@ -6,10 +6,8 @@
 
 mod common;
 
-use std::sync::Arc;
 use teramind_core::ids::{ClientEventId, SessionId};
 use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
-use teramindd::services::session_manager::{ActiveSession, SessionManager};
 use time::OffsetDateTime;
 
 fn cwd_changed_envelope(session_id: SessionId, previous_cwd: &str, new_cwd: &str) -> EventEnvelope {
