@@ -38,8 +38,7 @@ pub async fn sweep_once(
     fs_registry: &Arc<WatchRegistry>,
     idle_timeout: Duration,
 ) {
-    let cutoff =
-        OffsetDateTime::now_utc() - time::Duration::seconds(idle_timeout.as_secs() as i64);
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::seconds(idle_timeout.as_secs() as i64);
     for s in sessions.idle_since(cutoff).await {
         match session_repo
             .end(s.session_id, OffsetDateTime::now_utc(), "idle_timeout")

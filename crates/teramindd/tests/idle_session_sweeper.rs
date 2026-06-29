@@ -57,9 +57,18 @@ async fn stale_session_is_closed() {
         })
         .await;
 
-    sweep_once(&sessions, &session_repo, &registry, Duration::from_secs(3 * 24 * 3600)).await;
+    sweep_once(
+        &sessions,
+        &session_repo,
+        &registry,
+        Duration::from_secs(3 * 24 * 3600),
+    )
+    .await;
 
-    assert!(sessions.get(sid).await.is_none(), "stale session must be removed from manager");
+    assert!(
+        sessions.get(sid).await.is_none(),
+        "stale session must be removed from manager"
+    );
 }
 
 #[tokio::test]
@@ -102,7 +111,16 @@ async fn fresh_session_is_not_closed() {
         })
         .await;
 
-    sweep_once(&sessions, &session_repo, &registry, Duration::from_secs(3 * 24 * 3600)).await;
+    sweep_once(
+        &sessions,
+        &session_repo,
+        &registry,
+        Duration::from_secs(3 * 24 * 3600),
+    )
+    .await;
 
-    assert!(sessions.get(sid).await.is_some(), "fresh session must survive the sweep");
+    assert!(
+        sessions.get(sid).await.is_some(),
+        "fresh session must survive the sweep"
+    );
 }
