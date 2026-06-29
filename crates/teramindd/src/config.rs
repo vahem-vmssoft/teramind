@@ -5,8 +5,8 @@ use std::path::Path;
 pub struct Config {
     #[serde(default = "Config::default_ingest_queue_capacity")]
     pub ingest_queue_capacity: usize,
-    #[serde(default = "Config::default_idle_timeout_secs")]
-    pub idle_timeout_secs: u64,
+    #[serde(default = "Config::default_session_idle_timeout_mins")]
+    pub session_idle_timeout_mins: u64,
     #[serde(default = "Config::default_redaction_enabled")]
     pub redaction_enabled: bool,
     #[serde(default = "Config::default_autorecall_enabled")]
@@ -25,8 +25,8 @@ impl Config {
     fn default_ingest_queue_capacity() -> usize {
         4096
     }
-    fn default_idle_timeout_secs() -> u64 {
-        30 * 60
+    fn default_session_idle_timeout_mins() -> u64 {
+        3 * 24 * 60 // 3 days
     }
     fn default_redaction_enabled() -> bool {
         true
