@@ -12,11 +12,7 @@ use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
 use teramindd::services::session_manager::{ActiveSession, SessionManager};
 use time::OffsetDateTime;
 
-fn cwd_changed_envelope(
-    session_id: SessionId,
-    previous_cwd: &str,
-    new_cwd: &str,
-) -> EventEnvelope {
+fn cwd_changed_envelope(session_id: SessionId, previous_cwd: &str, new_cwd: &str) -> EventEnvelope {
     EventEnvelope {
         client_event_id: ClientEventId::new(),
         ts: OffsetDateTime::now_utc(),
@@ -49,7 +45,13 @@ fn session_start_envelope(session_id: SessionId, cwd: &str) -> EventEnvelope {
 /// Helper: a real tmp dir that exists on disk so notify can watch it.
 fn tmp_dir() -> (tempfile::TempDir, String) {
     let d = tempfile::tempdir().unwrap();
-    let path = d.path().canonicalize().unwrap().to_str().unwrap().to_string();
+    let path = d
+        .path()
+        .canonicalize()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     (d, path)
 }
 
@@ -61,13 +63,17 @@ async fn going_outside_root_registers_new_watch() {
     let (_ext_dir, external) = tmp_dir();
 
     let sid = SessionId::new();
-    h.ingest.try_enqueue(session_start_envelope(sid, &root)).unwrap();
+    h.ingest
+        .try_enqueue(session_start_envelope(sid, &root))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     // One watch: the root.
     assert_eq!(h.registry.watched_count().await, 1);
 
-    h.ingest.try_enqueue(cwd_changed_envelope(sid, &root, &external)).unwrap();
+    h.ingest
+        .try_enqueue(cwd_changed_envelope(sid, &root, &external))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     // Now two watches: root (still registered at SessionStart) + external.
@@ -82,14 +88,20 @@ async fn returning_to_root_unregisters_external_watch() {
     let (_ext_dir, external) = tmp_dir();
 
     let sid = SessionId::new();
-    h.ingest.try_enqueue(session_start_envelope(sid, &root)).unwrap();
+    h.ingest
+        .try_enqueue(session_start_envelope(sid, &root))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    h.ingest.try_enqueue(cwd_changed_envelope(sid, &root, &external)).unwrap();
+    h.ingest
+        .try_enqueue(cwd_changed_envelope(sid, &root, &external))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     assert_eq!(h.registry.watched_count().await, 2);
 
-    h.ingest.try_enqueue(cwd_changed_envelope(sid, &external, &root)).unwrap();
+    h.ingest
+        .try_enqueue(cwd_changed_envelope(sid, &external, &root))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     // Back to just root.
@@ -105,14 +117,20 @@ async fn moving_between_external_dirs_swaps_watch() {
     let (_ext2_dir, external2) = tmp_dir();
 
     let sid = SessionId::new();
-    h.ingest.try_enqueue(session_start_envelope(sid, &root)).unwrap();
+    h.ingest
+        .try_enqueue(session_start_envelope(sid, &root))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    h.ingest.try_enqueue(cwd_changed_envelope(sid, &root, &external1)).unwrap();
+    h.ingest
+        .try_enqueue(cwd_changed_envelope(sid, &root, &external1))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     assert_eq!(h.registry.watched_count().await, 2);
 
-    h.ingest.try_enqueue(cwd_changed_envelope(sid, &external1, &external2)).unwrap();
+    h.ingest
+        .try_enqueue(cwd_changed_envelope(sid, &external1, &external2))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     // external1 dropped, external2 added — still 2 total (root + external2).
@@ -129,11 +147,15 @@ async fn subdir_of_root_does_not_add_extra_watch() {
     let sub = sub.canonicalize().unwrap().to_str().unwrap().to_string();
 
     let sid = SessionId::new();
-    h.ingest.try_enqueue(session_start_envelope(sid, &root)).unwrap();
+    h.ingest
+        .try_enqueue(session_start_envelope(sid, &root))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     assert_eq!(h.registry.watched_count().await, 1);
 
-    h.ingest.try_enqueue(cwd_changed_envelope(sid, &root, &sub)).unwrap();
+    h.ingest
+        .try_enqueue(cwd_changed_envelope(sid, &root, &sub))
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     // No extra watch — subdir is already covered by the root watcher.
