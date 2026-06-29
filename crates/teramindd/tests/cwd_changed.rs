@@ -31,6 +31,7 @@ fn session_start_envelope(session_id: SessionId, cwd: &str) -> EventEnvelope {
             session_id,
             agent_session_id: None,
             agent_kind: "claude_code".into(),
+            agent_version: None,
             cwd: cwd.into(),
             os: "linux".into(),
             hostname: "test".into(),

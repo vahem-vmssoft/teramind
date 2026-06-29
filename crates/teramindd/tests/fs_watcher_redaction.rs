@@ -21,6 +21,7 @@ async fn aws_key_in_diff_is_redacted_before_persist() -> anyhow::Result<()> {
                 session_id: sid,
                 agent_session_id: None,
                 agent_kind: "claude_code".into(),
+                agent_version: None,
                 cwd: proj.to_string_lossy().to_string(),
                 os: "linux".into(),
                 hostname: "h".into(),

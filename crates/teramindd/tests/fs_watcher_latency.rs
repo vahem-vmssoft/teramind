@@ -21,6 +21,7 @@ async fn file_save_to_row_p99_under_one_second() -> anyhow::Result<()> {
                 session_id: sid,
                 agent_session_id: None,
                 agent_kind: "claude_code".into(),
+                agent_version: None,
                 cwd: proj.to_string_lossy().to_string(),
                 os: "linux".into(),
                 hostname: "h".into(),

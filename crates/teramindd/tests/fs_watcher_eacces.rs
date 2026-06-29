@@ -47,6 +47,7 @@ async fn watcher_survives_inaccessible_subdir_and_still_emits_diffs() -> anyhow:
                 session_id: sid,
                 agent_session_id: None,
                 agent_kind: "claude_code".into(),
+                agent_version: None,
                 cwd: proj.to_string_lossy().to_string(),
                 os: "linux".into(),
                 hostname: "h".into(),

@@ -8,6 +8,8 @@ pub enum HookInput {
         cwd: String,
         #[serde(default)]
         source: Option<String>,
+        #[serde(default)]
+        model: Option<String>,
     },
     UserPromptSubmit {
         session_id: String,
@@ -59,7 +61,8 @@ mod tests {
             "hook_event_name": "SessionStart",
             "session_id": "abc-123",
             "cwd": "/Users/me/project",
-            "source": "startup"
+            "source": "startup",
+            "model": "claude-sonnet-4-6"
         }"#;
         let parsed: HookInput = serde_json::from_str(raw).unwrap();
         match parsed {
@@ -67,10 +70,12 @@ mod tests {
                 session_id,
                 cwd,
                 source,
+                model,
             } => {
                 assert_eq!(session_id, "abc-123");
                 assert_eq!(cwd, "/Users/me/project");
                 assert_eq!(source.as_deref(), Some("startup"));
+                assert_eq!(model.as_deref(), Some("claude-sonnet-4-6"));
             }
             other => panic!("expected SessionStart, got {other:?}"),
         }
