@@ -15,10 +15,12 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
             session_id,
             cwd,
             source: _,
+            model,
         } => IngestEvent::SessionStart {
             session_id: claude_session_to_uuid(&session_id),
             agent_session_id: Some(session_id),
             agent_kind: "claude_code".to_string(),
+            agent_version: model,
             cwd,
             os: std::env::consts::OS.to_string(),
             hostname: hostname().unwrap_or_else(|| "unknown".to_string()),
@@ -443,6 +445,7 @@ mod tests {
             session_id: "abc-123".to_string(),
             cwd: "/work".to_string(),
             source: Some("startup".to_string()),
+            model: Some("claude-sonnet-4-6".to_string()),
         };
         let env = translate(input).expect("must translate");
         match env.event {
@@ -450,11 +453,13 @@ mod tests {
                 session_id,
                 cwd,
                 agent_kind,
+                agent_version,
                 ..
             } => {
                 assert_eq!(session_id, claude_session_to_uuid("abc-123"));
                 assert_eq!(cwd, "/work");
                 assert_eq!(agent_kind, "claude_code");
+                assert_eq!(agent_version.as_deref(), Some("claude-sonnet-4-6"));
             }
             other => panic!("expected SessionStart, got {other:?}"),
         }

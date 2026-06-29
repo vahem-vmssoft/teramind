@@ -18,6 +18,7 @@ pub enum IngestEvent {
         session_id: SessionId,
         agent_session_id: Option<String>,
         agent_kind: String,
+        agent_version: Option<String>,
         cwd: String,
         os: String,
         hostname: String,

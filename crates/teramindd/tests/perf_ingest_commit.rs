@@ -65,6 +65,7 @@ async fn ingest_event_to_pg_committed_p99_under_50ms() {
             session_id,
             agent_session_id: None,
             agent_kind: "claude_code".into(),
+            agent_version: None,
             cwd: "/w".into(),
             os: "linux".into(),
             hostname: "h".into(),
