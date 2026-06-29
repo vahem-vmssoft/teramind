@@ -421,12 +421,12 @@ async fn route_inner(
                 }
                 // If we're entering an external dir, start watching it.
                 if !next.starts_with(root) {
-                    if let Err(e) = d
-                        .fs_registry
-                        .register(next.to_path_buf(), session_id)
-                        .await
-                    {
-                        warn!(error = %e, cwd = %next.display(), "fs_watcher: register new_cwd failed");
+                    if let Err(e) = d.fs_registry.register(next.to_path_buf(), session_id).await {
+                        warn!(
+                            error = %e,
+                            cwd = %next.display(),
+                            "fs_watcher: register new_cwd failed"
+                        );
                     }
                 }
             }
