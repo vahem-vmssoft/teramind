@@ -67,6 +67,11 @@ pub enum IngestEvent {
     PreCompact {
         session_id: SessionId,
     },
+    CwdChanged {
+        session_id: SessionId,
+        previous_cwd: String,
+        new_cwd: String,
+    },
     FileDiff {
         session_id: SessionId,
         #[serde(default)]

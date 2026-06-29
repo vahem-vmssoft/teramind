@@ -159,7 +159,6 @@ impl WatchRegistry {
         }
     }
 
-    #[cfg(test)]
     pub async fn watched_count(&self) -> usize {
         self.inner.lock().await.len()
     }

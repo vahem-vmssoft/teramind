@@ -405,6 +405,32 @@ async fn route_inner(
                     .await;
             }
         }
+        CwdChanged {
+            session_id,
+            previous_cwd,
+            new_cwd,
+        } => {
+            if let Some(session) = d.sessions.get(session_id).await {
+                let root = std::path::Path::new(&session.cwd);
+                let prev = std::path::Path::new(&previous_cwd);
+                let next = std::path::Path::new(&new_cwd);
+
+                // If we were watching an external dir, stop.
+                if !prev.starts_with(root) {
+                    d.fs_registry.unregister(prev, session_id).await;
+                }
+                // If we're entering an external dir, start watching it.
+                if !next.starts_with(root) {
+                    if let Err(e) = d
+                        .fs_registry
+                        .register(next.to_path_buf(), session_id)
+                        .await
+                    {
+                        warn!(error = %e, cwd = %next.display(), "fs_watcher: register new_cwd failed");
+                    }
+                }
+            }
+        }
         PreCompact { session_id } => {
             d.session_repo
                 .append_metadata(
