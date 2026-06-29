@@ -77,15 +77,21 @@ async fn shared() -> &'static SharedPg {
     .await
 }
 
+/// Data dir for the embedded PG instance, saved so the atexit hook can
+/// send SIGTERM to it via postmaster.pid even after the tokio runtime stops.
+static EMBEDDED_PG_DATA_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
+
 async fn init_embedded() -> SharedPg {
     let data_dir = tempfile::tempdir().expect("tempdir for shared PG");
     let sup = PgSupervisor::start(data_dir.path().to_path_buf(), "postgres", None)
         .await
         .expect("start shared embedded PG");
-    // Stash admin opts for the exit-time cleanup. Embedded mode tears down
-    // the whole PG instance with the tempdir, so the cleanup is technically
-    // redundant — but it still works (and matches external semantics).
     let _ = EXIT_ADMIN_OPTS.set(sup.connect_options().database("postgres"));
+    // Register the PG data dir so the atexit hook can kill the process.
+    // The static OnceCell<SharedPg> is never dropped (statics have no Drop
+    // in Rust), so PgSupervisor::shutdown() never runs without this hook.
+    let _ = EMBEDDED_PG_DATA_DIR.set(data_dir.path().to_path_buf());
+    unsafe { libc::atexit(stop_embedded_pg_at_exit) };
     SharedPg {
         backend: Backend::Embedded {
             sup,
@@ -93,6 +99,26 @@ async fn init_embedded() -> SharedPg {
         },
         db_counter: AtomicU64::new(0),
     }
+}
+
+/// Kill the embedded Postgres at process exit by reading postmaster.pid and
+/// sending SIGTERM. Synchronous — no tokio runtime needed.
+extern "C" fn stop_embedded_pg_at_exit() {
+    let _ = std::panic::catch_unwind(|| {
+        let Some(data_dir) = EMBEDDED_PG_DATA_DIR.get() else {
+            return;
+        };
+        let pid_file = data_dir.join("postmaster.pid");
+        let Ok(contents) = std::fs::read_to_string(&pid_file) else {
+            return;
+        };
+        if let Some(pid_str) = contents.lines().next() {
+            if let Ok(pid) = pid_str.trim().parse::<libc::pid_t>() {
+                // SIGTERM for a graceful fast-mode stop.
+                unsafe { libc::kill(pid, libc::SIGTERM) };
+            }
+        }
+    });
 }
 
 async fn init_external(url: &str) -> SharedPg {
