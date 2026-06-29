@@ -11,6 +11,7 @@ pub mod ignore_filter;
 pub mod ingest;
 pub mod ipc_server;
 pub mod jsonl_writer;
+pub mod idle_session_sweeper;
 pub mod orphan_sweeper;
 pub mod rpc_dispatch;
 pub mod search;

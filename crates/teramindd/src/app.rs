@@ -136,12 +136,13 @@ impl App {
             });
         }
 
+        let sessions = SessionManager::new();
         let ingest = Arc::new(IngestService::spawn(
             config.ingest_queue_capacity,
             IngestDeps {
                 redactor: Arc::new(Redactor::with_default_rules()),
                 jsonl: jsonl.clone(),
-                sessions: SessionManager::new(),
+                sessions: sessions.clone(),
                 agents: AgentRepo::new(pool.clone()),
                 session_repo: SessionRepo::new(pool.clone()),
                 trace: TraceRepo::new(pool.clone()),
@@ -158,6 +159,12 @@ impl App {
         if drained > 0 {
             tracing::info!(drained, "drained inbox events");
         }
+        let _idle_sweeper = crate::services::idle_session_sweeper::IdleSessionSweeper::spawn(
+            sessions.clone(),
+            SessionRepo::new(pool.clone()),
+            registry.clone(),
+            Duration::from_secs(config.session_idle_timeout_mins * 60),
+        );
         storage_stats::spawn(
             StorageStatsRepo::new(pool.clone()),
             paths.raw_dir.clone(),
