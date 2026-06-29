@@ -307,6 +307,7 @@ mod tests {
         let input = HookInput::SessionEnd {
             session_id: "abc-end".into(),
             cwd: "/w".into(),
+            reason: None,
         };
         let env = translate(input).expect("must translate");
         match env.event {

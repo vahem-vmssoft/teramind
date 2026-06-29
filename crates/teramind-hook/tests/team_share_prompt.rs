@@ -36,6 +36,9 @@ fn session_start_with_team_mode_and_no_marker_emits_prompt() {
     save_signing_key(&team_dir.join("team-key"), &sk).unwrap();
 
     let proj = tempfile::tempdir().unwrap();
+    // Bound HOME to proj so find_marker stops at proj and doesn't walk up
+    // through /tmp where stray team-share.toml files could exist.
+    std::env::set_var("HOME", proj.path());
     let result = teramind_hook::team_share_prompt::maybe_share_prompt(proj.path());
     assert!(
         result.is_some(),
