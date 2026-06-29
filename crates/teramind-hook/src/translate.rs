@@ -72,9 +72,13 @@ pub fn translate(input: HookInput) -> Option<EventEnvelope> {
             new_cwd,
             previous_cwd,
         },
-        HookInput::SessionEnd { session_id, cwd: _ } => IngestEvent::SessionEnd {
+        HookInput::SessionEnd {
+            session_id,
+            cwd: _,
+            reason,
+        } => IngestEvent::SessionEnd {
             session_id: claude_session_to_uuid(&session_id),
-            reason: "session_end_hook".to_string(),
+            reason: reason.unwrap_or_else(|| "session_end_hook".to_string()),
         },
         HookInput::PostToolUse {
             session_id,

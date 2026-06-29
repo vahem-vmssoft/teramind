@@ -42,6 +42,8 @@ pub enum HookInput {
     SessionEnd {
         session_id: String,
         cwd: String,
+        #[serde(default)]
+        reason: Option<String>,
     },
     #[serde(other)]
     Other,
