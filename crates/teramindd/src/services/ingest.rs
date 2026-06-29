@@ -272,7 +272,10 @@ async fn route_inner(
             git_head,
             git_branch,
         } => {
-            let agent = d.agents.upsert(&agent_kind, agent_version.as_deref()).await?;
+            let agent = d
+                .agents
+                .upsert(&agent_kind, agent_version.as_deref())
+                .await?;
             let n = NewSession {
                 agent_id: agent.id,
                 agent_session_id: agent_session_id.as_deref(),
