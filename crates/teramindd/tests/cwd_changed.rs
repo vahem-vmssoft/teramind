@@ -8,6 +8,7 @@ mod common;
 
 use teramind_core::ids::{ClientEventId, SessionId};
 use teramind_core::types::ingest_event::{EventEnvelope, IngestEvent};
+use teramindd::services::fs_watcher::WatchRegistry;
 use time::OffsetDateTime;
 
 fn cwd_changed_envelope(session_id: SessionId, previous_cwd: &str, new_cwd: &str) -> EventEnvelope {
@@ -53,6 +54,21 @@ fn tmp_dir() -> (tempfile::TempDir, String) {
     (d, path)
 }
 
+/// Poll until the registry reaches `expected` watch count (or 2 s timeout).
+async fn wait_for(registry: &WatchRegistry, expected: usize) {
+    let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(2);
+    loop {
+        if registry.watched_count().await == expected {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for watch count to reach {expected}"
+        );
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    }
+}
+
 #[tokio::test]
 async fn going_outside_root_registers_new_watch() {
     let h = common::Harness::start().await.unwrap();
@@ -64,18 +80,12 @@ async fn going_outside_root_registers_new_watch() {
     h.ingest
         .try_enqueue(session_start_envelope(sid, &root))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-    // One watch: the root.
-    assert_eq!(h.registry.watched_count().await, 1);
+    wait_for(&h.registry, 1).await;
 
     h.ingest
         .try_enqueue(cwd_changed_envelope(sid, &root, &external))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-    // Now two watches: root (still registered at SessionStart) + external.
-    assert_eq!(h.registry.watched_count().await, 2);
+    wait_for(&h.registry, 2).await;
 }
 
 #[tokio::test]
@@ -89,21 +99,17 @@ async fn returning_to_root_unregisters_external_watch() {
     h.ingest
         .try_enqueue(session_start_envelope(sid, &root))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    wait_for(&h.registry, 1).await;
 
     h.ingest
         .try_enqueue(cwd_changed_envelope(sid, &root, &external))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    assert_eq!(h.registry.watched_count().await, 2);
+    wait_for(&h.registry, 2).await;
 
     h.ingest
         .try_enqueue(cwd_changed_envelope(sid, &external, &root))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-    // Back to just root.
-    assert_eq!(h.registry.watched_count().await, 1);
+    wait_for(&h.registry, 1).await;
 }
 
 #[tokio::test]
@@ -118,21 +124,18 @@ async fn moving_between_external_dirs_swaps_watch() {
     h.ingest
         .try_enqueue(session_start_envelope(sid, &root))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    wait_for(&h.registry, 1).await;
 
     h.ingest
         .try_enqueue(cwd_changed_envelope(sid, &root, &external1))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    assert_eq!(h.registry.watched_count().await, 2);
+    wait_for(&h.registry, 2).await;
 
     h.ingest
         .try_enqueue(cwd_changed_envelope(sid, &external1, &external2))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
     // external1 dropped, external2 added — still 2 total (root + external2).
-    assert_eq!(h.registry.watched_count().await, 2);
+    wait_for(&h.registry, 2).await;
 }
 
 #[tokio::test]
@@ -148,14 +151,13 @@ async fn subdir_of_root_does_not_add_extra_watch() {
     h.ingest
         .try_enqueue(session_start_envelope(sid, &root))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    assert_eq!(h.registry.watched_count().await, 1);
+    wait_for(&h.registry, 1).await;
 
     h.ingest
         .try_enqueue(cwd_changed_envelope(sid, &root, &sub))
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    // No extra watch — subdir is already covered by the root watcher.
+    // Give the ingest worker time to process — count must stay at 1.
+    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
     assert_eq!(h.registry.watched_count().await, 1);
 }
