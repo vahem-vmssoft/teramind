@@ -381,11 +381,14 @@ impl App {
             _ = handler.shutdown.notified() => {}
         }
         info!("teramindd shutting down");
-        let _ = std::fs::remove_file(&paths.pid_file);
+        // Remove socket first so new IPC connections are rejected immediately.
+        // Shut Postgres down before removing the PID file — restart.rs polls
+        // for PID-file absence to know the port is free to reuse.
         let _ = std::fs::remove_file(&paths.socket_path);
         if let Some(sup) = supervisor {
             sup.shutdown().await?;
         }
+        let _ = std::fs::remove_file(&paths.pid_file);
         Ok(())
     }
 }
